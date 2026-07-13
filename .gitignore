@@ -1,0 +1,31 @@
+# ─── Secrets ───
+config.json
+credentials/
+*.key
+.env
+
+# ─── Copyrighted Assets (Clippy belongs to Microsoft) ───
+assets/clippy_sheet.png
+assets/sprites/
+assets/sounds/
+assets/clippyjs/
+assets/animations.json
+package/
+
+# ─── Python cache ───
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ─── Tests & temp ───
+test_*.py
+*.tgz
+*.tar.gz
+Desktop/*.png
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
