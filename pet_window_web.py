@@ -24,6 +24,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from config import Config, CONFIG_DIR
 from pocket_service import PocketService
 from pocket_ui import PocketDialog
+from file_watch import FileWatchService
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -178,6 +179,7 @@ class PetWindow(QWidget):
         self.config = config
         self.reminder = ReminderService()
         self.pocket = PocketService()
+        self.file_watch = FileWatchService()
         self._state = self.STATE_IDLE
         self._drag_pos = QPoint()
         self._dragging = False
@@ -573,6 +575,8 @@ class PetWindow(QWidget):
                     duplicates += 1
                 else:
                     added += 1
+                    if path.is_dir():
+                        self.file_watch.watch(path)
             except (OSError, ValueError):
                 continue
 
@@ -691,6 +695,7 @@ class PetWindow(QWidget):
         QTimer.singleShot(4000, self.hide)
 
     def _quit_app(self):
+        self.file_watch.stop_all()
         self._bubble_hide()
         self.tray_icon.hide()
         QApplication.quit()

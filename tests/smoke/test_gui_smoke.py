@@ -59,6 +59,7 @@ class TestGuiConstruction:
         assert not hasattr(w, "ai_engine")
         assert not hasattr(w, "calendar")
         assert w.pocket is not None
+        assert w.file_watch is not None
         assert w.acceptDrops()
 
     def test_drag_enter_accepts_local_files_only(self, pet_window, test_temp_root):
@@ -94,6 +95,7 @@ class TestGuiConstruction:
             source.resolve(), folder.resolve()
         }
         assert source.read_text(encoding="utf-8") == "untouched"
+        assert folder.resolve() in pet_window.file_watch.watched_directories()
         assert "Pocket" in pet_window._bubble_text
         for item in list(pet_window.pocket.list_items()):
             pet_window.pocket.remove(item.id)

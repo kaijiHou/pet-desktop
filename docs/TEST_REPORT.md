@@ -202,3 +202,12 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | 全套 | `pytest tests -q` | **150 passed, 1 xfailed**（KI-11） |
 
 测试用注入 runner 覆盖精确 foreground HWND 查询、无前台窗口不启动查询、无匹配/错误、输出路径不存在；GUI 用 fake Explorer 验证文件确实复制到返回目录。真实 Shell COM 前台切换留 Phase 17 人工验收。
+
+### Phase 14（2026-08-12）— Windows 文件事件
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| Watcher targeted | `pytest tests/unit/test_file_watch.py -q` | **3 passed** |
+| 全套 | `pytest tests -q` | **153 passed, 1 xfailed**（KI-11） |
+
+覆盖五种 Windows action 解析、只接受显式已存在目录、重复 watch 去重、事件 callback 与 stop；源码断言使用 ReadDirectoryChangesW 且无 sleep 轮询。GUI 验证拖入目录进入 watched set。真实 Windows 文件事件 burst 与 rename 配对留 Phase 17 人工验收。

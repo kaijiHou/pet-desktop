@@ -174,7 +174,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `destinations.py` (DestinationService) | ✅ favorites + recents（成功后记录、去重置顶、上限 10、清空） |
 | `explorer.py` | ✅ Shell.Application Windows + foreground HWND 匹配当前 Explorer 目录 |
 | `events.py` (EventDispatcher + AnimationController) | WindowsEvent/PocketEvent/ReminderEvent/FileOperationEvent → 动画名 → fallback 链（specific→generic→idle）+ 缺失日志 |
-| `file_watch.py` | ReadDirectoryChangesW 事件驱动监听（仅监听用户指定的口袋相关目录，不扫全盘） |
+| `file_watch.py` | ✅ ReadDirectoryChangesW 事件驱动监听（仅监听用户拖入口袋的目录，不扫全盘） |
 | 拖入支持 | PetWindow `dragEnterEvent/dropEvent` 接收 `text/uri-list` → RECEIVE_FILE 动画 + 入口袋 |
 | 测试包 `tests/` | pytest，unit/integration/smoke 分层 |
 
@@ -226,7 +226,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 11 | 常用目的地 | ✅ 目录收藏增删/去重/失效状态 + Pocket 快捷 Copy/Move |
 | 12 | 最近目的地 | ✅ 成功操作后记录、去重置顶、上限 10、清空 |
 | 13 | 当前 Explorer 目录 | ✅ 前台 HWND 与 Shell window 精确匹配，无匹配不猜 fallback |
-| 14 | Windows 文件事件 | ReadDirectoryChangesW |
+| 14 | Windows 文件事件 | ✅ ReadDirectoryChangesW、非递归、无轮询、退出取消 I/O |
 | 15 | 事件→动画 | EventDispatcher/AnimationController + fallback |
 | 16 | 资源优化 | 移除 PyQtWebEngine（此时原生轨已完全接管）、idle 停帧 |
 | 17 | 完整回归 | 全量 pytest + 手工验收清单 |
@@ -333,3 +333,11 @@ Pocket UI 提供 Recent destination 下拉框、Copy/Move to Recent 和 Clear Re
 `ExplorerService` 先用 User32 读取 foreground HWND，再通过一个隐藏、非交互 PowerShell 进程查询 `Shell.Application.Windows()`，只选择 HWND 精确相同的 Shell window，并读取 `Document.Folder.Self.Path`。输出还必须是当前真实目录才返回 Path。无前台窗口、非 Explorer、虚拟位置、COM/PowerShell 错误或超时均返回 None；没有 Desktop/cwd 等伪 fallback。
 
 没有引入 pywin32/comtypes 常驻依赖。Pocket UI 的 Copy/Move to Explorer 在点击时即时查询；成功后仍进入 Phase 12 recents。PowerShell 使用参数列表、隐藏窗口、5 秒 timeout，不运行用户输入脚本。
+
+---
+
+## 26. Phase 14 Windows 文件事件（2026-08-12）
+
+`FileWatchService` 每个明确目录一条 daemon 线程，在该目录 handle 上阻塞 `ReadDirectoryChangesW`，不递归，监听文件名/目录名/大小/写入时间变化；没有 sleep、定时扫描或全盘枚举。Windows action 映射为 added/removed/modified/renamed_from/renamed_to，事件只陈述路径与动作，不声称来源进程。
+
+当前接入范围只包括用户实际拖到角色上的目录项；普通文件不会扩大为监听整个父目录。重复目录不重复启动。退出调用 CancelIoEx、join 并清空句柄/线程记录。Phase 15 再把这些事实事件映射到动画；本阶段不从 worker thread 直接操作 Qt UI。

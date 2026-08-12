@@ -618,3 +618,16 @@ pytest tests -q                → 150 passed, 1 xfailed
 ```
 
 下一步 Phase 14：Windows 文件事件监听。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 14：Windows 文件事件
+
+新增 ReadDirectoryChangesW 事件监听与 FILE_NOTIFY_INFORMATION 解析；仅对用户拖入 Pocket 的目录非递归监听，无轮询/全盘扫描。重复 watch 去重，退出 CancelIoEx + join。事件只报告 Windows 的 added/removed/modified/rename 事实，不推断来源。
+
+```text
+pytest tests/unit/test_file_watch.py -q → 3 passed
+pytest tests -q                         → 153 passed, 1 xfailed
+```
+
+下一步 Phase 15：统一 EventDispatcher / AnimationController，将 Reminder/Pocket/FileOperation/WindowsEvent 映射到动画及 fallback。尚未执行。

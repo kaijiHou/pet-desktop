@@ -131,3 +131,8 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 - Explorer 查询依赖 Windows Shell COM 可用以及当前前台窗口为普通文件系统 Explorer；搜索、Home 等虚拟位置可能无文件系统 Path，会如实返回不可用。
 - 查询使用短生命周期隐藏 PowerShell，非轮询、非常驻；Phase 17 做真实前台窗口人工验收。KI-11、KI-12 不变。
+
+## Phase 14 状态更新
+
+- ReadDirectoryChangesW 只报告目录中发生的事实动作，不能判定由 Explorer、命令行或其他进程触发（KI-08）；实现不作来源推断。
+- 当前只监听明确拖入 Pocket 的目录且不递归；文件条目不监听其整个父目录。KI-11、KI-12 不变。

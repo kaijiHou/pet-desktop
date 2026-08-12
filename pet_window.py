@@ -26,6 +26,7 @@ from config import Config, CONFIG_DIR
 from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
 from pocket_ui import PocketDialog
+from file_watch import FileWatchService
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -73,6 +74,7 @@ class PetWindow(QWidget):
         self.config = config
         self.reminder = ReminderService()
         self.pocket = PocketService()
+        self.file_watch = FileWatchService()
 
         # Sprite loader
         self.sprite_loader = PetSpriteLoader(CONFIG_DIR / "assets", config.get("pet_scale", 2))
@@ -408,6 +410,8 @@ class PetWindow(QWidget):
                     duplicates += 1
                 else:
                     added += 1
+                    if path.is_dir():
+                        self.file_watch.watch(path)
             except (OSError, ValueError):
                 continue
 
@@ -567,6 +571,7 @@ class PetWindow(QWidget):
         self.setFixedSize(self._pet_w + 20, self._pet_h + 20)
 
     def _quit_app(self):
+        self.file_watch.stop_all()
         self._bubble_hide()
         self.tray_icon.hide()
         QApplication.quit()

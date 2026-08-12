@@ -59,6 +59,7 @@ def pet_window(qapp):
 
     # teardown
     try:
+        window.file_watch.stop_all()
         window.close()
         window.tray_icon.hide()
     except Exception:

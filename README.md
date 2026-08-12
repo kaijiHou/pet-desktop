@@ -91,6 +91,7 @@ clippy-desktop-pet/
 ├── file_ops.py               # Non-overwriting copy/move operations
 ├── destinations.py           # Favorite destination persistence
 ├── explorer.py               # Foreground File Explorer directory query
+├── file_watch.py             # Event-driven Pocket directory watcher
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/
