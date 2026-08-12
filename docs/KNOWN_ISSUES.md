@@ -1,0 +1,50 @@
+# KNOWN_ISSUES.md — 已知问题登记
+
+> 状态标记：🔴 阻塞 / 🟠 需在后续 Phase 解决 / 🟡 接受并记录
+
+---
+
+## KI-01 🟠 sprite sheet 与 animations.json 不在仓库
+
+上游 .gitignore 排除了 `assets/clippy_sheet.png`、`assets/animations.json`、`assets/sprites/`、`assets/sounds/`，README 明确"角色素材自备"。当前 assets/ 只有一个 clippy.html。
+**影响**：不补素材，任何渲染轨都显示不出角色。
+**处置**：Phase 1 基线阶段解决（自备或程序化生成占位 sheet）；Phase 2 从 clippy.html 内嵌 ANIMS 导出 animations.json（43 组，格式与 README 定义一致）。
+
+## KI-02 🟠 clippy.html 加载路径指向用户目录而非项目目录
+
+`pet_window_web.py` L30：`ASSETS_DIR = CONFIG_DIR / "assets"`（即 `~/desktop-pet/assets/`）。原版必须手动把素材复制到用户目录才能渲染。
+**处置**：PathManager 统一后，素材路径固定为项目内 `D:\pet-desktop\assets\`。
+
+## KI-03 🟠 config 默认写 C 盘
+
+`config.py` L11：`CONFIG_DIR = Path.home() / "desktop-pet"`。
+**处置**：Phase 2 起由 PathManager 接管，配置写 `D:\pet-desktop\config\`。
+
+## KI-04 🟡 上游脚本硬编码原作者路径
+
+`launch_mochi.bat` / `Mochi.vbs` / `add_to_startup.bat` / `pet_sprite.py __main__` 均含 `C:\Users\clara\...`。
+**处置**：三个启动脚本随 Phase 3/4 清理删除；pet_sprite.py 的 `__main__` 块改造或删除。
+
+## KI-05 🟡 GitHub 直连失败
+
+`git clone https://github.com/...` 在本机 443 超时。
+**处置**：已用镜像 `https://ghfast.top/<github-url>` 克隆成功。后续 fetch/pull 同样走镜像。remote origin 目前指向镜像地址。
+
+## KI-06 🟠 无依赖清单、版本未钉死
+
+仓库没有 requirements.txt / pyproject.toml，仅 README 一行：`pip install PyQt5 PyQtWebEngine Pillow openai google-api-python-client pytz`。
+**处置**：Phase 1 建立 requirements.txt 并记录实测可用版本；删除模块后同步裁剪。
+
+## KI-07 🟡 .gitignore 忽略测试文件
+
+上游 `.gitignore` 含 `test_*.py`，我们的 tests/ 若不处理将不会被 git 跟踪。
+**处置**：Phase 2 调整 .gitignore（放行 tests/）。
+
+## KI-08 🟡 Windows 文件事件的语义限制（预告，Phase 14 正式验证）
+
+ReadDirectoryChangesW 只能报告"某路径发生 FILE_ACTION_REMOVED 等动作"，无法区分触发来源（Explorer 右键删除 / 命令行 del / 其他进程）。实现时将严格区分"确认事实"与"推断"，不为展示效果伪造事件来源（任务书 §31）。
+
+## KI-09 🟡 PATH 中无真实 Python
+
+系统 PATH 的 `python` 是 Microsoft Store 空壳，无 `py` launcher，无裸 pip。可用解释器：uv 管理的 cpython 3.11.15（D:\hermes-agent\python\）与 D:\anaconda（3.9.7，偏旧）。
+**处置**：Phase 1 用 uv 以 3.11.15 在 `D:\pet-desktop\.venv` 建虚拟环境，不新装 Python。
