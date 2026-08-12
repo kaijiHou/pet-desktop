@@ -1,17 +1,17 @@
-[PASS] 主程序启动 — PetWindow visible=True, page+sheet ready in 4.68s
-[PASS] 窗口无边框 — <PyQt5.QtCore.Qt.WindowFlags object at 0x000001DF7251EE30>
-[PASS] 窗口置顶 — <PyQt5.QtCore.Qt.WindowFlags object at 0x000001DF7251EE30>
+[PASS] 主程序启动 — PetWindow visible=True, page+sheet ready in 5.84s
+[PASS] 窗口无边框 — <PyQt5.QtCore.Qt.WindowFlags object at 0x000001CE3CC8EE30>
+[PASS] 窗口置顶 — <PyQt5.QtCore.Qt.WindowFlags object at 0x000001CE3CC8EE30>
 [PASS] 背景透明 — 
-[PASS] 角色可见(sheet 已加载) — getState()={"anim":"Idle1_1","frame":1,"scale":3.5,"frameCount":43}
-[PASS] idle 动画切帧 — before={"anim":"Idle1_1","frame":1,"scale":3.5,"frameCount":43} after={"anim":"Thinking","frame":9,"scale":3.5,"frameCount":45}
+[PASS] 角色可见(sheet 已加载) — getState()={"anim":"Idle1_1","frame":1,"scale":4,"frameCount":43}
+[PASS] idle 动画切帧 — before={"anim":"Idle1_1","frame":2,"scale":4,"frameCount":43} after={"anim":"Explain","frame":3,"scale":4,"frameCount":7}
 [PASS] 非 idle 动画播放 (Wave/Greeting) — current=Greeting
-[PASS] 角色拖动 — delta=(50, 40), config.pet_x/y=1442/672
-[FAIL] 滚轮缩放 — scale 3.5 -> 4.0, size=516x392, exception=TypeError: arguments did not match any overloaded call:
+[PASS] 角色拖动 — delta=(50, 40), config.pet_x/y=1492/712
+[FAIL] 滚轮缩放 — scale 4.0 -> 4.5, size=578x438, exception=TypeError: arguments did not match any overloaded call:
   setGeometry(self, a0: QRect): argument 1 has unexpected type 'int'
   setGeometry(self, ax: int, ay: int, aw: int, ah: int): argument 3 has unexpected type 'float'
-[PASS] sleep 触发 — state=sleep, js={"anim":"IdleSnooze","frame":4,"scale":3.5,"frameCount":88}
+[PASS] sleep 触发 — state=sleep, js={"anim":"IdleSnooze","frame":4,"scale":4,"frameCount":88}
 [PASS] wake 恢复 — state=idle
-[PASS] 提醒触发(ALERT+气泡+音效路径) — alerted=True, bubble='🚰 Waktunya minum! Aku sudah isi gelasmu '
+[PASS] 提醒触发(ALERT+气泡+音效路径) — alerted=True, bubble='🌊 Glug glug glug! Waktunya minum air put'
 [PASS] 动画结束后状态恢复(ALERT→IDLE) — state=idle
 [PASS] 右键菜单构建 — items=['💬 Tanya Clippy', '📅 Jadwal Hari Ini', '💧 Reset Timer Minum', '⚙️ Settings', '✖️ Keluar'] err=
 [PASS] Settings 对话框 — OpenAI/Water/Calendar groups constructed
