@@ -18,9 +18,6 @@ import config as config_mod
 # ── Defaults present on a fresh Config ─────────────────────────────────────
 
 EXPECTED_DEFAULTS = {
-    "openai_api_key": "",
-    "openai_model": "gpt-4o-mini",
-    "openai_base_url": "",
     "pet_scale": 3.0,
     "pet_x": -1,
     "pet_y": -1,
@@ -29,7 +26,7 @@ EXPECTED_DEFAULTS = {
     "calendar_enabled": True,
     "calendar_check_interval_min": 15,
     "calendar_reminder_minutes_before": 10,
-    "ai_name": "Clippy",
+    "pet_name": "Clippy",
 }
 
 
@@ -46,12 +43,8 @@ class TestConfigDefaults:
     def test_get_missing_key_returns_none_when_no_default(self, isolated_config):
         assert isolated_config.get("does_not_exist") is None
 
-    def test_api_key_properties_reflect_empty_key(self, isolated_config):
-        cfg = isolated_config
-        assert cfg.api_key == ""
-        assert cfg.has_api_key is False
-        assert cfg.api_model == "gpt-4o-mini"
-        assert cfg.pet_name == "Clippy"
+    def test_pet_name_property_reflects_default(self, isolated_config):
+        assert isolated_config.pet_name == "Clippy"
 
 
 # ── Persistence round-trip ─────────────────────────────────────────────────
@@ -68,10 +61,10 @@ class TestConfigPersistence:
 
     def test_save_writes_valid_json_to_config_file(self, isolated_config, monkeypatch):
         cfg = isolated_config
-        cfg.set("ai_name", "MochiTest")
+        cfg.set("pet_name", "MochiTest")
 
         written = json.loads(config_mod.CONFIG_FILE.read_text())
-        assert written["ai_name"] == "MochiTest"
+        assert written["pet_name"] == "MochiTest"
 
     def test_load_merges_file_over_defaults_without_dropping_defaults(self, tmp_path, monkeypatch):
         # Arrange: a config file carrying only ONE key.

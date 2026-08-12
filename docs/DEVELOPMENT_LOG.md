@@ -337,4 +337,42 @@ git check-ignore tests/unit/__pycache__/...  → 命中 __pycache__/ 规则，�
 
 Phase 3：按任务书推进（删除 AI Chat / Calendar / WebEngine，切换渲染轨等）。**本阶段不执行。**
 
+---
 
+## 2026-08-12 (三) - Phase 3：删除 AI Chat / OpenAI
+
+### 目标与边界
+
+只删除 AI Chat/OpenAI。保留 Google Calendar、Reminder、WebEngine 主渲染轨、拖动/缩放/睡眠/气泡/托盘等行为；不提前做 Phase 4 或渲染器迁移。
+
+### Red → Green
+
+先新增 `tests/unit/test_ai_removal.py` 并调整 GUI/config 测试，首跑得到 **7 failed, 16 passed**：失败准确覆盖 `ai_engine.py`、OpenAI 配置、AI client、Settings 控件与菜单入口。实现完成后同一组变为 **23 passed**。
+
+### 实际修改
+
+- 删除 `ai_engine.py`；两个窗口实现同步删除 `AIEngine`、`ChatDialog`、AI client、聊天入口与聊天音效。
+- Settings 删除 API Key/Model；欢迎语删除 API key 引导。
+- 双击角色保留为纯本地挥手问候；托盘双击改为显示角色并挥手，不再打开聊天。
+- `config.py` 删除 OpenAI/personality 默认键和访问属性，将角色名键从 `ai_name` 迁移为 `pet_name`；加载旧配置时保留角色名、剔除 AI 遗留键并重写，防止旧 API key 继续留在磁盘。
+- 新建当前 `requirements.txt`，不含 OpenAI；`requirements-baseline.txt` 保留历史环境事实。
+- 从项目 `.venv` 实际卸载 `openai==3.0.0`，`importlib.util.find_spec('openai')` 返回 `None`；官方 OpenAI 文档检索未改变本地验收边界。
+- smoke/性能脚本移除 ChatDialog 调用；baseline 历史结果不再被后续 smoke 覆盖。
+- README 与架构、测试、已知问题文档同步。
+
+### 验证
+
+```text
+pytest AI-removal/config/GUI target → 23 passed
+pytest tests/unit -q               → 81 passed
+pytest tests/integration -q        → 3 passed
+pytest tests/smoke -q              → 9 passed, 1 xfailed
+pytest tests -q                    → 93 passed, 1 xfailed
+scripts/smoke_baseline.py          → 19 PASS / 1 FAIL（仅 KI-11）
+```
+
+首次 smoke 因终端 GBK 无法输出提醒 emoji 中断；设置 `PYTHONUTF8=1` 后完整执行。另发现 smoke 受上次持久化的 half-step scale 影响会偶尔绕过 KI-11，已在 harness 中固定整数起点，确保该已知问题稳定复现；未修改生产缩放逻辑。
+
+### 下一步
+
+Phase 4：删除 Google Calendar/OAuth 及其依赖。尚未执行。

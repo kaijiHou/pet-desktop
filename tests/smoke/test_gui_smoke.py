@@ -1,10 +1,8 @@
 """GUI construction smoke tests (Phase 2).
 
 Runs on the REAL platform (offscreen segfaults QWebEngineView.page()).
-Windows/dialogs are constructed but never shown; no network is touched:
-  * ChatDialog construction only wires widgets — AIEngine.chat() is never
-    called, so no OpenAI request is made.
-  * Calendar is disabled in the fixture, so no Google OAuth occurs.
+Windows/dialogs are constructed but never shown. Calendar is disabled in the
+fixture, so no Google OAuth occurs.
 """
 
 import pytest
@@ -31,9 +29,9 @@ class TestGuiConstruction:
 
     def test_pet_window_owns_services(self, pet_window):
         w = pet_window
-        assert w.ai_engine is not None
         assert w.calendar is not None
         assert w.reminder is not None
+        assert not hasattr(w, "ai_engine")
 
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
@@ -47,12 +45,10 @@ class TestGuiConstruction:
         assert d.water_enabled.isChecked() == pet_window.config.get("water_enabled")
         d.close()
 
-    def test_chat_dialog_constructs_without_network(self, pet_window):
-        # ai_engine is passed but .chat() is never invoked -> no API call.
-        d = pet_window_web.ChatDialog(pet_window.ai_engine, pet_window.config, "", pet_window)
-        assert d is not None
-        assert d.input_field is not None
-        assert d.send_btn is not None
+    def test_settings_dialog_has_no_openai_controls(self, pet_window):
+        d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
+        assert not hasattr(d, "api_key_input")
+        assert not hasattr(d, "model_input")
         d.close()
 
     def test_context_menu_items_are_constructed(self, pet_window, monkeypatch, qapp):
@@ -70,7 +66,8 @@ class TestGuiConstruction:
         pet_window._show_context_menu(QPoint(120, 120))
 
         items = captured.get("items", [])
-        assert len(items) >= 5, f"context menu should have >=5 items, got {items}"
+        assert len(items) >= 4, f"context menu should have >=4 items, got {items}"
+        assert all("Tanya" not in item and "Chat" not in item for item in items)
 
     def test_window_can_be_closed(self, pet_window):
         # close() on an unshown frameless tool window must not raise.

@@ -17,7 +17,7 @@ Scenarios:
                       ~60s inactivity via _check_idle — that IS baseline behavior)
   B  idle_5min_cont : next 240s (continuation; cumulative 5-min idle window)
   C  animation      : 30s cycling animation groups via the real play_* APIs
-  D  ui_dialogs     : 20s with Settings + Chat dialogs open, water reminder fired
+  D  ui_dialogs     : 20s with Settings dialog open, water reminder fired
 
 Outputs:
   docs/baseline/baseline_process_metrics.json  (raw samples)
@@ -136,10 +136,8 @@ def main():
             window.set_state(window.STATE_IDLE)
             sd = pet_window_web.SettingsDialog(window.config, window)
             sd.show()
-            cd = pet_window_web.ChatDialog(window.ai_engine, window.config, "", window)
-            cd.show()
             window.reminder.tick(31 * 60)   # fire water reminder path once
-            QTimer.singleShot(18000, lambda: (sd.close(), cd.close()))
+            QTimer.singleShot(18000, sd.close)
         except Exception as e:
             print("dialog phase error:", e, flush=True)
 

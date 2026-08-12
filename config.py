@@ -15,11 +15,6 @@ CREDENTIALS_FILE = CONFIG_DIR / "credentials" / "credentials.json"
 
 
 DEFAULT_CONFIG = {
-    # OpenAI
-    "openai_api_key": "",
-    "openai_model": "gpt-4o-mini",
-    "openai_base_url": "",  # optional custom endpoint
-
     # Pet settings
     "pet_scale": 3.0,
     "pet_x": -1,  # -1 = center
@@ -34,16 +29,20 @@ DEFAULT_CONFIG = {
     "calendar_check_interval_min": 15,
     "calendar_reminder_minutes_before": 10,
 
-    # AI personality
-    "ai_name": "Clippy",
-    "ai_personality": (
-        "Kamu adalah Mochi, seekor kucing chibi imut yang tinggal di desktop "
-        "laptop Clara. Kamu membantu Clara dengan ingatan jadwal, minum air, "
-        "dan ngobrol santai. Kamu lucu, suka pake bahasa campuran Indonesia-Inggris "
-        "(Indoglish), kadang nge-meme, dan suka pakai emoticon. "
-        "Jawab dengan hangat dan natural."
-    ),
+    # Character name
+    "pet_name": "Clippy",
 }
+
+
+# Phase 3 migration: old local config files may still contain credentials and
+# chat-only settings.  Never load them back into memory or write them again.
+LEGACY_AI_KEYS = {
+    "openai_api_key",
+    "openai_model",
+    "openai_base_url",
+    "ai_personality",
+}
+LEGACY_PET_NAME_KEY = "ai_name"
 
 
 class Config:
@@ -56,7 +55,16 @@ class Config:
             try:
                 with open(CONFIG_FILE, "r") as f:
                     loaded = json.load(f)
+                    had_legacy_ai_settings = bool(LEGACY_AI_KEYS.intersection(loaded))
+                    had_legacy_pet_name = LEGACY_PET_NAME_KEY in loaded
+                    if had_legacy_pet_name and "pet_name" not in loaded:
+                        loaded["pet_name"] = loaded[LEGACY_PET_NAME_KEY]
+                    loaded.pop(LEGACY_PET_NAME_KEY, None)
+                    for key in LEGACY_AI_KEYS:
+                        loaded.pop(key, None)
                     self.data.update(loaded)
+                    if had_legacy_ai_settings or had_legacy_pet_name:
+                        self.save()
             except (json.JSONDecodeError, OSError):
                 pass
 
@@ -73,17 +81,5 @@ class Config:
         self.save()
 
     @property
-    def api_key(self) -> str:
-        return self.data.get("openai_api_key", "")
-
-    @property
-    def has_api_key(self) -> bool:
-        return bool(self.data.get("openai_api_key", ""))
-
-    @property
-    def api_model(self) -> str:
-        return self.data.get("openai_model", "gpt-4o-mini")
-
-    @property
     def pet_name(self) -> str:
-        return self.data.get("ai_name", "Mochi")
+        return self.data.get("pet_name", "Mochi")

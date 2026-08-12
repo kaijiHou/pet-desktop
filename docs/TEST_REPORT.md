@@ -86,3 +86,19 @@
 
 业务代码零改动确认：`git diff 5f0afa5 --stat -- <8 个业务 .py>` 为空；本阶段唯一被修改的业务侧文件是入口 wrapper `main.py`（+26/-1，纯日志，异常原样 re-raise）。
 
+### Phase 3（2026-08-12）— 删除 AI Chat / OpenAI
+
+范围严格限制为 AI Chat/OpenAI；Google Calendar、喝水提醒、WebEngine 主渲染轨与桌宠交互均保留。
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| 针对性 | `pytest tests/unit/test_ai_removal.py tests/unit/test_config.py tests/smoke/test_gui_smoke.py -q` | **23 passed** |
+| unit | `pytest tests/unit -q` | **81 passed** |
+| integration | `pytest tests/integration -q` | **3 passed** |
+| smoke | `pytest tests/smoke -q` | **9 passed, 1 xfailed**（KI-11） |
+| 全套 | `pytest tests -q` | **93 passed, 1 xfailed** |
+| GUI regression | `PYTHONUTF8=1 python scripts/smoke_baseline.py` | **19 PASS / 1 FAIL**；唯一 FAIL 仍为 KI-11 |
+
+Phase 3 新增 `unit/test_ai_removal.py`，固定以下边界：`ai_engine.py` 不存在；生产窗口无 `AIEngine/ChatDialog/_open_chat/play_chat`；默认配置无 OpenAI/personality 键；加载旧配置会剔除并从磁盘清理相关键，同时把旧 `ai_name` 保值迁移为 `pet_name`；当前 `requirements.txt` 不含 OpenAI SDK。GUI smoke 同时确认 Settings 无 API 控件、右键菜单无聊天入口，而 Calendar/Reminder 服务仍正常持有。
+
+原 Phase 1 baseline 证据保留在 `docs/baseline/`，不被后续运行覆盖；Phase 3 smoke 原始输出写 `docs/phase3_smoke_output.txt`。Google OAuth 仍为 NOT TESTED（无凭据），符合本阶段不改 Calendar 的边界。

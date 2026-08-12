@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Phase 1 baseline tool — functional smoke test for the ORIGINAL app (unmodified).
+Functional regression smoke harness, originally established in Phase 1.
 
 Runs the real pet_window_web.PetWindow (same construction path as main.py)
 inside a scripted harness and verifies each baseline checklist item by driving
 the REAL business handlers with synthesized Qt events / direct service calls.
 
-No business code is modified. Items that need external credentials
-(OpenAI API / Google OAuth) are reported NOT TESTED by design.
+Google OAuth is reported NOT TESTED by design; the removed AI surface is
+checked explicitly as a Phase 3 regression boundary.
 
 Run:  .venv/Scripts/python.exe scripts/smoke_baseline.py
 """
@@ -146,6 +146,9 @@ def main():
     #    pet_window_web.py L640 passes float to setGeometry -> TypeError
     #    is RAISED in the original handler on the first wheel event whenever
     #    scale becomes non-integer. We record the exception as evidence.
+    # Force an integer start so +0.5 deterministically exercises KI-11 even
+    # when an earlier run persisted a half-step scale value.
+    window._scale_val = 3.0
     scale_before = window._scale_val
     wheel_err = None
     try:
@@ -201,7 +204,8 @@ def main():
     finally:
         QMenu.exec_ = orig_exec
     items = captured.get("items", [])
-    record("右键菜单构建", "PASS" if len(items) >= 5 else "FAIL",
+    no_chat = all("Tanya" not in item and "Chat" not in item for item in items)
+    record("右键菜单构建", "PASS" if (len(items) >= 4 and no_chat) else "FAIL",
            f"items={items} err={captured.get('error', '')}")
 
     # ── Settings dialog ──
@@ -209,27 +213,22 @@ def main():
         d = pet_window_web.SettingsDialog(window.config, window)
         d.show()
         pump(app, 0.5)
-        ok_settings = d.isVisible() and d.api_key_input is not None and d.water_interval is not None
+        ok_settings = (d.isVisible() and d.water_interval is not None
+                       and not hasattr(d, "api_key_input"))
         d.close()
         record("Settings 对话框", "PASS" if ok_settings else "FAIL",
-               "OpenAI/Water/Calendar groups constructed")
+               "Water/Calendar groups constructed; OpenAI controls absent")
     except Exception as e:
         record("Settings 对话框", "FAIL", f"{type(e).__name__}: {e}")
 
-    # ── Chat dialog (UI init only; no API key => no external call) ──
-    try:
-        cd = pet_window_web.ChatDialog(window.ai_engine, window.config, "", window)
-        cd.show()
-        pump(app, 0.5)
-        ok_chat = cd.isVisible() and cd.chat_display is not None
-        cd.close()
-        reply = window.ai_engine.chat("halo")  # keyless path returns guidance, no network
-        ok_keyless = "API key" in reply
-        record("Chat UI 初始化", "PASS" if ok_chat else "FAIL", "dialog constructed & shown")
-        record("AI 无 Key 错误可控", "PASS" if ok_keyless else "FAIL",
-               f"reply={reply[:50]!r} (external API call NOT TESTED)")
-    except Exception as e:
-        record("Chat UI 初始化", "FAIL", f"{type(e).__name__}: {e}")
+    # ── Phase 3 removal boundary ──
+    ai_removed = (not hasattr(pet_window_web, "ChatDialog")
+                  and not hasattr(window, "ai_engine"))
+    record("AI Chat 已移除", "PASS" if ai_removed else "FAIL",
+           "ChatDialog and PetWindow.ai_engine absent")
+    requirements = (REPO / "requirements.txt").read_text(encoding="utf-8").lower()
+    record("OpenAI 运行依赖已移除", "PASS" if "openai" not in requirements else "FAIL",
+           "requirements.txt has no OpenAI package")
 
     # ── Calendar path (import/init; no credentials => silent False, no browser) ──
     try:
@@ -255,8 +254,7 @@ def main():
     n_fail = sum(1 for _, s, _ in RESULTS if s == "FAIL")
     print(f"\nSUMMARY: {n_pass} PASS / {n_fail} FAIL / {len(RESULTS)} total")
 
-    out = REPO / "docs" / "baseline" / "smoke_output.txt"
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = REPO / "docs" / "phase3_smoke_output.txt"
     out.write_text("\n".join(f"[{s}] {i} — {d}" for i, s, d in RESULTS)
                    + f"\n\nSUMMARY: {n_pass} PASS / {n_fail} FAIL\n", encoding="utf-8")
     print(f"raw results -> {out}")

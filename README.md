@@ -1,6 +1,6 @@
 # 📎 Clippy Desktop Pet
 
-A Windows desktop pet application — Clippy-style paperclip assistant that sits on your desktop, reminds you to drink water, checks Google Calendar for meetings, and can chat with you via AI.
+A Windows desktop pet application — a Clippy-style paperclip character that sits on your desktop, reminds you to drink water, and checks Google Calendar for meetings.
 
 > **⚠️ Asset Notice**
 > This repository does **not** include any character sprites or artwork. You need to provide your own!
@@ -15,7 +15,6 @@ A Windows desktop pet application — Clippy-style paperclip assistant that sits
 - 🖇️ **Desktop Pet** — always-on-top character that follows you around
 - 💧 **Water Reminder** — reminds you to drink every 30 minutes (configurable)
 - 📅 **Google Calendar** — checks upcoming meetings and notifies you
-- 💬 **AI Chat** — ask Clippy anything (requires OpenAI API key)
 - 🎭 **43 Animations** — idle, talking, thinking, searching, waving, sleeping, and more
 - 🔊 **Sound Effects** — beeps for reminders and interactions
 - 🪟 **Windows 95 / Office 97 Styling** — retro dialog boxes and tooltips
@@ -35,7 +34,7 @@ git clone https://github.com/YOUR_USERNAME/clippy-desktop-pet.git
 cd clippy-desktop-pet
 
 # Install dependencies
-pip install PyQt5 PyQtWebEngine Pillow openai google-api-python-client pytz
+pip install PyQt5 PyQtWebEngine Pillow google-api-python-client google-auth-oauthlib pytz
 
 # Add your character sprite sheet
 # Place your 124×93 frame sprite sheet at: assets/clippy_sheet.png
@@ -47,9 +46,8 @@ python main.py
 
 ### First Run
 
-1. **API Key** — Right-click Clippy → Settings → enter your OpenAI API key
-2. **Water Reminder** — Enabled by default (every 30 min)
-3. **Google Calendar** (optional) — Enable in Settings, authenticate with Google
+1. **Water Reminder** — Enabled by default (every 30 min)
+2. **Google Calendar** (optional) — Enable in Settings, authenticate with Google
 
 ## 🎮 Controls
 
@@ -57,14 +55,13 @@ python main.py
 |--------|-----|
 | **Move** | Click & drag |
 | **Resize** | Scroll wheel |
-| **Chat** | Double-click or right-click → Tanya Clippy |
+| **Greet** | Double-click Clippy |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |
 
 ## ⚙️ Settings
 
-- **OpenAI API** — API Key & model (GPT-4o mini recommended)
 - **Water Reminder** — Enable/disable, interval (5-180 min)
 - **Google Calendar** — Enable/disable, reminder timing
 
@@ -87,7 +84,6 @@ clippy-desktop-pet/
 ├── main.py                   # Entry point
 ├── pet_window_web.py         # Main window + dialogs (WebEngine)
 ├── config.py                 # Configuration handler
-├── ai_engine.py              # OpenAI integration
 ├── calendar_service.py       # Google Calendar API
 ├── reminder_service.py       # Water & meeting reminders
 ├── sounds.py                 # Sound effects
@@ -103,7 +99,6 @@ clippy-desktop-pet/
 
 ## 📝 Notes
 
-- **API keys** are stored locally in `config.json` (excluded from git)
 - **Google Calendar** uses OAuth 2.0 — credentials go in `credentials/` (excluded)
 - **Clippy** is a trademark of Microsoft Corporation. This project is not affiliated with or endorsed by Microsoft.
 - Sound effects are simple `winsound.Beep()` calls — no external audio files needed.

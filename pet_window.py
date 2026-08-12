@@ -17,13 +17,12 @@ from PyQt5.QtGui import (
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QMenu, QAction, QSystemTrayIcon,
     QInputDialog, QMessageBox, QDialog, QVBoxLayout, QLabel,
-    QLineEdit, QPushButton, QHBoxLayout, QSlider, QCheckBox,
+    QPushButton, QHBoxLayout, QSlider, QCheckBox,
     QSpinBox, QFormLayout, QGroupBox, QDialogButtonBox,
 )
 
 from config import Config, CONFIG_DIR
 from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
-from ai_engine import AIEngine
 from calendar_service import CalendarService
 from reminder_service import ReminderService
 
@@ -42,20 +41,6 @@ class SettingsDialog(QDialog):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-
-        # ── API Settings ──
-        api_group = QGroupBox("🔑 OpenAI API")
-        api_layout = QFormLayout(api_group)
-
-        self.api_key_input = QLineEdit(self.config.get("openai_api_key", ""))
-        self.api_key_input.setEchoMode(QLineEdit.Password)
-        self.api_key_input.setPlaceholderText("sk-...")
-        api_layout.addRow("API Key:", self.api_key_input)
-
-        self.model_input = QLineEdit(self.config.get("openai_model", "gpt-4o-mini"))
-        api_layout.addRow("Model:", self.model_input)
-
-        layout.addWidget(api_group)
 
         # ── Water Settings ──
         water_group = QGroupBox("💧 Drink Water Reminder")
@@ -96,78 +81,11 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
 
     def _save(self):
-        self.config.set("openai_api_key", self.api_key_input.text().strip())
-        self.config.set("openai_model", self.model_input.text().strip())
         self.config.set("water_enabled", self.water_enabled.isChecked())
         self.config.set("water_interval_min", self.water_interval.value())
         self.config.set("calendar_enabled", self.cal_enabled.isChecked())
         self.config.set("calendar_reminder_minutes_before", self.cal_remind_before.value())
         self.accept()
-
-
-# ─── Speech Bubble (inline, drawn in PetWindow paintEvent) ──────────────────
-
-
-# ─── Chat Input Popup ───────────────────────────────────────────────────────
-
-class ChatDialog(QDialog):
-    """Simple chat dialog to ask the pet questions."""
-
-    def __init__(self, ai_engine: AIEngine, config: Config, context: str = "", parent=None):
-        super().__init__(parent)
-        self.ai_engine = ai_engine
-        self.config = config
-        self.context = context
-        self.setWindowTitle(f"💬 Chat with {config.get('ai_name', 'Mochi')}")
-        self.setFixedSize(400, 300)
-        self._build_ui()
-
-    def _build_ui(self):
-        layout = QVBoxLayout(self)
-
-        # Chat display
-        self.chat_display = QLabel(
-            "✏️ Ketik pertanyaanmu di bawah!\n\n"
-            "Contoh:\n"
-            "• \"Ada jadwal apa aja hari ini?\"\n"
-            "• \"Ingetin aku apapun\"\n"
-            "• \"Cerita dong\""
-        )
-        self.chat_display.setWordWrap(True)
-        self.chat_display.setMinimumHeight(150)
-        self.chat_display.setStyleSheet(
-            "background: #f5f0eb; border-radius: 8px; padding: 12px;"
-        )
-        layout.addWidget(self.chat_display)
-
-        # Input row
-        input_layout = QHBoxLayout()
-        self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("Ketik pesan...")
-        self.input_field.returnPressed.connect(self._send)
-        input_layout.addWidget(self.input_field)
-
-        self.send_btn = QPushButton("➤ Kirim")
-        self.send_btn.clicked.connect(self._send)
-        input_layout.addWidget(self.send_btn)
-
-        layout.addLayout(input_layout)
-
-    def _send(self):
-        text = self.input_field.text().strip()
-        if not text:
-            return
-        self.input_field.clear()
-
-        # Show user message
-        self.chat_display.setText(f"🧑 **Kamu:** {text}\n\n⏳ Mochi lagi mikir...")
-
-        # Get AI response
-        reply = self.ai_engine.chat(text, self.context)
-        self.chat_display.setText(f"🧑 **Kamu:** {text}\n\n🐱 **Mochi:** {reply}")
-
-    def get_last_reply(self) -> str:
-        return self.chat_display.text()
 
 
 # ─── Pet Window ─────────────────────────────────────────────────────────────
@@ -183,7 +101,6 @@ class PetWindow(QWidget):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
-        self.ai_engine = AIEngine(config)
         self.calendar = CalendarService(config)
         self.reminder = ReminderService(config, self.calendar)
 
@@ -242,15 +159,10 @@ class PetWindow(QWidget):
         painter.end()
 
         self.tray_icon.setIcon(QIcon(icon_pixmap))
-        self.tray_icon.setToolTip(f"{self.config.get('ai_name', 'Mochi')} — Desktop Pet")
+        self.tray_icon.setToolTip(f"{self.config.pet_name} — Desktop Pet")
 
         # Tray menu
         tray_menu = QMenu()
-
-        ask_action = tray_menu.addAction("💬 Tanya Mochi")
-        ask_action.triggered.connect(self._open_chat)
-
-        tray_menu.addSeparator()
 
         schedule_action = tray_menu.addAction("📅 Cek Jadwal")
         schedule_action.triggered.connect(self._show_schedule)
@@ -278,7 +190,6 @@ class PetWindow(QWidget):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
 
-        # Double-click tray → open chat
         self.tray_icon.activated.connect(self._tray_activated)
 
     def _setup_timers(self):
@@ -453,7 +364,7 @@ class PetWindow(QWidget):
             # Pet name label
             painter.setPen(QColor(100, 80, 80))
             painter.setFont(QFont("Segoe UI", 7))
-            name = self.config.get("ai_name", "Mochi")
+            name = self.config.pet_name
             fm = QFontMetrics(painter.font())
             tw = fm.horizontalAdvance(name)
             painter.drawText((self.width() - tw) // 2, self.height() - 2, name)
@@ -493,7 +404,8 @@ class PetWindow(QWidget):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self._open_chat()
+            self.show_bubble("Hai! 👋", 2500)
+            self.set_state(self.STATE_TALKING)
             event.accept()
 
     def wheelEvent(self, event):
@@ -560,28 +472,11 @@ class PetWindow(QWidget):
         self.set_state(self.STATE_TALKING)
         QTimer.singleShot(2000, lambda: self.set_state(self.STATE_IDLE))
 
-    # ── Chat ──
-
-    def _open_chat(self):
-        # Get calendar context
-        context = ""
-        if self.calendar.is_authenticated:
-            events = self.calendar.get_upcoming_events(5)
-            context = self.calendar.format_events_summary(events)
-
-        dialog = ChatDialog(self.ai_engine, self.config, context, self)
-        dialog.exec_()
-
-        # Get last reply to show in bubble
-        # The chat display has the full text
-        last_text = dialog.chat_display.text()
-        if "Mochi:" in last_text:
-            reply = last_text.split("Mochi:")[-1].strip()
-            self.show_bubble(reply[:200], 8000)
-
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
-            self._open_chat()
+            self.show()
+            self.raise_()
+            self.show_bubble("Hai! 👋", 2500)
         elif reason == QSystemTrayIcon.ActivationReason.Trigger:
             # Single click — toggle visibility
             if self.isVisible():
@@ -600,7 +495,6 @@ class PetWindow(QWidget):
             QMenu::item:selected { background: #ecd8c0; }
         """)
 
-        chat_action = menu.addAction("💬 Tanya Mochi")
         schedule_action = menu.addAction("📅 Jadwal Hari Ini")
         water_action = menu.addAction("💧 Reset Timer Minum")
         menu.addSeparator()
@@ -609,9 +503,7 @@ class PetWindow(QWidget):
         quit_action = menu.addAction("✖️ Keluar")
 
         action = menu.exec_(pos)
-        if action == chat_action:
-            self._open_chat()
-        elif action == schedule_action:
+        if action == schedule_action:
             self._show_schedule()
         elif action == water_action:
             self._reset_water()
@@ -632,7 +524,7 @@ class PetWindow(QWidget):
         self.reminder.set_water_interval(self.config.get("water_interval_min", 45))
         self.reminder.enable_water(self.config.get("water_enabled", True))
         self.reminder.enable_calendar(self.config.get("calendar_enabled", False))
-        self.tray_icon.setToolTip(f"{self.config.get('ai_name', 'Mochi')} — Desktop Pet")
+        self.tray_icon.setToolTip(f"{self.config.pet_name} — Desktop Pet")
 
     # ── Utilities ──
 
@@ -672,23 +564,11 @@ def main():
     window.show()
 
     # Welcome message
-    name = config.get("ai_name", "Mochi")
-    has_key = config.has_api_key
-
-    if not has_key:
-        # Show setup reminder instead of blocking dialog
-        welcome_msg = (
-            f"Hai! Aku {name}~ 🐱\n"
-            "🔑 Aku belum punya API Key nih.\n"
-            "Klik kanan ➔ Settings ➔ isi OpenAI API Key\nyaaa biar aku bisa ngobrol!"
-        )
-    else:
-        welcome_msg = (
-            f"Hai! Aku {name}~ 🐱\n"
-            "Aku bakal ingetin kamu minum air, "
-            "ngasih tau jadwal, dan temen ngobrol!\n"
-            "Klik dua kali atau right-click buat mulai~"
-        )
+    name = config.pet_name
+    welcome_msg = (
+        f"Hai! Aku {name}~ 🐱\n"
+        "Aku bakal ingetin kamu minum air dan ngasih tau jadwalmu!"
+    )
 
     QTimer.singleShot(1500, lambda: (
         window.show_bubble(welcome_msg, 8000),

@@ -67,3 +67,10 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 `QWebEngineView.page()` 在 `QT_QPA_PLATFORM=offscreen` 下必现段错误（exit 139）。经 probe_offscreen1~10 逐步二分：崩溃点精确在 `web.page()` 访问本身（与 `setBackgroundColor` 无关）；`AA_ShareOpenGLContexts` + 软件 GL 标志均无效。根因：Chromium 内核需要真实 OpenGL context，offscreen 平台默认不提供。真实 `windows` 平台下构造→page()→正常退出全生命周期 exit 0。
 **影响**：GUI 测试无法用 offscreen 隔离，只能在真实平台运行（构造但不 show，teardown 隐藏 tray）。
 **处置**：tests/conftest.py 已注释记录该决策；GUI 测试 fixture 按真实平台设计。若未来需要 CI headless 跑 GUI 测试，需另行评估（本阶段不做）。
+
+## Phase 3 状态更新
+
+- AI Chat/OpenAI 已按计划完整删除；未新增 Known Issue。
+- KI-11 未顺手修复，仍由 strict xfail 固定；Phase 3 smoke 唯一 FAIL 仍为该问题。
+- KI-12 不变：WebEngine 仍是当前渲染轨，因此 GUI 测试继续使用真实 Windows 平台。
+- 旧 config 中可能保存的 OpenAI 凭据在下一次 `Config()` 加载时会被剔除并立即重写文件；测试已验证磁盘中不再保留旧值。

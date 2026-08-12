@@ -15,13 +15,12 @@ from PyQt5.QtGui import QFont, QColor, QPen, QFontMetrics, QPainter, QPixmap, QI
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QMenu, QAction, QSystemTrayIcon,
     QInputDialog, QMessageBox, QDialog, QVBoxLayout, QLabel,
-    QLineEdit, QPushButton, QHBoxLayout, QSlider, QCheckBox,
+    QPushButton, QHBoxLayout, QSlider, QCheckBox,
     QSpinBox, QFormLayout, QGroupBox, QDialogButtonBox,
 )
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from config import Config, CONFIG_DIR
-from ai_engine import AIEngine
 from calendar_service import CalendarService
 from reminder_service import ReminderService
 import sounds
@@ -138,16 +137,6 @@ class SettingsDialog(QDialog):
         self.setStyleSheet(WIN95_STYLESHEET)
         layout = QVBoxLayout(self)
 
-        api_g = QGroupBox("🔑 OpenAI API")
-        api_l = QFormLayout(api_g)
-        self.api_key_input = QLineEdit(self.config.get("openai_api_key", ""))
-        self.api_key_input.setEchoMode(QLineEdit.Password)
-        self.api_key_input.setPlaceholderText("sk-...")
-        api_l.addRow("API Key:", self.api_key_input)
-        self.model_input = QLineEdit(self.config.get("openai_model", "gpt-4o-mini"))
-        api_l.addRow("Model:", self.model_input)
-        layout.addWidget(api_g)
-
         water_g = QGroupBox("💧 Drink Water Reminder")
         water_l = QFormLayout(water_g)
         self.water_enabled = QCheckBox("Enable")
@@ -192,64 +181,11 @@ class SettingsDialog(QDialog):
         self.accept()
 
     def _save(self):
-        self.config.set("openai_api_key", self.api_key_input.text().strip())
-        self.config.set("openai_model", self.model_input.text().strip())
         self.config.set("water_enabled", self.water_enabled.isChecked())
         self.config.set("water_interval_min", self.water_interval.value())
         self.config.set("calendar_enabled", self.cal_enabled.isChecked())
         self.config.set("calendar_reminder_minutes_before", self.cal_remind_before.value())
         self.accept()
-
-
-# ─── Chat Dialog ─────────────────────────────────────────────────────────────
-
-class ChatDialog(QDialog):
-    def __init__(self, ai_engine, config, context="", parent=None):
-        super().__init__(parent)
-        self.ai_engine, self.config, self.context = ai_engine, config, context
-        self.setWindowTitle("Chat with Clippy")
-        self.setMinimumSize(420, 300)
-        self.resize(480, 380)
-        self.setStyleSheet(WIN95_STYLESHEET)
-        layout = QVBoxLayout(self)
-
-        # Chat display — Win95 sunken text area
-        self.chat_display = QLabel("Hi aku Clippy, kamu mau nanya apa?")
-        self.chat_display.setWordWrap(True)
-        self.chat_display.setMinimumHeight(180)
-        self.chat_display.setStyleSheet(f"""
-            QLabel {{
-                background-color: #FFFFFF;
-                border: 2px solid;
-                border-color: #808080 #FFFFFF #FFFFFF #808080;
-                padding: 8px;
-                font-family: '{WIN95_FONT}';
-                font-size: 11pt;
-                color: #000000;
-            }}
-        """)
-        layout.addWidget(self.chat_display)
-        il = QHBoxLayout()
-        self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("Ketik pesan...")
-        self.input_field.returnPressed.connect(self._send)
-        # Trigger Clippy writing animation when typing
-        if parent and hasattr(parent, 'play_writing'):
-            self.input_field.textChanged.connect(lambda t: t and parent.play_writing())
-        il.addWidget(self.input_field)
-        self.send_btn = QPushButton("➤ Kirim")
-        self.send_btn.clicked.connect(self._send)
-        il.addWidget(self.send_btn)
-        layout.addLayout(il)
-
-    def _send(self):
-        text = self.input_field.text().strip()
-        if not text:
-            return
-        self.input_field.clear()
-        self.chat_display.setText(f"🧑 **Kamu:** {text}\n\n⏳ Clippy lagi mikir...")
-        reply = self.ai_engine.chat(text, self.context)
-        self.chat_display.setText(f"🧑 **Kamu:** {text}\n\n📎 **Clippy:** {reply}")
 
 
 # ─── PetWindow (WebEngine) ──────────────────────────────────────────────────
@@ -263,7 +199,6 @@ class PetWindow(QWidget):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
-        self.ai_engine = AIEngine(config)
         self.calendar = CalendarService(config)
         self.reminder = ReminderService(config, self.calendar)
         self._state = self.STATE_IDLE
@@ -310,13 +245,9 @@ class PetWindow(QWidget):
             self.web.page().runJavaScript(f"setScale({self._scale_val});")
             self.web.page().runJavaScript("setAnimation('idle');")
             sounds.play_startup()
-            # Delay welcome message until page is ready
-            name = self.config.get("ai_name", "Clippy")
-            has_key = self.config.has_api_key
-            if not has_key:
-                msg = f"Hai! Aku {name}~ 📎\n🔑 Aku belum punya API Key nih.\nKlik kanan ➔ Settings ➔ isi OpenAI API Key"
-            else:
-                msg = "hi, clippy's here!"
+            # Delay welcome message until page is ready.
+            name = self.config.pet_name
+            msg = f"Hai! Aku {name}~ 📎\nAku siap mengingatkan minum dan jadwalmu."
             QTimer.singleShot(500, lambda: (
                 self.show_bubble(msg, 12000),
                 self.set_state(PetWindow.STATE_TALKING),
@@ -342,9 +273,6 @@ class PetWindow(QWidget):
         self.tray_icon.setToolTip("Clippy — Desktop Pet")
         tray_menu = QMenu()
 
-        a = tray_menu.addAction("💬 Tanya Clippy")
-        a.triggered.connect(self._open_chat)
-        tray_menu.addSeparator()
         a = tray_menu.addAction("📅 Cek Jadwal")
         a.triggered.connect(self._show_schedule)
         a = tray_menu.addAction("💧 Reset timer minum")
@@ -629,7 +557,8 @@ class PetWindow(QWidget):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self._open_chat()
+            self.play_wave()
+            self.show_bubble("Hai! 👋", 2500)
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
@@ -682,22 +611,11 @@ class PetWindow(QWidget):
             self.set_state(self.STATE_SLEEP)
             self.show_bubble_now("💤 Zzz... aku tidur dulu ya~", 4000)
 
-    # ── Chat ──
-
-    def _open_chat(self):
-        context = ""
-        if self.calendar.is_authenticated:
-            context = self.calendar.format_events_summary(self.calendar.get_upcoming_events(5))
-        sounds.play_chat()
-        dialog = ChatDialog(self.ai_engine, self.config, context, self)
-        dialog.exec_()
-        last = dialog.chat_display.text()
-        if "Clippy:" in last:
-            self.show_bubble(last.split("Clippy:")[-1].strip()[:200], 8000)
-
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
-            self._open_chat()
+            self.show()
+            self.raise_()
+            self.play_wave()
         elif reason == QSystemTrayIcon.ActivationReason.Trigger:
             if self.isVisible():
                 self.hide()
@@ -710,7 +628,6 @@ class PetWindow(QWidget):
     def _show_context_menu(self, pos):
         menu = QMenu(self)
         menu.setStyleSheet("QMenu{background:#fff8f0;border:1px solid #d0c0b0;border-radius:6px;padding:4px;}QMenu::item{padding:6px 20px;border-radius:4px;}QMenu::item:selected{background:#ecd8c0;}")
-        chat_a = menu.addAction("💬 Tanya Clippy")
         sch_a = menu.addAction("📅 Jadwal Hari Ini")
         wat_a = menu.addAction("💧 Reset Timer Minum")
         menu.addSeparator()
@@ -718,8 +635,7 @@ class PetWindow(QWidget):
         menu.addSeparator()
         quit_a = menu.addAction("✖️ Keluar")
         action = menu.exec_(pos)
-        if action == chat_a: self._open_chat()
-        elif action == sch_a: self._show_schedule()
+        if action == sch_a: self._show_schedule()
         elif action == wat_a: self._reset_water()
         elif action == set_a: self._open_settings()
         elif action == quit_a: self._quit_app()

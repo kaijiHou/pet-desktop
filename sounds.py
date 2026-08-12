@@ -66,11 +66,6 @@ def _meeting_beep():
         pass
 
 
-def play_chat():
-    """Chat sound - short click."""
-    threading.Thread(target=lambda: _beep(1200, 50), daemon=True).start()
-
-
 def play_alert():
     """Alert/exclamation sound."""
     threading.Thread(target=_alert_beep, daemon=True).start()

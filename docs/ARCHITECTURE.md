@@ -16,7 +16,6 @@ D:\pet-desktop\                     (克隆自上游，全部 < 100KB，无二�
 ├── pet_window.py            703 行   legacy 主窗口（原生 PyQt5+PIL 渲染版，main.py 未引用）
 ├── pet_sprite.py            170 行   原生版 sprite 加载器（PIL 裁帧，仅 4 个动画）
 ├── config.py                 89 行   JSON 配置（Path.home()/desktop-pet/config.json）
-├── ai_engine.py              93 行   OpenAI 聊天封装（待删）
 ├── calendar_service.py      165 行   Google Calendar OAuth（待删）
 ├── reminder_service.py       98 行   喝水+会议提醒（5 秒 tick 轮询）
 ├── sounds.py                101 行   winsound Beep 音效（无外部音频文件）
@@ -52,8 +51,7 @@ D:\pet-desktop\                     (克隆自上游，全部 < 100KB，无二�
 | 右键菜单 | `QMenu.exec_()` 同步分发 | ✅ 复用（菜单项重构） |
 | 托盘 | `QSystemTrayIcon` + 代码绘制图标 + 菜单 | ✅ 复用（菜单项重构） |
 | 气泡 | 独立 top-level `QLabel` 窗口，QPainter 手绘 Win95 边框，20ms QTimer 打字机效果 | ✅ 直接复用 |
-| 设置 | `SettingsDialog` Win95 stylesheet（含 OpenAI/Calendar 组，待删） | ⚠️ 部分复用 |
-| 聊天 | `ChatDialog` 原生 QLabel+QLineEdit（**不是** WebEngine） | ❌ 随 AI 删除 |
+| 设置 | `SettingsDialog` Win95 stylesheet（Water/Calendar 组） | ✅ Phase 3 已移除 OpenAI 组 |
 
 定时器（`_setup_timers`）：
 - `_remind_timer` 5000ms → `reminder.tick(5)`（轮询）
@@ -90,7 +88,7 @@ D:\pet-desktop\                     (克隆自上游，全部 < 100KB，无二�
 
 - `Config` 类：`dict(DEFAULT_CONFIG)` + JSON 文件合并；`set()` 每次立即落盘。
 - **路径：`CONFIG_DIR = Path.home() / "desktop-pet"` → C 盘用户目录，必须迁移到 D 盘**（Phase 2 用 PathManager 统一）。
-- `DEFAULT_CONFIG` 现有键：`openai_api_key/openai_model/openai_base_url`（删）、`pet_scale/pet_x/pet_y`（留）、`water_interval_min/water_enabled`（改造）、`calendar_*`（删）、`ai_name/ai_personality`（name 留作角色名，personality 删）。
+- `DEFAULT_CONFIG` 现有键：`pet_scale/pet_x/pet_y`、`water_interval_min/water_enabled`、`calendar_*`、`pet_name`。Phase 3 已移除 OpenAI 与 personality 键，并把旧 `ai_name` 迁移为 `pet_name`；旧配置加载时会清除并重写遗留键，避免本地 API key 残留。
 - 附带 `OAUTH_FILE/CREDENTIALS_FILE` 常量（随 Calendar 删除）。
 
 ---
@@ -106,12 +104,12 @@ D:\pet-desktop\                     (克隆自上游，全部 < 100KB，无二�
 
 ---
 
-## 7. AI Chat 实现（待删）
+## 7. AI Chat（Phase 3 已删除）
 
-- `ai_engine.py`：`openai` SDK，懒加载 client，阻塞式 `chat.completions.create`，保留 20 条历史，异常返回错误文案。
-- 入口：`ChatDialog`（原生控件）、托盘"💬 Tanya Clippy"、右键菜单、双击角色、托盘双击。
-- 配置：SettingsDialog 的 OpenAI 组、config 的 3 个 openai_* 键、欢迎语中的 API Key 引导。
-- **确认：ChatDialog 是原生 QLabel/QLineEdit，不依赖 WebEngine。**
+- `ai_engine.py` 与 `ChatDialog` 已删除，两个窗口实现均不再构造 AI 客户端。
+- 托盘/右键聊天项已删除；双击角色改为本地挥手问候，托盘双击改为显示角色并挥手。
+- Settings 不再出现 API Key/Model，欢迎语不再引导配置 API key。
+- 当前 `requirements.txt` 不含 `openai`；`requirements-baseline.txt` 保留 Phase 1 历史环境事实。
 
 ---
 
@@ -132,7 +130,7 @@ D:\pet-desktop\                     (克隆自上游，全部 < 100KB，无二�
 | `pet_window_web.py` L21 import，L294 `QWebEngineView` | **唯一用途：加载 clippy.html 渲染角色 canvas** |
 | `main.py` L11 `AA_ShareOpenGLContexts` | 仅为 WebEngine 服务 |
 
-ChatDialog、SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine 唯一用途是角色渲染**。原项目自带完整的原生渲染轨（pet_window.py + pet_sprite.py），因此 Phase 3 起切到原生轨后，PyQtWebEngine 可整体移除——这正是"低资源"目标的关键（省去常驻 Chromium）。
+SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine 唯一用途仍是角色渲染**。原项目自带完整的原生渲染轨（pet_window.py + pet_sprite.py），因此原生轨接管后 PyQtWebEngine 可整体移除——这正是"低资源"目标的关键（省去常驻 Chromium）。
 
 ---
 
@@ -153,14 +151,14 @@ ChatDialog、SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论�
 
 | 对象 | 处置 |
 |---|---|
-| `ai_engine.py` | 整文件删除 |
+| `ai_engine.py` | ✅ Phase 3 已整文件删除 |
 | `calendar_service.py` | 整文件删除 |
 | `pet_window_web.py` | 气泡/菜单/拖动等逻辑移植到原生窗口后删除 |
 | `assets/clippy.html` | 导出 ANIMS 为 animations.json 后删除 |
-| `ChatDialog`、SettingsDialog 的 OpenAI/Calendar 组 | 删除 |
-| config 中 openai_*/calendar_*/ai_personality | 删除 |
+| `ChatDialog`、SettingsDialog 的 OpenAI 组 | ✅ Phase 3 已删除；Calendar 组留待 Phase 4 |
+| config 中 openai_*/ai_personality | ✅ Phase 3 已删除并迁移旧配置；calendar_* 留待 Phase 4 |
 | `launch_mochi.bat` / `Mochi.vbs` / `add_to_startup.bat` | 删除（硬编码 C:\Users\clara，后续如需再重做） |
-| 依赖：openai、google-api-python-client、google-auth-oauthlib、pytz、PyQtWebEngine | 删除（WebEngine 在原生轨验证后） |
+| 依赖：openai | ✅ Phase 3 已从当前运行清单删除；Google/WebEngine 依赖按后续阶段删除 |
 
 ---
 
@@ -205,7 +203,7 @@ ChatDialog、SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论�
 3. 进一步优化（Phase 16）：idle 循环播完一轮后停在静态帧，用低频 timer 偶尔触发小动作，替代持续逐帧链。
 4. **提醒调度**：删 5s tick，改为"算出下一条到期时间 → 单个 singleShot timer"；系统唤醒后补扫一次。
 5. **文件监听**：ReadDirectoryChangesW 事件驱动，无事件时零 CPU；绝不递归扫盘。
-6. 删除 openai/google SDK：启动更快，常驻内存更低，无后台网络。
+6. Phase 3 已移除 OpenAI SDK；Google SDK 留待 Phase 4，WebEngine 留待原生轨接管。
 7. 帧缓存按 (state, idx, scale) 有界（当前 scale 档位数 × 帧数，MB 级）。
 
 ---
@@ -219,7 +217,7 @@ ChatDialog、SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论�
 | 0 | 审计 | 本文档 |
 | 1 | Baseline | venv 建 D 盘；装 PyQt5/Pillow；**先解决 sprite sheet 缺失**才能目视验证；记录原版 Idle CPU/RAM（含 Chromium 开销作对照） |
 | 2 | 测试框架+日志+PathManager | 导出 animations.json；pytest 骨架；paths.py 全 D 盘 |
-| 3 | 删 AI Chat | ai_engine.py、ChatDialog、openai 依赖、config 键、菜单项 |
+| 3 | 删 AI Chat | ✅ ai_engine.py、ChatDialog、openai 运行依赖、config 键、菜单项均已删除 |
 | 4 | 删 Google Calendar | calendar_service.py、OAuth、菜单项、依赖 |
 | 5 | 通用 Reminder | JSON 持久化 + next-due timer + snooze/complete；V1 单次，重复视成本 |
 | 6 | Pocket 数据层 | 引用模型 + 持久化 + 失效检测 |
@@ -236,7 +234,7 @@ ChatDialog、SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论�
 | 17 | 完整回归 | 全量 pytest + 手工验收清单 |
 | 18 | 打包 | PyInstaller，build/dist/release 全 D 盘，clean build |
 
-> 说明：WebEngine 的移除放在原生渲染完全接管并回归通过之后（Phase 16），而不是 Phase 3，避免中间态没有可用渲染器。但 AI Chat / Calendar 的删除不依赖渲染轨，按原顺序执行。
+> 说明：WebEngine 的移除放在原生渲染完全接管并回归通过之后，避免中间态没有可用渲染器。Phase 3 仅删除 AI Chat；Calendar 按 Phase 4 单独处理。
 
 ---
 

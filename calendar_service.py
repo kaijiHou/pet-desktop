@@ -115,7 +115,7 @@ class CalendarService:
         return None
 
     def format_events_summary(self, events: list[dict]) -> str:
-        """Format events as a readable string for AI context."""
+        """Format events as a readable schedule summary."""
         if not events:
             return "Tidak ada acara di kalender untuk hari ini."
 
