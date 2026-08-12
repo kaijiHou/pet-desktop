@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-📎 Clippy Desktop Pet — WebEngine Edition
-Uses clippyjs via HTML5 Canvas for smooth pixel-perfect rendering.
+📎 Clippy Desktop Pet — native Qt/Pillow edition.
 
 Usage:
   python main.py
@@ -10,13 +9,12 @@ Phase 2: this entry wrapper now initializes application logging and records
 the core lifecycle (startup, exit, uncaught startup exception). Behavior is
 preserved — any exception is logged and then re-raised unchanged, so the
 process exit code matches the upstream behavior exactly. Business code
-(pet_window_web.py) is untouched.
 """
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from pet_window_web import main
+from pet_window import main
 
 # Logging infrastructure (Phase 2). Import is safe even before the GUI.
 import applog

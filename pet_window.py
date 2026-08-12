@@ -3,6 +3,7 @@ Desktop Pet Window — PyQt5 floating transparent pet with animations.
 """
 
 import math
+import random
 import sys
 import time
 from datetime import datetime
@@ -23,7 +24,7 @@ from PyQt5.QtWidgets import (
 )
 
 from config import Config, CONFIG_DIR
-from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
+from pet_sprite import ANIMATIONS, ASSETS_DIR, PetSpriteLoader, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
 from pocket_ui import PocketDialog
 from file_watch import FileWatchService
@@ -77,17 +78,18 @@ class PetWindow(QWidget):
         self.pocket = PocketService()
         self.file_watch = FileWatchService()
         self.events = EventDispatcher(self)
-        self.animation_controller = AnimationController({"RestPose"})
+        self.animation_controller = AnimationController(ANIMATIONS)
         self.events.event_received.connect(self._handle_app_event)
         self.file_watch.on_change = lambda change: self.events.dispatch(
             AppEvent("windows", change.action, change)
         )
 
         # Sprite loader
-        self.sprite_loader = PetSpriteLoader(CONFIG_DIR / "assets", config.get("pet_scale", 2))
+        self.sprite_loader = PetSpriteLoader(ASSETS_DIR, config.get("pet_scale", 3))
 
         # State
         self._state = self.STATE_IDLE
+        self._animation = "RestPose"
         self._frame = 0
         self._drag_pos = QPoint()
         self._dragging = False
@@ -177,6 +179,10 @@ class PetWindow(QWidget):
         self._anim_timer.timeout.connect(self._animate)
         self._anim_timer.setSingleShot(True)  # each frame schedules next
         self._schedule_next_frame()
+        self._idle_variety_timer = QTimer(self)
+        self._idle_variety_timer.timeout.connect(self._play_idle_variety)
+        self._idle_variety_timer.setSingleShot(True)
+        self._schedule_idle_variety()
 
         # One-shot timer scheduled for the nearest pending reminder.
         self._remind_timer = QTimer(self)
@@ -191,7 +197,7 @@ class PetWindow(QWidget):
 
     def _schedule_next_frame(self):
         """Get the duration for current frame and schedule next tick."""
-        dur = self.sprite_loader.get_duration(self._state, self._frame)
+        dur = self.sprite_loader.get_duration(self._animation, self._frame)
         # Clamp to reasonable range (16ms = 60fps, 2000ms = 0.5fps)
         self._anim_timer.start(max(16, min(2000, dur)))
 
@@ -322,7 +328,7 @@ class PetWindow(QWidget):
             painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
             # Generate sprite
-            img = generate_sprite(self._state, self._frame, self.config.get("pet_scale", 3))
+            img = self.sprite_loader.get_frame(self._animation, self._frame)
             qimage = self._pil_to_qimage(img)
             pixmap = QPixmap.fromImage(qimage)
 
@@ -451,13 +457,41 @@ class PetWindow(QWidget):
     def _animate(self):
         self._frame += 1
         self.update()
+        if self._frame < self.sprite_loader.get_frame_count(self._animation):
+            self._schedule_next_frame()
+        else:
+            self._animation = "RestPose"
+            self._frame = 0
+            if self._state != self.STATE_SLEEP:
+                self._state = self.STATE_IDLE
+            self.update()
+
+    def play_animation(self, animation):
+        self._animation = animation if animation in ANIMATIONS else "RestPose"
+        self._frame = 0
+        self.update()
         self._schedule_next_frame()
+
+    def _schedule_idle_variety(self):
+        self._idle_variety_timer.start(random.randint(15000, 30000))
+
+    def _play_idle_variety(self):
+        if self._state == self.STATE_IDLE and self._animation == "RestPose":
+            self.play_animation(random.choice([
+                "Idle1_1", "IdleSideToSide", "IdleFingerTap", "IdleEyeBrowRaise"
+            ]))
+        self._schedule_idle_variety()
 
     def set_state(self, state: str):
         if state != self._state:
             self._state = state
-            self._frame = 0
-            self.update()
+        defaults = {
+            self.STATE_IDLE: "RestPose",
+            self.STATE_TALKING: "Explain",
+            self.STATE_ALERT: "Alert",
+            self.STATE_SLEEP: "IdleSnooze",
+        }
+        self.play_animation(defaults.get(state, "RestPose"))
 
     def _check_idle(self):
         if self._state == self.STATE_SLEEP:
@@ -493,12 +527,10 @@ class PetWindow(QWidget):
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
 
     def _handle_app_event(self, event):
-        # The legacy renderer currently exposes only coarse states; Phase 16
-        # loads the complete animation catalog before it becomes the main track.
-        if event.category == "reminder":
-            self.set_state(self.STATE_ALERT)
-        elif event.category in {"pocket", "file_operation", "windows"}:
-            self.set_state(self.STATE_TALKING)
+        animation = self.animation_controller.resolve(event)
+        self._state = self.STATE_ALERT if event.category == "reminder" else self.STATE_TALKING
+        if animation:
+            self.play_animation(animation)
 
     def _open_add_reminder(self):
         dialog = AddReminderDialog(self)
@@ -581,6 +613,7 @@ class PetWindow(QWidget):
         new_scale = max(1.0, min(6.0, current + delta))
         new_scale = round(new_scale, 1)
         self.config.set("pet_scale", new_scale)
+        self.sprite_loader.set_scale(new_scale)
         self._pet_w = int(SPRITE_W * new_scale)
         self._pet_h = int(SPRITE_H * new_scale)
         self.setFixedSize(self._pet_w + 20, self._pet_h + 20)

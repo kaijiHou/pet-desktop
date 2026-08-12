@@ -33,6 +33,6 @@ class TestWaterReminderRemoval:
         assert "water_" not in config_file.read_text(encoding="utf-8")
 
     def test_active_reminder_and_ui_sources_have_no_water_behavior(self):
-        for filename in ("reminder_service.py", "reminder_ui.py", "pet_window.py", "pet_window_web.py", "sounds.py"):
+        for filename in ("reminder_service.py", "reminder_ui.py", "pet_window.py", "sounds.py"):
             source = (PROJECT_ROOT / filename).read_text(encoding="utf-8").lower()
             assert "water_" not in source, f"legacy water behavior remains in {filename}"

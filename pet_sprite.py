@@ -1,170 +1,107 @@
-"""
-Clippy sprite renderer — uses official Clippy sprites from Microsoft Office.
-Each animation has proper frame durations for smooth playback.
-"""
+"""Native Pillow sprite renderer backed by the tracked animation catalog."""
 
-import math
+import json
+from collections import OrderedDict
 from pathlib import Path
-from PIL import Image, ImageDraw
+
+from PIL import Image, ImageChops, ImageDraw
 
 
-SPRITE_SHEET = Path(__file__).parent / "assets" / "clippy_sheet.png"
+ASSETS_DIR = Path(__file__).parent / "assets"
+SPRITE_SHEET = ASSETS_DIR / "clippy_sheet.png"
+ANIMATIONS_FILE = ASSETS_DIR / "animations.json"
 SPRITE_W, SPRITE_H = 124, 93
 
 
-# Animation data: (x, y, duration_ms)
-ANIMATIONS = {
-    "idle": [
-        (0, 0, 100), (2108, 744, 100), (2232, 744, 100), (2356, 744, 100),
-        (2480, 744, 300), (2604, 744, 100), (2728, 744, 100), (2852, 744, 300),
-        (2976, 744, 100), (3100, 744, 100), (3224, 744, 300), (3348, 744, 100),
-        (0, 837, 100), (124, 837, 100), (248, 837, 300), (372, 837, 100),
-        (496, 837, 100), (620, 837, 300), (744, 837, 100), (868, 837, 100),
-        (992, 837, 300), (1116, 837, 100), (1240, 837, 100), (1364, 837, 300),
-        (1488, 837, 100), (1612, 837, 100), (1736, 837, 300), (1860, 837, 100),
-        (1984, 837, 100), (2108, 837, 300), (2232, 837, 100), (2356, 837, 100),
-        (2480, 837, 300), (2604, 837, 100), (2728, 837, 100), (2852, 837, 300),
-        (2976, 837, 100), (3100, 837, 100), (0, 0, 100), (1116, 186, 100),
-        (1240, 186, 100), (1364, 186, 900), (1240, 186, 100), (1116, 186, 100),
-        (0, 0, 100),
-    ],
-    "talking": [
-        (0, 0, 100), (1116, 186, 100), (1240, 186, 100), (1364, 186, 900),
-        (1240, 186, 100), (1116, 186, 100), (0, 0, 100),
-    ],
-    "alert": [
-        (0, 0, 100), (2356, 1116, 100), (2480, 1116, 100), (2604, 1116, 100),
-        (2728, 1116, 100), (2852, 1116, 100), (2976, 1116, 100), (3100, 1116, 100),
-        (3224, 1116, 100), (3348, 1116, 100), (0, 1209, 100),
-        (124, 1209, 500), (248, 1209, 100), (372, 1209, 100), (496, 1209, 100),
-        (620, 1209, 100), (744, 1209, 100), (868, 1209, 100), (992, 1209, 100),
-        (1116, 1209, 100), (0, 0, 100),
-    ],
-    "sleep": [
-        (0, 0, 100), (2480, 2046, 100), (2604, 2046, 100), (2728, 2046, 100),
-        (2852, 2046, 100), (2976, 2046, 100), (3100, 2046, 100), (3224, 2046, 100),
-        (3348, 2046, 400), (0, 2139, 100), (124, 2139, 100), (248, 2139, 100),
-        (372, 2139, 100), (496, 2139, 100), (620, 2139, 100), (744, 2139, 100),
-        (868, 2139, 100), (992, 2139, 100), (1116, 2139, 100), (1240, 2139, 100),
-        (1364, 2139, 100), (1488, 2139, 100), (1612, 2139, 100), (1736, 2139, 100),
-        (1860, 2139, 100), (1984, 2139, 100), (2108, 2139, 100), (2232, 2139, 100),
-        (2356, 2139, 200), (2480, 2139, 200), (2604, 2139, 200), (2728, 2139, 200),
-        (2852, 2139, 200), (2976, 2139, 200), (3100, 2139, 200), (3224, 2139, 200),
-        (3348, 2139, 200), (0, 2232, 200), (124, 2232, 200), (248, 2232, 200),
-        (372, 2232, 100), (496, 2232, 100), (620, 2232, 100), (744, 2232, 1200),
-        (868, 2232, 100), (992, 2232, 100), (1116, 2232, 100), (1240, 2232, 100),
-        (1364, 2232, 100), (1488, 2232, 100), (1612, 2232, 400), (1736, 2232, 100),
-        (1860, 2232, 100), (1984, 2232, 100), (2108, 2232, 100), (2232, 2232, 100),
-        (2356, 2232, 100), (2480, 2232, 100), (2604, 2232, 600), (2728, 2232, 300),
-        (2852, 2232, 300), (2976, 2232, 300), (3100, 2232, 100), (3224, 2232, 100),
-        (3348, 2232, 100), (0, 2325, 100), (124, 2325, 100), (248, 2325, 100),
-        (372, 2325, 100), (496, 2325, 100), (620, 2325, 100), (744, 2325, 200),
-        (868, 2325, 200), (992, 2325, 200), (1116, 2325, 200), (1240, 2325, 200),
-        (1364, 2325, 200), (1488, 2325, 200), (1612, 2325, 100), (1736, 2325, 100),
-        (1860, 2325, 100), (1984, 2325, 100), (2108, 2325, 100), (2232, 2325, 100),
-        (2356, 2325, 100), (2480, 2325, 300), (2604, 2325, 100), (2728, 2325, 100),
-        (2852, 2325, 100), (2976, 2325, 100), (3100, 2325, 100), (0, 0, 100),
-    ],
-}
+def load_animations(path=ANIMATIONS_FILE):
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+ANIMATIONS = load_animations()
+
+
+def _remove_magic_pink(image):
+    """Make the legacy sprite-sheet key color transparent using Pillow ops."""
+    rgba = image.convert("RGBA")
+    red, green, blue, alpha = rgba.split()
+    high_red = red.point(lambda value: 255 if value > 250 else 0)
+    low_green = green.point(lambda value: 255 if value < 10 else 0)
+    high_blue = blue.point(lambda value: 255 if value > 250 else 0)
+    key_mask = ImageChops.multiply(ImageChops.multiply(high_red, low_green), high_blue)
+    rgba.putalpha(ImageChops.subtract(alpha, key_mask))
+    return rgba
 
 
 class ClippySprites:
-    """Loads and caches Clippy frames with smooth scaling."""
+    """Load a user-provided sprite sheet and cache scaled frames."""
 
-    def __init__(self, sheet_path=None):
-        raw = Image.open(sheet_path or SPRITE_SHEET)
-        # Convert palette to RGBA and make magic pink (255,0,255) transparent
-        raw = raw.convert("RGBA")
-        pixels = raw.load()
-        w, h = raw.size
-        for y in range(h):
-            for x in range(w):
-                r, g, b, a = pixels[x, y]
-                if r > 250 and g < 10 and b > 250:  # magic pink
-                    pixels[x, y] = (0, 0, 0, 0)
-        self.sheet = raw
-        self._cache = {}
+    def __init__(self, sheet_path=None, animations=None):
+        path = Path(sheet_path or SPRITE_SHEET)
+        self.animations = animations or ANIMATIONS
+        self.using_placeholder = not path.exists()
+        self.sheet = (_placeholder_sheet() if self.using_placeholder
+                      else _remove_magic_pink(Image.open(path)))
+        self._cache = OrderedDict()
 
-    def get_frame(self, state, frame_idx, scale=3):
-        frames = ANIMATIONS.get(state, ANIMATIONS["idle"])
-        if not frames:
-            return Image.new("RGBA", (SPRITE_W*scale, SPRITE_H*scale), (0,0,0,0))
-        idx = frame_idx % len(frames)
-        key = (state, idx, scale)
-        if key in self._cache:
-            return self._cache[key]
-        x, y, _ = frames[idx]
-        frame = self.sheet.crop((x, y, x + SPRITE_W, y + SPRITE_H))
-        if scale != 1:
-            frame = frame.resize((SPRITE_W * scale, SPRITE_H * scale), Image.LANCZOS)
-        self._cache[key] = frame
-        return frame
+    def get_frame(self, animation, frame_index, scale=3.0):
+        frames = self.animations.get(animation) or self.animations["RestPose"]
+        index = frame_index % len(frames)
+        width, height = int(SPRITE_W * scale), int(SPRITE_H * scale)
+        key = (animation, index, width, height)
+        if key not in self._cache:
+            x, y, _ = frames[index]
+            frame = self.sheet.crop((x, y, x + SPRITE_W, y + SPRITE_H))
+            if (width, height) != (SPRITE_W, SPRITE_H):
+                frame = frame.resize((width, height), Image.Resampling.LANCZOS)
+            self._cache[key] = frame
+            self._cache.move_to_end(key)
+            while len(self._cache) > 96:
+                self._cache.popitem(last=False)
+        return self._cache[key]
 
-    def get_duration(self, state, frame_idx):
-        frames = ANIMATIONS.get(state, ANIMATIONS["idle"])
-        if not frames:
-            return 100
-        idx = frame_idx % len(frames)
-        return frames[idx][2]
+    def get_duration(self, animation, frame_index):
+        frames = self.animations.get(animation) or self.animations["RestPose"]
+        return frames[frame_index % len(frames)][2]
 
-    def get_frame_count(self, state):
-        return len(ANIMATIONS.get(state, ANIMATIONS["idle"]))
-
-
-_clippy = None
-def get_clippy():
-    global _clippy
-    if _clippy is None:
-        _clippy = ClippySprites()
-    return _clippy
-
-
-def generate_sprite(state="idle", frame=0, scale=3):
-    return get_clippy().get_frame(state, frame, scale)
-
-
-def generate_all_sprites(output_dir, scale=3):
-    c = get_clippy()
-    for state in ANIMATIONS:
-        d = output_dir / state
-        d.mkdir(parents=True, exist_ok=True)
-        for i in range(len(ANIMATIONS[state])):
-            c.get_frame(state, i, scale).save(d / f"frame_{i:03d}.png")
-    print(f"Generated Clippy sprites in {output_dir}")
+    def get_frame_count(self, animation):
+        return len(self.animations.get(animation) or self.animations["RestPose"])
 
 
 class PetSpriteLoader:
-    def __init__(self, assets_dir, scale=3):
+    def __init__(self, assets_dir=ASSETS_DIR, scale=3.0):
         self.assets_dir = Path(assets_dir)
-        self.scale = scale
-        self._cache = {}
-        self._c = get_clippy()
+        self.scale = float(scale)
+        self._sprites = ClippySprites(self.assets_dir / "clippy_sheet.png")
 
-    def get_frame(self, state, frame):
-        frames = ANIMATIONS.get(state, ANIMATIONS["idle"])
-        if not frames:
-            return Image.new("RGBA", (124*self.scale, 93*self.scale), (0,0,0,0))
-        idx = frame % len(frames)
-        p = self.assets_dir / "sprites" / state / f"frame_{idx:03d}.png"
-        if p.exists():
-            k = (state, idx)
-            if k not in self._cache:
-                self._cache[k] = Image.open(p).convert("RGBA")
-            return self._cache[k]
-        return self._c.get_frame(state, frame, self.scale)
+    def get_frame(self, animation, frame):
+        return self._sprites.get_frame(animation, frame, self.scale)
 
-    def get_duration(self, state, frame):
-        return self._c.get_duration(state, frame)
+    def get_duration(self, animation, frame):
+        return self._sprites.get_duration(animation, frame)
 
-    def get_frame_count(self, state):
-        return self._c.get_frame_count(state)
+    def get_frame_count(self, animation):
+        return self._sprites.get_frame_count(animation)
+
+    def set_scale(self, scale):
+        self.scale = float(scale)
 
 
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    s = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-    generate_all_sprites(Path(__file__).parent / "assets" / "sprites", s)
-    for state in ["idle", "talking", "alert", "sleep"]:
-        get_clippy().get_frame(state, 0, 4).save(f"C:/Users/clara/Desktop/{state}.png")
-    print("Done!")
+def generate_sprite(animation="RestPose", frame=0, scale=3.0):
+    return ClippySprites().get_frame(animation, frame, scale)
+
+
+def _placeholder_sheet():
+    """Original neutral placeholder used when no user artwork is installed."""
+    max_x = max(frame[0] for frames in ANIMATIONS.values() for frame in frames)
+    max_y = max(frame[1] for frames in ANIMATIONS.values() for frame in frames)
+    sheet = Image.new("RGBA", (max_x + SPRITE_W, max_y + SPRITE_H), (0, 0, 0, 0))
+    frame = Image.new("RGBA", (SPRITE_W, SPRITE_H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(frame)
+    draw.rounded_rectangle((38, 8, 83, 84), radius=20, outline=(105, 105, 115, 255), width=7)
+    draw.rounded_rectangle((49, 18, 72, 71), radius=11, outline=(215, 215, 225, 255), width=5)
+    draw.text((29, 74), "ADD ART", fill=(95, 95, 105, 255))
+    for frames in ANIMATIONS.values():
+        for x, y, _ in frames:
+            sheet.alpha_composite(frame, (x, y))
+    return sheet

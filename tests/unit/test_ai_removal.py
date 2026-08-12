@@ -14,7 +14,6 @@ import config as config_mod
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PRODUCTION_FILES = (
     PROJECT_ROOT / "pet_window.py",
-    PROJECT_ROOT / "pet_window_web.py",
     PROJECT_ROOT / "sounds.py",
 )
 

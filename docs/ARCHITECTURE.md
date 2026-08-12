@@ -228,7 +228,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 13 | 当前 Explorer 目录 | ✅ 前台 HWND 与 Shell window 精确匹配，无匹配不猜 fallback |
 | 14 | Windows 文件事件 | ✅ ReadDirectoryChangesW、非递归、无轮询、退出取消 I/O |
 | 15 | 事件→动画 | ✅ EventDispatcher/AnimationController + specific→generic→idle fallback |
-| 16 | 资源优化 | 移除 PyQtWebEngine（此时原生轨已完全接管）、idle 停帧 |
+| 16 | 资源优化 | ✅ 原生 Qt/Pillow 接管、移除 WebEngine/Chromium、idle 停帧、有界缓存 |
 | 17 | 完整回归 | 全量 pytest + 手工验收清单 |
 | 18 | 打包 | PyInstaller，build/dist/release 全 D 盘，clean build |
 
@@ -348,4 +348,14 @@ Pocket UI 提供 Recent destination 下拉框、Copy/Move to Recent 和 Clear Re
 
 统一 `AppEvent(category, action, detail)` 覆盖 reminder/pocket/file_operation/windows。`EventDispatcher` 是 QObject signal 边界：worker 线程只 emit，PetWindow slot 在 Qt 事件线程消费。AnimationController 按 specific mapping → category generic → RestPose → None 解析，只选择素材目录中真实存在的动画。
 
-当前映射包括 Reminder→Alert、Pocket Receive→Save、Copy→Print、Move→SendMail、Windows add/remove/modify/rename→Show/EmptyTrash/Writing/Searching/Save。WebEngine 主轨播放完整具体动画；原生备用轨暂映射到 coarse state，Phase 16 完整动画元数据接管后统一。事件 detail 保留原始事实对象，不把 Windows 目录事件伪装成某个来源程序行为。
+当前映射包括 Reminder→Alert、Pocket Receive→Save、Copy→Print、Move→SendMail、Windows add/remove/modify/rename→Show/EmptyTrash/Writing/Searching/Save。Phase 16 起由原生渲染轨直接播放完整具体动画。事件 detail 保留原始事实对象，不把 Windows 目录事件伪装成某个来源程序行为。
+
+---
+
+## 28. Phase 16 原生渲染与资源优化（2026-08-12）
+
+`main.py` 现直接导入 `pet_window.main`。`pet_window_web.py`、`assets/clippy.html`、PyQtWebEngine runtime dependency 均删除，项目 venv 中两个 PyQtWebEngine 包也实际卸载。`assets/animations.json` 正式跟踪为唯一动画元数据（43 组/1227 帧），Pillow 原生裁帧，Qt paintEvent 绘制。
+
+Renderer 将逻辑 state 与具体 animation 分离：事件动画播放一轮后停回 RestPose；15–30 秒 singleShot 随机触发一次 idle 小动作，不持续空转。帧缓存用 LRU 上限 96，scale 改变无需无限保留旧尺寸。magic pink 透明处理改为 Pillow 通道运算，避免 Python 逐像素启动扫描。无用户 sprite sheet 时动态生成原创中性回形针占位，不再透明空窗，也不分发微软角色素材。
+
+30 秒进程树实测：1 进程，avg CPU 1.25%、peak 3.0%，avg RSS 78.7MB、peak 79.5MB。对比 Phase 1 WebEngine idle：3 进程，avg RSS 311.6–402.6MB、peak 408.6MB；内存约下降 75–80%，Chromium 子进程归零。

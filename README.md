@@ -35,7 +35,7 @@ git clone https://github.com/YOUR_USERNAME/clippy-desktop-pet.git
 cd clippy-desktop-pet
 
 # Install dependencies
-pip install PyQt5 PyQtWebEngine Pillow
+pip install PyQt5 Pillow
 
 # Add your character sprite sheet
 # Place your 124×93 frame sprite sheet at: assets/clippy_sheet.png
@@ -82,7 +82,8 @@ The character will automatically use your sprites with all 43 animation slots.
 ```
 clippy-desktop-pet/
 ├── main.py                   # Entry point
-├── pet_window_web.py         # Main window + dialogs (WebEngine)
+├── pet_window.py             # Native Qt main window + dialogs
+├── pet_sprite.py             # Native Pillow sprite loader/cache
 ├── config.py                 # Configuration handler
 ├── reminder_service.py       # Persistent local reminder service
 ├── reminder_ui.py            # Add/manage reminder dialogs
@@ -94,11 +95,9 @@ clippy-desktop-pet/
 ├── file_watch.py             # Event-driven Pocket directory watcher
 ├── events.py                 # Typed events and animation fallback
 ├── sounds.py                 # Sound effects
-├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/
-│   ├── clippy.html           # Canvas renderer (you provide sprites)
-│   ├── clippy_sheet.png      # ⚠️ YOU PROVIDE THIS
-│   └── animations.json       # ⚠️ YOU PROVIDE THIS
+│   ├── clippy_sheet.png      # ⚠️ YOU PROVIDE THIS (neutral placeholder otherwise)
+│   └── animations.json       # Tracked 43-animation metadata catalog
 ├── launch_mochi.bat          # Windows launcher
 ├── Mochi.vbs                 # Silent VBS launcher
 └── .gitignore

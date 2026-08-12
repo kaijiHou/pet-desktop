@@ -30,11 +30,9 @@ TEST_TEMP_ROOT = PROJECT_ROOT / ".tmp" / "tests"
 TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 os.environ["TEMP"] = str(TEST_TEMP_ROOT)
 os.environ["TMP"] = str(TEST_TEMP_ROOT)
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-# NOTE: QT_QPA_PLATFORM=offscreen is deliberately NOT set. Phase 2 probing
-# showed QWebEngineView.page() segfaults under offscreen (Chromium needs a
-# real OpenGL context). GUI tests run on the real platform but construct
-# windows WITHOUT show() and hide the tray icon, so nothing appears on screen.
+# Native Qt rendering is safe under offscreen; Phase 16 removed WebEngine.
 
 
 @pytest.fixture

@@ -644,3 +644,27 @@ pytest tests -q                    → 157 passed, 1 xfailed
 ```
 
 下一步 Phase 16：完整原生动画轨接管、移除 WebEngine/Chromium、修复 KI-11 并做资源优化。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 16：原生渲染接管与资源优化
+
+### 修改
+
+- main 切到 pet_window；删除 pet_window_web.py、clippy.html、WebEngine 依赖并从 venv 卸载。
+- animations.json 正式跟踪为 43 组唯一源；原生 Pillow 裁帧 + Qt 绘制。
+- 事件动画播一轮回 RestPose，idle 15–30s 单次小动作；LRU 帧缓存上限 96。
+- magic pink 去色向量化；无自备 sheet 时动态生成中性原创占位。
+- 原生缩放按整数窗口尺寸，KI-11 修复并摘除 strict xfail。
+- GUI 测试恢复 offscreen，不再需要真实平台 Chromium context。
+
+### 验证
+
+```text
+pytest tests -q                   → 159 passed（0 xfail）
+scripts/smoke_native.py           → 15 PASS / 0 FAIL
+scripts/measure_native.py (30s)   → avg CPU 1.25%, peak 3.0%, avg RSS 78.7MB, peak 79.5MB, 1 process
+PyQt5.QtWebEngineWidgets spec     → None
+```
+
+下一步 Phase 17：完整回归与人工验收。尚未执行。

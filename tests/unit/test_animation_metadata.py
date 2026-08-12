@@ -1,10 +1,7 @@
 """Characterization tests for animation metadata (Phase 2).
 
-Source of truth is the ANIMS table embedded in assets/clippy.html.
-assets/animations.json is a gitignored, mechanically-exported derivative
-(scripts/gen_synthetic_assets.py). These tests load the derivative when
-present and fall back to extracting from the HTML, so they never depend on
-test ordering and always reflect the real repo data — never written from memory.
+Source of truth is the tracked assets/animations.json catalog used by the
+native renderer.
 
 Facts pinned here were verified against the actual repo at baseline 1d89c85:
   * 43 animations, 1227 frames total
@@ -13,24 +10,20 @@ Facts pinned here were verified against the actual repo at baseline 1d89c85:
   * key animations (EmptyTrash, Save, SendMail, Writing) exist
 """
 
-import importlib.util
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ANIMS_JSON = PROJECT_ROOT / "assets" / "animations.json"
-GENERATOR = PROJECT_ROOT / "scripts" / "gen_synthetic_assets.py"
 
 FRAME_W, FRAME_H = 124, 93
 
 # Verified present in the real data at baseline (never assume from memory).
 KEY_ANIMATIONS = ["EmptyTrash", "Save", "SendMail", "Writing"]
 
-# Animation groups referenced by pet_window_web.PetWindow — every name the
-# window can request must exist in the metadata, or playback breaks.
+# Required native-renderer animation groups.
 ANIM_GROUPS = {
     "ANIM_IDLE": ["Idle1_1", "IdleAtom", "IdleSideToSide", "RestPose",
                   "IdleFingerTap", "IdleRopePile", "IdleEyeBrowRaise"],
@@ -49,14 +42,8 @@ ANIM_GROUPS = {
 
 @pytest.fixture(scope="module")
 def anims():
-    """Load animation metadata from the derivative JSON or the HTML source."""
-    if ANIMS_JSON.exists():
-        return json.loads(ANIMS_JSON.read_text(encoding="utf-8"))
-    # Fall back to the mechanical extractor (single source of truth).
-    spec = importlib.util.spec_from_file_location("gen_synthetic_assets", GENERATOR)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.extract_anims()
+    """Load the exact catalog consumed by pet_sprite.py."""
+    return json.loads(ANIMS_JSON.read_text(encoding="utf-8"))
 
 
 # ── Collection shape ───────────────────────────────────────────────────────

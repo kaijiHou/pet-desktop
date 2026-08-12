@@ -1,14 +1,13 @@
 """GUI construction smoke tests (Phase 2).
 
-Runs on the REAL platform (offscreen segfaults QWebEngineView.page()).
-Windows/dialogs are constructed but never shown.
+Runs with the native Qt renderer under the offscreen platform.
 """
 
 from datetime import datetime, timedelta
 
 import pytest
 
-import pet_window_web
+import pet_window as pet_window_mod
 from reminder_ui import AddReminderDialog, ReminderListDialog
 from pocket_ui import PocketDialog
 from destinations import DestinationService
@@ -66,9 +65,19 @@ class TestGuiConstruction:
 
     def test_event_dispatch_uses_specific_animation(self, pet_window, monkeypatch):
         animations = []
-        monkeypatch.setattr(pet_window, "_js", animations.append)
+        monkeypatch.setattr(pet_window, "play_animation", animations.append)
         pet_window.events.dispatch(AppEvent("windows", "removed"))
-        assert animations[-1] == "setAnimation('EmptyTrash');"
+        assert animations[-1] == "EmptyTrash"
+
+    def test_completed_event_animation_returns_to_idle(self, pet_window):
+        pet_window._state = pet_window.STATE_TALKING
+        pet_window._animation = "RestPose"
+        pet_window._frame = 0
+
+        pet_window._animate()
+
+        assert pet_window._state == pet_window.STATE_IDLE
+        assert pet_window._animation == "RestPose"
 
     def test_drag_enter_accepts_local_files_only(self, pet_window, test_temp_root):
         from PyQt5.QtCore import QUrl
@@ -248,13 +257,13 @@ class TestGuiConstruction:
         dialog.close()
 
     def test_settings_dialog_constructs(self, pet_window):
-        d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
+        d = pet_window_mod.SettingsDialog(pet_window.config, pet_window)
         assert d is not None
         assert d.minimumWidth() >= 360
         d.close()
 
     def test_settings_dialog_has_no_legacy_reminder_controls(self, pet_window):
-        d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
+        d = pet_window_mod.SettingsDialog(pet_window.config, pet_window)
         assert not hasattr(d, "water_interval")
         assert not hasattr(d, "water_enabled")
         d.close()
@@ -281,7 +290,7 @@ class TestGuiConstruction:
         dialog.close()
 
     def test_settings_dialog_has_no_openai_controls(self, pet_window):
-        d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
+        d = pet_window_mod.SettingsDialog(pet_window.config, pet_window)
         assert not hasattr(d, "api_key_input")
         assert not hasattr(d, "model_input")
         assert not hasattr(d, "cal_enabled")

@@ -1,0 +1,163 @@
+{
+  "summary": {
+    "duration_s": 30,
+    "samples": 30,
+    "avg_cpu_percent": 1.25,
+    "peak_cpu_percent": 3.0,
+    "avg_rss_mb": 78.7,
+    "peak_rss_mb": 79.5,
+    "max_processes": 1
+  },
+  "samples": [
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.625,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.65625,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.66796875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.66796875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.66796875,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.66796875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.66796875,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 3.0,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 3.0,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.671875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.67578125,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 78.6796875,
+      "processes": 1
+    },
+    {
+      "cpu": 0.0,
+      "rss_mb": 78.6796875,
+      "processes": 1
+    },
+    {
+      "cpu": 3.0,
+      "rss_mb": 78.6796875,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 79.08203125,
+      "processes": 1
+    },
+    {
+      "cpu": 1.5,
+      "rss_mb": 79.5234375,
+      "processes": 1
+    }
+  ]
+}

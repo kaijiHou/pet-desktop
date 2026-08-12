@@ -220,3 +220,14 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | 全套 | `pytest tests -q` | **157 passed, 1 xfailed**（KI-11） |
 
 覆盖具体映射、category fallback、idle fallback、无动画返回 None 与 dispatcher typed event；GUI 验证 Windows removed 解析为真实存在的 EmptyTrash 动画。Reminder/Pocket/FileOperation/Windows producer 均接入 dispatcher。
+
+### Phase 16（2026-08-12）— 原生渲染与资源优化
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| 全套 | `pytest tests -q` | **159 passed**（0 xfail） |
+| Native GUI smoke | `python scripts/smoke_native.py` | **15 PASS / 0 FAIL** |
+| Native metrics 30s | `python scripts/measure_native.py` | **avg CPU 1.25%, peak 3.0%, avg RSS 78.7MB, peak 79.5MB, 1 process** |
+| WebEngine import probe | `find_spec('PyQt5.QtWebEngineWidgets')` | **None** |
+
+新增 native placeholder/WebEngine removal 边界与事件动画回落测试；动画元数据测试改为跟踪 JSON 唯一源，GUI offscreen 全通过，KI-11 缩放测试从 strict xfail 转为普通 PASS。对比 Phase 1 WebEngine idle 3 进程、avg RSS 311.6–402.6MB、peak 408.6MB，原生轨内存下降约 75–80%。原始 smoke 和指标见 `docs/phase16_smoke_output.txt`、`docs/phase16_native_metrics.json`。

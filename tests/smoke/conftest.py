@@ -1,8 +1,7 @@
 """Smoke-test fixtures (Phase 2).
 
-GUI tests run on the REAL platform (offscreen segfaults QWebEngineView.page()
-— see tests/conftest.py note). Windows are constructed WITHOUT show() and the
-tray icon is hidden, so nothing appears on the user's screen. Config storage
+Native GUI tests run under Qt offscreen. Windows are constructed WITHOUT
+show() and the tray icon is hidden. Config storage
 is redirected into a per-module temp dir; the startup sound is silenced
 (audio hardware side effect).
 """
@@ -25,7 +24,7 @@ def pet_window(qapp):
     """
     import config as config_mod
     import destinations
-    import pet_window_web
+    import pet_window as pet_window_mod
     import pocket_service
     import reminder_service
     import sounds
@@ -52,7 +51,7 @@ def pet_window(qapp):
     sounds.play_startup = lambda: None
 
     cfg = config_mod.Config()
-    window = pet_window_web.PetWindow(cfg)
+    window = pet_window_mod.PetWindow(cfg)
     window.tray_icon.hide()
 
     yield window

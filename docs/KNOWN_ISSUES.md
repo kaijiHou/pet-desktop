@@ -53,20 +53,20 @@ ReadDirectoryChangesW 只能报告"某路径发生 FILE_ACTION_REMOVED 等动作
 上游仓库缺少 README 要求的外部 sprite sheet（`clippy_sheet.png` 被 .gitignore 排除，且 Clippy 形象受微软版权保护、README 声明不可再分发），**真实原版角色视觉不可复现**。
 **处置**：Phase 1 用 `scripts/gen_synthetic_assets.py` 生成 synthetic placeholder sheet（3348x3162，每帧带编号与几何标识，肉眼可辨切帧）部署到原代码固定的运行时路径 `~/desktop-pet/assets/`。所有"角色可见/动画切帧 PASS"结论**仅针对渲染机制**，不代表真实官方素材的视觉效果。性能数据同理：可用于衡量原架构（尤其 Chromium/WebEngine 开销），不代表真实 sprite 的最终渲染性能。
 
-## KI-11 🔴 上游 wheelEvent 滚轮缩放必现 TypeError（Phase 1 实测发现）
+## KI-11 ✅ 上游 wheelEvent 滚轮缩放 TypeError（Phase 16 已修复）
 
 `pet_window_web.py` L640：`self.web.setGeometry(10, 10, 124 * self._scale_val, 93 * self._scale_val)` —— `setFixedSize` 处已 `int()`，但 `setGeometry` 的两个尺寸参数是 float。`_scale_val` 步进 0.5，**任何一次滚轮缩放在 scale 为非整数时必然抛**：
 ```text
 TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 ```
 异常发生在 `self._js(f"setScale(...)")` **之前**，因此：① 窗口固定尺寸更新成功、② webview 几何尺寸未更新、③ JS 缩放未下发 —— 每次滚轮后 webview 与窗口尺寸错位一层。smoke 实测 scale 3.5→4.0 时必现（见 docs/baseline/smoke_output.txt）。
-**处置**：Phase 1 按任务约束不修（保持原版可测量基线）。Phase 2 已自动化复现：`tests/smoke/test_ki11_wheel_zoom.py`（strict xfail，稳定 XFAIL，89 passed + 1 xfailed 套件的一部分）；修复后将 XPASS 失败强制移除标记。Phase 2 起接管渲染轨时顺带消除；若提前需要人工体验，一行 `int()` 修复即可（待批准后执行）。
+**处置**：Phase 16 原生轨接管后不再向 Qt geometry 传 float；测试已改为普通 PASS 并验证 scale/窗口尺寸同步。
 
-## KI-12 🟡 QWebEngine 在 offscreen 平台 segfault（Phase 2 实测发现）
+## KI-12 ✅ QWebEngine offscreen segfault（Phase 16 随 WebEngine 移除关闭）
 
 `QWebEngineView.page()` 在 `QT_QPA_PLATFORM=offscreen` 下必现段错误（exit 139）。经 probe_offscreen1~10 逐步二分：崩溃点精确在 `web.page()` 访问本身（与 `setBackgroundColor` 无关）；`AA_ShareOpenGLContexts` + 软件 GL 标志均无效。根因：Chromium 内核需要真实 OpenGL context，offscreen 平台默认不提供。真实 `windows` 平台下构造→page()→正常退出全生命周期 exit 0。
 **影响**：GUI 测试无法用 offscreen 隔离，只能在真实平台运行（构造但不 show，teardown 隐藏 tray）。
-**处置**：tests/conftest.py 已注释记录该决策；GUI 测试 fixture 按真实平台设计。若未来需要 CI headless 跑 GUI 测试，需另行评估（本阶段不做）。
+**处置**：Phase 16 删除 WebEngine/Chromium，GUI 套件恢复 Qt offscreen，问题不再适用。
 
 ## Phase 3 状态更新
 
@@ -141,3 +141,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 - Windows watcher callback 已经 Qt signal 跨线程，不直接从 worker 修改 UI。
 - 原生备用轨尚只消费 coarse state，完整 specific animation 接管列入 Phase 16。KI-11、KI-12 不变。
+
+## Phase 16 状态更新
+
+- KI-11 已修复；KI-12 随 WebEngine 删除关闭。正式套件 0 xfail。
+- 仓库不分发 sprite sheet；无自备素材时显示原创中性占位。Phase 1 本机 synthetic sheet 仍只用于机制/性能验证，不提交。
+- 帧缓存上限 96，idle 默认停帧；资源实测完整进程树为 1 个进程、avg RSS 78.7MB。

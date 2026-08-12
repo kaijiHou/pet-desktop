@@ -1,0 +1,15 @@
+[PASS] 原生主窗口启动
+[PASS] 窗口无边框
+[PASS] 窗口置顶
+[PASS] 原生帧可绘制 — placeholder=False
+[PASS] 43组动画原生播放 — animation=Wave, frame=2
+[PASS] 角色拖动
+[PASS] 滚轮缩放(KI-11已修复)
+[PASS] sleep触发
+[PASS] wake恢复
+[PASS] 本地提醒触发
+[PASS] 拖入Pocket引用
+[PASS] 右键菜单构建 — ['➕ Add Reminder', '⏰ My Reminders', '📥 Pocket', '⚙️ Settings', '✖️ Keluar']
+[PASS] 单次Reminder定时器
+[PASS] idle静帧优化
+[PASS] 无WebEngine子系统
