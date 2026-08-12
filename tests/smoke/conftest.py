@@ -24,6 +24,7 @@ def pet_window(qapp):
       * sounds.play_startup silenced (audio is an external side effect)
     """
     import config as config_mod
+    import destinations
     import pet_window_web
     import pocket_service
     import reminder_service
@@ -40,11 +41,13 @@ def pet_window(qapp):
         config_mod.CONFIG_FILE,
         reminder_service.REMINDERS_FILE,
         pocket_service.POCKET_FILE,
+        destinations.DESTINATIONS_FILE,
     )
     config_mod.CONFIG_DIR = cfg_dir
     config_mod.CONFIG_FILE = cfg_dir / "config.json"
     reminder_service.REMINDERS_FILE = tmp / "reminders.json"
     pocket_service.POCKET_FILE = tmp / "pocket.json"
+    destinations.DESTINATIONS_FILE = tmp / "destinations.json"
     saved_sound = sounds.play_startup
     sounds.play_startup = lambda: None
 
@@ -62,5 +65,6 @@ def pet_window(qapp):
         pass
     sounds.play_startup = saved_sound
     (config_mod.CONFIG_DIR, config_mod.CONFIG_FILE,
-     reminder_service.REMINDERS_FILE, pocket_service.POCKET_FILE) = saved
+     reminder_service.REMINDERS_FILE, pocket_service.POCKET_FILE,
+     destinations.DESTINATIONS_FILE) = saved
     shutil.rmtree(tmp, ignore_errors=True)

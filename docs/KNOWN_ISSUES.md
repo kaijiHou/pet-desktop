@@ -116,3 +116,8 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - Copy/Move 默认自动编号，明确禁止静默覆盖；目录进入自身后代会失败并报告。
 - 跨卷 move 由 shutil.move 退化为复制后删除，属于显式 Move To 操作的标准语义；自动测试仅覆盖同卷隔离目录，跨卷人工验收留 Phase 17。
 - KI-11、KI-12 状态不变。
+
+## Phase 11 状态更新
+
+- Favorites 只允许添加当时存在的目录；之后失效会保留并标记 missing，避免静默丢失用户配置。
+- 收藏移除只改 destinations.json，不删除目录。KI-11、KI-12 状态不变。

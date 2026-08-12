@@ -579,3 +579,16 @@ pytest tests -q                       → 132 passed, 1 xfailed
 ### 下一步
 
 Phase 11：常用目的地（favorites）。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 11：常用目的地
+
+新增 `destinations.py` favorites 持久化；支持已有目录加入、去重、重启、移除引用、missing 状态和损坏文件回退。Pocket UI 增加收藏目录选择与快捷 Copy/Move；删除收藏不删除目录。
+
+```text
+pytest tests/unit/test_destinations.py -q → 7 passed
+pytest tests -q                          → 140 passed, 1 xfailed
+```
+
+下一步 Phase 12：记录最近目的地（去重置顶、上限 10、清空）。尚未执行。

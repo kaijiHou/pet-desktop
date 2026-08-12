@@ -171,7 +171,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `pocket_service.py` | ✅ Phase 6：引用型条目 {id,path,name,item_type,added_at}、exists 检查、JSON 持久化、去重、清理失效 |
 | `pocket_ui.py` | ✅ Phase 8：列表、打开/定位/复制路径、移除引用、清理失效；拖出留 Phase 9 |
 | `file_ops.py` (FileOperationService) | ✅ Phase 10：shutil 复制/移动 + rename/skip 冲突策略 + 部分失败报告 |
-| `destinations.py` (DestinationService) | 常用位置（增删）+ 最近位置（去重/置顶/上限 10/清空） |
+| `destinations.py` (DestinationService) | Phase 11 ✅ favorites；Phase 12 补 recents（去重/置顶/上限 10/清空） |
 | `explorer.py` | COM IShellWindows 获取前台 Explorer 当前目录 |
 | `events.py` (EventDispatcher + AnimationController) | WindowsEvent/PocketEvent/ReminderEvent/FileOperationEvent → 动画名 → fallback 链（specific→generic→idle）+ 缺失日志 |
 | `file_watch.py` | ReadDirectoryChangesW 事件驱动监听（仅监听用户指定的口袋相关目录，不扫全盘） |
@@ -223,7 +223,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 8 | Pocket UI | ✅ 列表窗 + 右键菜单 + 打开/定位/复制路径/移除/清失效 |
 | 9 | 拖出到 Explorer | ✅ QMimeData 本地 file URLs + Qt.CopyAction 标准拖放 |
 | 10 | 复制到/移动到 | ✅ file_ops + 自动编号/跳过冲突 + 部分失败报告 + Pocket 路径同步 |
-| 11 | 常用目的地 | favorites |
+| 11 | 常用目的地 | ✅ 目录收藏增删/去重/失效状态 + Pocket 快捷 Copy/Move |
 | 12 | 最近目的地 | recents 去重/上限 |
 | 13 | 当前 Explorer 目录 | COM IShellWindows |
 | 14 | Windows 文件事件 | ReadDirectoryChangesW |
@@ -309,3 +309,11 @@ Pocket 列表启用 Qt drag。`mime_data_for_selected()` 将所有已选且仍�
 `FileOperationService` 接收 sources、已存在的目标目录和冲突策略。默认 `rename` 生成 `name (1).ext`、`name (2).ext`，绝不静默覆盖；`skip` 明确跳过。同一批次逐项捕获 OSError，返回 `OperationReport`（succeeded/skipped/failed + 每项 source/destination/error），单项失败不终止后续项。目录复制使用 copytree，文件复制使用 copy2，移动使用 shutil.move；禁止目标位于源目录内部。
 
 Pocket UI 新增 Copy To / Move To。目标通过目录选择器显式选择；移动成功后用稳定 item ID 更新引用到实际目标（包括自动编号后的路径），复制不改变原引用。完成消息只汇总结果，不隐瞒失败数。
+
+---
+
+## 23. Phase 11 常用目的地（2026-08-12）
+
+`DestinationService` 在 `DATA_DIR/destinations.json` 的 `favorites` 数组持久化 `{id,path,name,added_at}`。只允许加入当前存在的目录，Windows 路径不区分大小写去重；目录后来消失时保留记录并显示 `[missing]`，不猜测或自动替换路径。移除收藏只改 JSON。
+
+Pocket UI 增加 Favorite destination 选择框、Add/Remove Favorite，以及 Copy/Move to Favorite。执行前再次检查目录存在；仍复用 Phase 10 FileOperationService，因此冲突与错误语义完全一致。测试文件隔离到 D 盘临时目录。

@@ -7,6 +7,7 @@ from PyQt5.QtGui import QDesktopServices, QDrag
 from PyQt5.QtWidgets import (
     QApplication,
     QDialog,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -19,6 +20,7 @@ from PyQt5.QtWidgets import (
 )
 
 from file_ops import FileOperationService
+from destinations import DestinationService
 
 
 class PocketListWidget(QListWidget):
@@ -53,10 +55,11 @@ class PocketListWidget(QListWidget):
 class PocketDialog(QDialog):
     """Browse and manage Pocket references without deleting target files."""
 
-    def __init__(self, service, parent=None, file_operations=None):
+    def __init__(self, service, parent=None, file_operations=None, destinations=None):
         super().__init__(parent)
         self.service = service
         self.file_operations = file_operations or FileOperationService()
+        self.destinations = destinations or DestinationService()
         self.setWindowTitle("Pocket")
         self.setMinimumSize(520, 340)
 
@@ -93,10 +96,28 @@ class PocketDialog(QDialog):
             row.addWidget(button)
         layout.addLayout(row)
 
+        favorite_row = QHBoxLayout()
+        favorite_row.addWidget(QLabel("Favorite destination:"))
+        self.favorite_combo = QComboBox()
+        favorite_row.addWidget(self.favorite_combo, 1)
+        self.add_favorite_button = QPushButton("Add Favorite…")
+        self.remove_favorite_button = QPushButton("Remove Favorite")
+        self.copy_favorite_button = QPushButton("Copy to Favorite")
+        self.move_favorite_button = QPushButton("Move to Favorite")
+        self.add_favorite_button.clicked.connect(self.add_favorite)
+        self.remove_favorite_button.clicked.connect(self.remove_favorite)
+        self.copy_favorite_button.clicked.connect(lambda: self.perform_favorite("copy"))
+        self.move_favorite_button.clicked.connect(lambda: self.perform_favorite("move"))
+        for button in (self.add_favorite_button, self.remove_favorite_button,
+                       self.copy_favorite_button, self.move_favorite_button):
+            favorite_row.addWidget(button)
+        layout.addLayout(favorite_row)
+
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button, alignment=Qt.AlignRight)
         self.refresh()
+        self.refresh_favorites()
 
     def refresh(self):
         self.item_list.clear()
@@ -169,6 +190,34 @@ class PocketDialog(QDialog):
                 f"Succeeded: {report.succeeded}\nSkipped: {report.skipped}\nFailed: {report.failed}",
             )
         return report
+
+    def refresh_favorites(self):
+        self.favorite_combo.clear()
+        for favorite in self.destinations.list_favorites():
+            suffix = " [missing]" if not favorite.exists else ""
+            self.favorite_combo.addItem(f"{favorite.name}{suffix}", favorite.id)
+        has_favorites = self.favorite_combo.count() > 0
+        self.remove_favorite_button.setEnabled(has_favorites)
+        self.copy_favorite_button.setEnabled(has_favorites)
+        self.move_favorite_button.setEnabled(has_favorites)
+
+    def add_favorite(self):
+        path = QFileDialog.getExistingDirectory(self, "Add Favorite Destination")
+        if path:
+            self.destinations.add_favorite(path)
+            self.refresh_favorites()
+
+    def remove_favorite(self):
+        favorite_id = self.favorite_combo.currentData()
+        if favorite_id:
+            self.destinations.remove_favorite(favorite_id)
+            self.refresh_favorites()
+
+    def perform_favorite(self, action, notify=True):
+        favorite = self.destinations.get_favorite(self.favorite_combo.currentData())
+        if not favorite or not favorite.exists:
+            return None
+        return self.perform_selected(action, favorite.path, notify=notify)
 
     def remove_selected(self, confirm=True):
         item = self.selected_item()

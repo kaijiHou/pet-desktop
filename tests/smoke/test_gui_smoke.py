@@ -11,6 +11,7 @@ import pytest
 import pet_window_web
 from reminder_ui import AddReminderDialog, ReminderListDialog
 from pocket_ui import PocketDialog
+from destinations import DestinationService
 
 
 class FakeDropEvent:
@@ -180,6 +181,25 @@ class TestGuiConstruction:
         assert moved.succeeded == 1
         assert not source.exists()
         assert pet_window.pocket.get(original.id).path == (move_dest / source.name).resolve()
+        dialog.remove_selected(confirm=False)
+        dialog.close()
+
+    def test_favorite_destination_copy_and_remove_only_reference(self, pet_window, test_temp_root):
+        source = test_temp_root / "favorite-source.txt"
+        favorite_folder = test_temp_root / "favorite"
+        source.write_text("favorite"); favorite_folder.mkdir()
+        pet_window.pocket.add(source)
+        destinations = DestinationService(test_temp_root / "destinations.json")
+        favorite = destinations.add_favorite(favorite_folder)
+        dialog = PocketDialog(pet_window.pocket, pet_window, destinations=destinations)
+
+        assert dialog.favorite_combo.count() == 1
+        report = dialog.perform_favorite("copy", notify=False)
+        assert report.succeeded == 1
+        assert (favorite_folder / source.name).exists()
+        dialog.remove_favorite()
+        assert destinations.list_favorites() == []
+        assert favorite_folder.exists()
         dialog.remove_selected(confirm=False)
         dialog.close()
 
