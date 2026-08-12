@@ -92,6 +92,24 @@ class PocketService:
         LOGGER.info("Pocket reference removed id=%s", item_id)
         return True
 
+    def replace_path(self, item_id: str, new_path: Path) -> PocketItem:
+        existing = self.get(item_id)
+        if existing is None:
+            raise KeyError(item_id)
+        resolved = Path(new_path).expanduser().resolve()
+        if not resolved.exists():
+            raise FileNotFoundError(resolved)
+        replacement = PocketItem(
+            id=existing.id,
+            path=resolved,
+            name=resolved.name or str(resolved),
+            item_type="directory" if resolved.is_dir() else "file",
+            added_at=existing.added_at,
+        )
+        self._items = [replacement if item.id == item_id else item for item in self._items]
+        self._save()
+        return replacement
+
     def cleanup_missing(self) -> list[PocketItem]:
         missing = [item for item in self._items if not item.exists]
         if missing:

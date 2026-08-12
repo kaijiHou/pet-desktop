@@ -7,6 +7,7 @@ from PyQt5.QtGui import QDesktopServices, QDrag
 from PyQt5.QtWidgets import (
     QApplication,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -16,6 +17,8 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+
+from file_ops import FileOperationService
 
 
 class PocketListWidget(QListWidget):
@@ -50,9 +53,10 @@ class PocketListWidget(QListWidget):
 class PocketDialog(QDialog):
     """Browse and manage Pocket references without deleting target files."""
 
-    def __init__(self, service, parent=None):
+    def __init__(self, service, parent=None, file_operations=None):
         super().__init__(parent)
         self.service = service
+        self.file_operations = file_operations or FileOperationService()
         self.setWindowTitle("Pocket")
         self.setMinimumSize(520, 340)
 
@@ -72,12 +76,16 @@ class PocketDialog(QDialog):
         self.open_button = QPushButton("Open")
         self.reveal_button = QPushButton("Show in Explorer")
         self.copy_button = QPushButton("Copy Path")
+        self.copy_to_button = QPushButton("Copy To…")
+        self.move_to_button = QPushButton("Move To…")
         self.remove_button = QPushButton("Remove from Pocket")
         self.cleanup_button = QPushButton("Clean Missing")
         for button, handler in (
             (self.open_button, self.open_selected),
             (self.reveal_button, self.reveal_selected),
             (self.copy_button, self.copy_selected),
+            (self.copy_to_button, self.copy_selected_to),
+            (self.move_to_button, self.move_selected_to),
             (self.remove_button, self.remove_selected),
             (self.cleanup_button, self.cleanup_missing),
         ):
@@ -105,7 +113,10 @@ class PocketDialog(QDialog):
             self.item_list.setCurrentRow(0)
         self.item_list.setVisible(has_items)
         self.empty_label.setVisible(not has_items)
-        for button in (self.open_button, self.reveal_button, self.copy_button, self.remove_button):
+        for button in (
+            self.open_button, self.reveal_button, self.copy_button,
+            self.copy_to_button, self.move_to_button, self.remove_button,
+        ):
             button.setEnabled(has_items)
 
     def selected_item(self):
@@ -130,6 +141,34 @@ class PocketDialog(QDialog):
         item = self.selected_item()
         if item:
             QApplication.clipboard().setText(str(item.path))
+
+    def copy_selected_to(self):
+        destination = QFileDialog.getExistingDirectory(self, "Copy To")
+        if destination:
+            self.perform_selected("copy", destination)
+
+    def move_selected_to(self):
+        destination = QFileDialog.getExistingDirectory(self, "Move To")
+        if destination:
+            self.perform_selected("move", destination)
+
+    def perform_selected(self, action, destination, notify=True):
+        item = self.selected_item()
+        if not item:
+            return None
+        operation = self.file_operations.copy if action == "copy" else self.file_operations.move
+        report = operation([item.path], destination)
+        if action == "move" and report.succeeded:
+            result = next(result for result in report.items if result.status == "succeeded")
+            self.service.replace_path(item.id, result.destination)
+            self.refresh()
+        if notify:
+            QMessageBox.information(
+                self,
+                f"{action.title()} complete",
+                f"Succeeded: {report.succeeded}\nSkipped: {report.skipped}\nFailed: {report.failed}",
+            )
+        return report
 
     def remove_selected(self, confirm=True):
         item = self.selected_item()
@@ -159,6 +198,8 @@ class PocketDialog(QDialog):
             menu.addAction("Open"): self.open_selected,
             menu.addAction("Show in Explorer"): self.reveal_selected,
             menu.addAction("Copy Path"): self.copy_selected,
+            menu.addAction("Copy To…"): self.copy_selected_to,
+            menu.addAction("Move To…"): self.move_selected_to,
             menu.addAction("Remove from Pocket"): self.remove_selected,
         }
         selected = menu.exec_(self.item_list.mapToGlobal(position))

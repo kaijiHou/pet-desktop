@@ -57,6 +57,7 @@ python main.py
 | **Add to Pocket** | Drag a local file or folder onto Clippy |
 | **Open Pocket** | Right-click → Pocket |
 | **Drag from Pocket** | Drag an item from the Pocket list to Explorer/Desktop |
+| **Copy or move** | Pocket → select an item → Copy To… / Move To… |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |
@@ -84,6 +85,7 @@ clippy-desktop-pet/
 ├── reminder_ui.py            # Add/manage reminder dialogs
 ├── pocket_service.py         # Reference-only file/folder Pocket data
 ├── pocket_ui.py              # Pocket list and safe reference actions
+├── file_ops.py               # Non-overwriting copy/move operations
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/

@@ -554,3 +554,28 @@ pytest tests -q → 120 passed, 1 xfailed
 ### 下一步
 
 Phase 10：实现显式“复制到 / 移动到”文件操作服务与冲突/异常报告。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 10：复制到 / 移动到
+
+### 修改
+
+- 新增 `file_ops.py` 与结构化 OperationReport。
+- 文件/目录复制和移动；默认同名自动编号，可显式 skip，永不覆盖。
+- 缺失源、非法目标、OS 错误逐项报告；批量部分失败继续执行。
+- 拒绝目录复制/移动进自身后代。
+- Pocket UI 增加 Copy To / Move To；移动成功同步引用到真实新路径。
+
+### 验证
+
+```text
+pytest tests/unit/test_file_ops.py -q → 10 passed
+pytest tests -q                       → 132 passed, 1 xfailed
+```
+
+所有真实文件操作仅在 `D:\pet-desktop\tests\.tmp\` 隔离目录内执行；覆盖文件、目录、冲突、移动、缺失源、坏目标、部分失败、自包含保护与 Pocket 引用同步。
+
+### 下一步
+
+Phase 11：常用目的地（favorites）。尚未执行。

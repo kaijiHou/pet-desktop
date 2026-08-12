@@ -163,6 +163,26 @@ class TestGuiConstruction:
         dialog.cleanup_missing()
         dialog.close()
 
+    def test_pocket_copy_and_move_to_keep_reference_consistent(self, pet_window, test_temp_root):
+        source = test_temp_root / "operate.txt"
+        copy_dest = test_temp_root / "copies"
+        move_dest = test_temp_root / "moves"
+        source.write_text("payload"); copy_dest.mkdir(); move_dest.mkdir()
+        original = pet_window.pocket.add(source)
+        dialog = PocketDialog(pet_window.pocket, pet_window)
+
+        copied = dialog.perform_selected("copy", copy_dest, notify=False)
+        assert copied.succeeded == 1
+        assert source.exists() and (copy_dest / source.name).exists()
+        assert pet_window.pocket.get(original.id).path == source.resolve()
+
+        moved = dialog.perform_selected("move", move_dest, notify=False)
+        assert moved.succeeded == 1
+        assert not source.exists()
+        assert pet_window.pocket.get(original.id).path == (move_dest / source.name).resolve()
+        dialog.remove_selected(confirm=False)
+        dialog.close()
+
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert d is not None

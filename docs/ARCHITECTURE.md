@@ -170,7 +170,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `reminder_ui.py` | 添加提醒对话框、我的提醒列表、到期气泡（完成/稍后提醒） |
 | `pocket_service.py` | ✅ Phase 6：引用型条目 {id,path,name,item_type,added_at}、exists 检查、JSON 持久化、去重、清理失效 |
 | `pocket_ui.py` | ✅ Phase 8：列表、打开/定位/复制路径、移除引用、清理失效；拖出留 Phase 9 |
-| `file_ops.py` (FileOperationService) | shutil 复制/移动 + 全套异常处理 + 同名冲突策略 + 部分失败报告 |
+| `file_ops.py` (FileOperationService) | ✅ Phase 10：shutil 复制/移动 + rename/skip 冲突策略 + 部分失败报告 |
 | `destinations.py` (DestinationService) | 常用位置（增删）+ 最近位置（去重/置顶/上限 10/清空） |
 | `explorer.py` | COM IShellWindows 获取前台 Explorer 当前目录 |
 | `events.py` (EventDispatcher + AnimationController) | WindowsEvent/PocketEvent/ReminderEvent/FileOperationEvent → 动画名 → fallback 链（specific→generic→idle）+ 缺失日志 |
@@ -222,7 +222,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 7 | 拖入角色 | ✅ 两条 PetWindow 轨接收本地 file URL + Pocket 引用 + RECEIVE/Save 动画 |
 | 8 | Pocket UI | ✅ 列表窗 + 右键菜单 + 打开/定位/复制路径/移除/清失效 |
 | 9 | 拖出到 Explorer | ✅ QMimeData 本地 file URLs + Qt.CopyAction 标准拖放 |
-| 10 | 复制到/移动到 | file_ops + 冲突/异常全套 |
+| 10 | 复制到/移动到 | ✅ file_ops + 自动编号/跳过冲突 + 部分失败报告 + Pocket 路径同步 |
 | 11 | 常用目的地 | favorites |
 | 12 | 最近目的地 | recents 去重/上限 |
 | 13 | 当前 Explorer 目录 | COM IShellWindows |
@@ -301,3 +301,11 @@ WebEngine 当前轨以素材中现成的 `Save` 作为 RECEIVE 动画，原生�
 Pocket 列表启用 Qt drag。`mime_data_for_selected()` 将所有已选且仍存在的引用转换为 `QUrl.fromLocalFile`，装入标准 `QMimeData.urls`；`startDrag()` 仅以 `Qt.CopyAction` 交给目标应用。它不直接复制或移动文件，也不修改 Pocket；最终落地行为由 Windows/目标应用按标准文件拖放语义处理。
 
 失效引用被过滤；若选择中没有有效路径则不创建 QDrag。多选数据结构已支持，当前 QListWidget 默认选择模式仍为单选，后续可按体验需要开放 ExtendedSelection。
+
+---
+
+## 22. Phase 10 显式复制/移动（2026-08-12）
+
+`FileOperationService` 接收 sources、已存在的目标目录和冲突策略。默认 `rename` 生成 `name (1).ext`、`name (2).ext`，绝不静默覆盖；`skip` 明确跳过。同一批次逐项捕获 OSError，返回 `OperationReport`（succeeded/skipped/failed + 每项 source/destination/error），单项失败不终止后续项。目录复制使用 copytree，文件复制使用 copy2，移动使用 shutil.move；禁止目标位于源目录内部。
+
+Pocket UI 新增 Copy To / Move To。目标通过目录选择器显式选择；移动成功后用稳定 item ID 更新引用到实际目标（包括自动编号后的路径），复制不改变原引用。完成消息只汇总结果，不隐瞒失败数。

@@ -65,6 +65,16 @@ class TestPocketCrud:
         assert service.remove("missing") is False
         assert json.loads(storage.read_text(encoding="utf-8")) == []
 
+    def test_replace_path_preserves_identity_after_external_move(self, pocket, test_temp_root):
+        service, _ = pocket
+        source = test_temp_root / "old.txt"; source.touch()
+        item = service.add(source)
+        target = test_temp_root / "new.txt"
+        source.rename(target)
+        replaced = service.replace_path(item.id, target)
+        assert replaced.id == item.id
+        assert replaced.path == target.resolve()
+
 
 @pytest.mark.unit
 class TestPocketPersistence:

@@ -110,3 +110,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - 标准 file URL + CopyAction 数据路径已自动化；真实拖到不同 Explorer/桌面目标的 Windows shell 行为留 Phase 17 人工验收。
 - 当前列表为单选；底层 mime 构建已支持多选，是否开放多选属后续 UX 决策。
 - KI-11、KI-12 状态不变。
+
+## Phase 10 状态更新
+
+- Copy/Move 默认自动编号，明确禁止静默覆盖；目录进入自身后代会失败并报告。
+- 跨卷 move 由 shutil.move 退化为复制后删除，属于显式 Move To 操作的标准语义；自动测试仅覆盖同卷隔离目录，跨卷人工验收留 Phase 17。
+- KI-11、KI-12 状态不变。
