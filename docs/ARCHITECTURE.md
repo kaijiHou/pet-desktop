@@ -172,7 +172,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `pocket_ui.py` | ✅ Phase 8：列表、打开/定位/复制路径、移除引用、清理失效；拖出留 Phase 9 |
 | `file_ops.py` (FileOperationService) | ✅ Phase 10：shutil 复制/移动 + rename/skip 冲突策略 + 部分失败报告 |
 | `destinations.py` (DestinationService) | ✅ favorites + recents（成功后记录、去重置顶、上限 10、清空） |
-| `explorer.py` | COM IShellWindows 获取前台 Explorer 当前目录 |
+| `explorer.py` | ✅ Shell.Application Windows + foreground HWND 匹配当前 Explorer 目录 |
 | `events.py` (EventDispatcher + AnimationController) | WindowsEvent/PocketEvent/ReminderEvent/FileOperationEvent → 动画名 → fallback 链（specific→generic→idle）+ 缺失日志 |
 | `file_watch.py` | ReadDirectoryChangesW 事件驱动监听（仅监听用户指定的口袋相关目录，不扫全盘） |
 | 拖入支持 | PetWindow `dragEnterEvent/dropEvent` 接收 `text/uri-list` → RECEIVE_FILE 动画 + 入口袋 |
@@ -225,7 +225,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 10 | 复制到/移动到 | ✅ file_ops + 自动编号/跳过冲突 + 部分失败报告 + Pocket 路径同步 |
 | 11 | 常用目的地 | ✅ 目录收藏增删/去重/失效状态 + Pocket 快捷 Copy/Move |
 | 12 | 最近目的地 | ✅ 成功操作后记录、去重置顶、上限 10、清空 |
-| 13 | 当前 Explorer 目录 | COM IShellWindows |
+| 13 | 当前 Explorer 目录 | ✅ 前台 HWND 与 Shell window 精确匹配，无匹配不猜 fallback |
 | 14 | Windows 文件事件 | ReadDirectoryChangesW |
 | 15 | 事件→动画 | EventDispatcher/AnimationController + fallback |
 | 16 | 资源优化 | 移除 PyQtWebEngine（此时原生轨已完全接管）、idle 停帧 |
@@ -325,3 +325,11 @@ Pocket UI 增加 Favorite destination 选择框、Add/Remove Favorite，以及 C
 recents 与 favorites 共用 destinations.json 但分数组保存。只有 OperationReport 至少一项 succeeded 后才 `record_recent(destination)`；同一路径再次成功会复用稳定 ID 并移到首位，最多保存 10 条。失败、跳过或取消选择器不会新增历史。
 
 Pocket UI 提供 Recent destination 下拉框、Copy/Move to Recent 和 Clear Recents。missing 条目保留标记但禁止执行；清空只清 recents，不动 favorites、目标目录或 Pocket。
+
+---
+
+## 25. Phase 13 当前 Explorer 目录（2026-08-12）
+
+`ExplorerService` 先用 User32 读取 foreground HWND，再通过一个隐藏、非交互 PowerShell 进程查询 `Shell.Application.Windows()`，只选择 HWND 精确相同的 Shell window，并读取 `Document.Folder.Self.Path`。输出还必须是当前真实目录才返回 Path。无前台窗口、非 Explorer、虚拟位置、COM/PowerShell 错误或超时均返回 None；没有 Desktop/cwd 等伪 fallback。
+
+没有引入 pywin32/comtypes 常驻依赖。Pocket UI 的 Copy/Move to Explorer 在点击时即时查询；成功后仍进入 Phase 12 recents。PowerShell 使用参数列表、隐藏窗口、5 秒 timeout，不运行用户输入脚本。

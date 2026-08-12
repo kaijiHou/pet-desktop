@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (
 
 from file_ops import FileOperationService
 from destinations import DestinationService
+from explorer import ExplorerService
 
 
 class PocketListWidget(QListWidget):
@@ -55,11 +56,13 @@ class PocketListWidget(QListWidget):
 class PocketDialog(QDialog):
     """Browse and manage Pocket references without deleting target files."""
 
-    def __init__(self, service, parent=None, file_operations=None, destinations=None):
+    def __init__(self, service, parent=None, file_operations=None, destinations=None,
+                 explorer_service=None):
         super().__init__(parent)
         self.service = service
         self.file_operations = file_operations or FileOperationService()
         self.destinations = destinations or DestinationService()
+        self.explorer_service = explorer_service or ExplorerService()
         self.setWindowTitle("Pocket")
         self.setMinimumSize(520, 340)
 
@@ -126,6 +129,17 @@ class PocketDialog(QDialog):
         for button in (self.copy_recent_button, self.move_recent_button, self.clear_recents_button):
             recent_row.addWidget(button)
         layout.addLayout(recent_row)
+
+        explorer_row = QHBoxLayout()
+        explorer_row.addWidget(QLabel("Current Explorer:"))
+        self.copy_explorer_button = QPushButton("Copy to Explorer")
+        self.move_explorer_button = QPushButton("Move to Explorer")
+        self.copy_explorer_button.clicked.connect(lambda: self.perform_explorer("copy"))
+        self.move_explorer_button.clicked.connect(lambda: self.perform_explorer("move"))
+        explorer_row.addWidget(self.copy_explorer_button)
+        explorer_row.addWidget(self.move_explorer_button)
+        explorer_row.addStretch()
+        layout.addLayout(explorer_row)
 
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.accept)
@@ -256,6 +270,15 @@ class PocketDialog(QDialog):
     def clear_recents(self):
         self.destinations.clear_recents()
         self.refresh_recents()
+
+    def perform_explorer(self, action, notify=True):
+        destination = self.explorer_service.current_directory()
+        if destination is None:
+            if notify:
+                QMessageBox.warning(self, "Explorer unavailable",
+                                    "No active File Explorer folder was found.")
+            return None
+        return self.perform_selected(action, destination, notify=notify)
 
     def remove_selected(self, confirm=True):
         item = self.selected_item()

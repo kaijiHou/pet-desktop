@@ -221,6 +221,22 @@ class TestGuiConstruction:
         dialog.remove_selected(confirm=False)
         dialog.close()
 
+    def test_current_explorer_destination_uses_exact_discovered_directory(self, pet_window, test_temp_root):
+        source = test_temp_root / "explorer-source.txt"
+        target = test_temp_root / "explorer-target"
+        source.write_text("explorer"); target.mkdir()
+        pet_window.pocket.add(source)
+
+        class FakeExplorer:
+            def current_directory(self): return target
+
+        dialog = PocketDialog(pet_window.pocket, pet_window, explorer_service=FakeExplorer())
+        report = dialog.perform_explorer("copy", notify=False)
+        assert report.succeeded == 1
+        assert (target / source.name).read_text() == "explorer"
+        dialog.remove_selected(confirm=False)
+        dialog.close()
+
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert d is not None

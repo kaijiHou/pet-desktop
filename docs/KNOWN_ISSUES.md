@@ -126,3 +126,8 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 - Recents 只记录成功操作；最多 10 条，重复置顶。清空历史不影响 favorites 或磁盘。
 - missing 最近目录会展示但禁止执行，等待用户清空或路径恢复。KI-11、KI-12 不变。
+
+## Phase 13 状态更新
+
+- Explorer 查询依赖 Windows Shell COM 可用以及当前前台窗口为普通文件系统 Explorer；搜索、Home 等虚拟位置可能无文件系统 Path，会如实返回不可用。
+- 查询使用短生命周期隐藏 PowerShell，非轮询、非常驻；Phase 17 做真实前台窗口人工验收。KI-11、KI-12 不变。

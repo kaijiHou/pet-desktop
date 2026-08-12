@@ -193,3 +193,12 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | 全套 | `pytest tests -q` | **145 passed, 1 xfailed**（KI-11） |
 
 覆盖新近顺序、重用置顶去重、10 条上限、清空不影响 favorites；GUI 验证成功操作自动记录并可清空，目标目录仍存在。
+
+### Phase 13（2026-08-12）— 当前 Explorer 目录
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| Explorer + GUI targeted | `pytest test_explorer.py test_gui_smoke.py -q` | **25 passed** |
+| 全套 | `pytest tests -q` | **150 passed, 1 xfailed**（KI-11） |
+
+测试用注入 runner 覆盖精确 foreground HWND 查询、无前台窗口不启动查询、无匹配/错误、输出路径不存在；GUI 用 fake Explorer 验证文件确实复制到返回目录。真实 Shell COM 前台切换留 Phase 17 人工验收。

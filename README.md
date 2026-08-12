@@ -60,6 +60,7 @@ python main.py
 | **Copy or move** | Pocket → select an item → Copy To… / Move To… |
 | **Favorite folders** | Pocket → Add Favorite… then reuse it for copy/move |
 | **Recent folders** | Successful copy/move destinations appear automatically in Pocket |
+| **Current Explorer** | Pocket → Copy/Move to Explorer uses the active folder |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |
@@ -89,6 +90,7 @@ clippy-desktop-pet/
 ├── pocket_ui.py              # Pocket list and safe reference actions
 ├── file_ops.py               # Non-overwriting copy/move operations
 ├── destinations.py           # Favorite destination persistence
+├── explorer.py               # Foreground File Explorer directory query
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/

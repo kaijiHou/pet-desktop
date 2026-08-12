@@ -605,3 +605,16 @@ pytest tests -q                    → 145 passed, 1 xfailed
 ```
 
 下一步 Phase 13：获取当前前台 Explorer 目录并作为快捷目标。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 13：当前 Explorer 目录
+
+实现 foreground HWND → Shell.Application window 精确匹配，只返回真实存在目录；无 Explorer/虚拟位置/COM 失败返回 None，不伪造 fallback。Pocket 新增 Copy/Move to Explorer，成功后进入 recents。未新增 pywin32/comtypes 依赖。
+
+```text
+pytest explorer + GUI targeted → 25 passed
+pytest tests -q                → 150 passed, 1 xfailed
+```
+
+下一步 Phase 14：Windows 文件事件监听。尚未执行。
