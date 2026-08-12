@@ -479,3 +479,31 @@ scripts/smoke_baseline.py                   → 20 PASS / 1 FAIL（仅 KI-11）
 ### 下一步
 
 Phase 7：让 PetWindow 接收文件/目录拖入并写入 Pocket，引出 RECEIVE 动画。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 7：拖入角色加入 Pocket
+
+### 范围
+
+在两个 PetWindow 实现本地文件/目录拖入，调用 Phase 6 Pocket 引用服务并展示接收反馈；不实现 Pocket 列表窗口和拖出。
+
+### Red → Green
+
+先扩充 GUI smoke，得到 **3 failed, 10 passed**：窗口未持有 Pocket、未启用 drop、事件落到 Qt 默认实现。实现后新增 GUI/边界测试全部通过，全套 **115 passed, 1 xfailed**。
+
+### 修改与验证
+
+- `setAcceptDrops(True)`；dragEnter 只接受存在的本地 file URL。
+- drop 支持文件和目录批量加入、重复识别和部分失败；源文件不复制、不移动。
+- WebEngine 轨播放 `Save` 接收动画并显示 Pocket 结果气泡；原生轨使用 alert fallback。
+- smoke fixture 隔离 `POCKET_FILE`；脚本真实驱动 drop handler，验证 2 个引用且源文件内容不变。
+
+```text
+pytest tests -q                   → 115 passed, 1 xfailed
+scripts/smoke_baseline.py         → 21 PASS / 1 FAIL（仅 KI-11）
+```
+
+### 下一步
+
+Phase 8：实现 Pocket 列表窗口与右键操作。尚未执行。

@@ -138,3 +138,13 @@ Phase 3 新增 `unit/test_ai_removal.py`，固定以下边界：`ai_engine.py` �
 | GUI regression | `python scripts/smoke_baseline.py` | **20 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
 
 新增 12 项测试覆盖空存储、文件/目录引用、源文件零改动、缺失路径拒绝、路径去重、移除、重启、损坏/坏条目、动态 exists、隐藏失效项和清理失效引用。Phase 6 未改 GUI，原有 Reminder 与桌宠回归完整保留。
+
+### Phase 7（2026-08-12）— 拖入角色加入 Pocket
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| GUI targeted | `pytest tests/smoke/test_gui_smoke.py -q` | **13 passed** |
+| 全套 | `pytest tests -q` | **115 passed, 1 xfailed**（KI-11） |
+| GUI regression | `python scripts/smoke_baseline.py` | **21 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
+
+新增拖入契约验证：两个窗口均启用 drop 且不引用复制/移动 API；真实主窗口接受本地 file URL、拒绝远程 URL；文件与目录批量加入 Pocket，源内容保持不变。原始 smoke 输出见 `docs/phase7_smoke_output.txt`。

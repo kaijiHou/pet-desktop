@@ -12,6 +12,28 @@ import pet_window_web
 from reminder_ui import AddReminderDialog, ReminderListDialog
 
 
+class FakeDropEvent:
+    def __init__(self, urls):
+        self._urls = urls
+        self.accepted = False
+        self.ignored = False
+
+    def mimeData(self):
+        return self
+
+    def hasUrls(self):
+        return bool(self._urls)
+
+    def urls(self):
+        return self._urls
+
+    def acceptProposedAction(self):
+        self.accepted = True
+
+    def ignore(self):
+        self.ignored = True
+
+
 @pytest.mark.smoke
 @pytest.mark.gui
 class TestGuiConstruction:
@@ -34,6 +56,45 @@ class TestGuiConstruction:
         assert w.reminder is not None
         assert not hasattr(w, "ai_engine")
         assert not hasattr(w, "calendar")
+        assert w.pocket is not None
+        assert w.acceptDrops()
+
+    def test_drag_enter_accepts_local_files_only(self, pet_window, test_temp_root):
+        from PyQt5.QtCore import QUrl
+
+        source = test_temp_root / "drop.txt"
+        source.touch()
+        local = FakeDropEvent([QUrl.fromLocalFile(str(source))])
+        remote = FakeDropEvent([QUrl("https://example.com/file.txt")])
+
+        pet_window.dragEnterEvent(local)
+        pet_window.dragEnterEvent(remote)
+
+        assert local.accepted is True
+        assert remote.ignored is True
+
+    def test_drop_adds_file_and_directory_references_without_copying(self, pet_window, test_temp_root):
+        from PyQt5.QtCore import QUrl
+
+        source = test_temp_root / "drop.txt"
+        folder = test_temp_root / "folder"
+        source.write_text("untouched", encoding="utf-8")
+        folder.mkdir()
+        event = FakeDropEvent([
+            QUrl.fromLocalFile(str(source)),
+            QUrl.fromLocalFile(str(folder)),
+        ])
+
+        pet_window.dropEvent(event)
+
+        assert event.accepted is True
+        assert {item.path for item in pet_window.pocket.list_items()} == {
+            source.resolve(), folder.resolve()
+        }
+        assert source.read_text(encoding="utf-8") == "untouched"
+        assert "Pocket" in pet_window._bubble_text
+        for item in list(pet_window.pocket.list_items()):
+            pet_window.pocket.remove(item.id)
 
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)

@@ -26,16 +26,29 @@ if hasattr(sys.stdout, "reconfigure"):
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF
+from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF, QUrl
 from PyQt5.QtGui import QMouseEvent, QWheelEvent, QEnterEvent
 from PyQt5.QtWidgets import QApplication, QMenu
 from PyQt5.QtCore import QEvent
 
 import config as config_mod
+import pocket_service
 import reminder_service
 import pet_window_web
 
 RESULTS = []
+
+
+class FakeDropEvent:
+    def __init__(self, paths):
+        self._urls = [QUrl.fromLocalFile(str(path)) for path in paths]
+        self.accepted = False
+
+    def mimeData(self): return self
+    def hasUrls(self): return bool(self._urls)
+    def urls(self): return self._urls
+    def acceptProposedAction(self): self.accepted = True
+    def ignore(self): pass
 
 
 def record(item, status, detail=""):
@@ -72,8 +85,11 @@ def main():
     config_mod.CONFIG_DIR = smoke_dir
     config_mod.CONFIG_FILE = smoke_dir / "config.json"
     reminder_service.REMINDERS_FILE = smoke_dir / "reminders.json"
+    pocket_service.POCKET_FILE = smoke_dir / "pocket.json"
     if reminder_service.REMINDERS_FILE.exists():
         reminder_service.REMINDERS_FILE.unlink()
+    if pocket_service.POCKET_FILE.exists():
+        pocket_service.POCKET_FILE.unlink()
     config = config_mod.Config()
 
     t_start = time.time()
@@ -203,6 +219,19 @@ def main():
     record("动画结束后状态恢复(ALERT→IDLE)", "PASS" if restored else "FAIL",
            f"state={window._state}")
 
+    # ── Phase 7 local file/folder drop into reference-only Pocket ──
+    drop_file = smoke_dir / "drop-smoke.txt"
+    drop_folder = smoke_dir / "drop-folder"
+    drop_file.write_text("untouched", encoding="utf-8")
+    drop_folder.mkdir(exist_ok=True)
+    drop_event = FakeDropEvent([drop_file, drop_folder])
+    window.dropEvent(drop_event)
+    pocket_paths = {item.path for item in window.pocket.list_items()}
+    drop_ok = (drop_event.accepted and pocket_paths == {drop_file.resolve(), drop_folder.resolve()}
+               and drop_file.read_text(encoding="utf-8") == "untouched")
+    record("拖入文件/目录加入 Pocket 引用", "PASS" if drop_ok else "FAIL",
+           f"accepted={drop_event.accepted}, items={len(pocket_paths)}, source_untouched={drop_file.exists()}")
+
     # ── Context menu construction (exec_ intercepted, original builder runs) ──
     captured = {}
     orig_exec = QMenu.exec_
@@ -277,7 +306,7 @@ def main():
     n_fail = sum(1 for _, s, _ in RESULTS if s == "FAIL")
     print(f"\nSUMMARY: {n_pass} PASS / {n_fail} FAIL / {len(RESULTS)} total")
 
-    out = REPO / "docs" / "phase5_smoke_output.txt"
+    out = REPO / "docs" / "phase7_smoke_output.txt"
     out.write_text("\n".join(f"[{s}] {i} — {d}" for i, s, d in RESULTS)
                    + f"\n\nSUMMARY: {n_pass} PASS / {n_fail} FAIL\n", encoding="utf-8")
     print(f"raw results -> {out}")

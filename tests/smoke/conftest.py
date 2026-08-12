@@ -25,6 +25,7 @@ def pet_window(qapp):
     """
     import config as config_mod
     import pet_window_web
+    import pocket_service
     import reminder_service
     import sounds
 
@@ -34,10 +35,16 @@ def pet_window(qapp):
     cfg_dir = tmp / "desktop-pet"
     cfg_dir.mkdir(parents=True)
 
-    saved = (config_mod.CONFIG_DIR, config_mod.CONFIG_FILE, reminder_service.REMINDERS_FILE)
+    saved = (
+        config_mod.CONFIG_DIR,
+        config_mod.CONFIG_FILE,
+        reminder_service.REMINDERS_FILE,
+        pocket_service.POCKET_FILE,
+    )
     config_mod.CONFIG_DIR = cfg_dir
     config_mod.CONFIG_FILE = cfg_dir / "config.json"
     reminder_service.REMINDERS_FILE = tmp / "reminders.json"
+    pocket_service.POCKET_FILE = tmp / "pocket.json"
     saved_sound = sounds.play_startup
     sounds.play_startup = lambda: None
 
@@ -54,5 +61,6 @@ def pet_window(qapp):
     except Exception:
         pass
     sounds.play_startup = saved_sound
-    config_mod.CONFIG_DIR, config_mod.CONFIG_FILE, reminder_service.REMINDERS_FILE = saved
+    (config_mod.CONFIG_DIR, config_mod.CONFIG_FILE,
+     reminder_service.REMINDERS_FILE, pocket_service.POCKET_FILE) = saved
     shutil.rmtree(tmp, ignore_errors=True)

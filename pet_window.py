@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
 
 from config import Config, CONFIG_DIR
 from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
+from pocket_service import PocketService
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -70,6 +71,7 @@ class PetWindow(QWidget):
         super().__init__()
         self.config = config
         self.reminder = ReminderService()
+        self.pocket = PocketService()
 
         # Sprite loader
         self.sprite_loader = PetSpriteLoader(CONFIG_DIR / "assets", config.get("pet_scale", 2))
@@ -103,6 +105,7 @@ class PetWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_QuitOnClose, False)
+        self.setAcceptDrops(True)
         self.setFixedSize(self._pet_w + 20, self._pet_h + 20)
         self.setMouseTracking(True)
 
@@ -379,6 +382,55 @@ class PetWindow(QWidget):
         self._last_activity = time.time()
         if self._state == self.STATE_SLEEP:
             self.set_state(self.STATE_IDLE)
+
+    def dragEnterEvent(self, event):
+        if self._local_drop_paths(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        paths = self._local_drop_paths(event)
+        if not paths:
+            event.ignore()
+            return
+
+        added = 0
+        duplicates = 0
+        for path in paths:
+            before = len(self.pocket.list_items())
+            try:
+                self.pocket.add(path)
+                if len(self.pocket.list_items()) == before:
+                    duplicates += 1
+                else:
+                    added += 1
+            except (OSError, ValueError):
+                continue
+
+        if added:
+            self.set_state(self.STATE_ALERT)
+            detail = f" ({duplicates} already there)" if duplicates else ""
+            self.show_bubble(f"📥 Added {added} item(s) to Pocket{detail}.", 4500)
+            QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
+        elif duplicates:
+            self.show_bubble("✅ Already in Pocket.", 3000)
+        else:
+            self.show_bubble("⚠️ I couldn't add those items.", 3500)
+        event.acceptProposedAction()
+
+    @staticmethod
+    def _local_drop_paths(event):
+        mime = event.mimeData()
+        if not mime.hasUrls():
+            return []
+        paths = []
+        for url in mime.urls():
+            if url.isLocalFile():
+                path = Path(url.toLocalFile())
+                if path.exists():
+                    paths.append(path)
+        return paths
 
     # ── Animation ──
 

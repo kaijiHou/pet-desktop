@@ -92,3 +92,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - Pocket 数据层只保存引用，remove/cleanup 不碰目标文件；未新增破坏性文件操作风险。
 - 目标文件可能被外部改名、移动或删除；当前以 `exists=False` 如实标记，无法自动追踪新路径。这是引用模型的预期边界，Phase 14 文件事件只能提升实时性，不能保证跨卷追踪身份。
 - KI-11、KI-12 状态不变；Phase 6 未触碰 GUI 渲染轨。
+
+## Phase 7 状态更新
+
+- Qt file URL 拖入文件/目录已实测；网页 URL 和不存在路径会拒绝。部分路径失败时其余有效项仍能加入。
+- 原生备用渲染轨尚无独立 RECEIVE 状态，暂使用 alert fallback；Phase 15 统一事件到动画映射时处理。
+- KI-11 仍是唯一回归失败；KI-12 不变。

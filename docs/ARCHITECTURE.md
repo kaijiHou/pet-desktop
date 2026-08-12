@@ -219,7 +219,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 4 | 删 Google Calendar | ✅ calendar_service.py、OAuth、菜单项、Reminder 会议分支、依赖均已删除 |
 | 5 | 通用 Reminder | ✅ 本地 JSON 持久化 + next-due singleShot + 唤醒补查；V1 单次提醒 |
 | 6 | Pocket 数据层 | ✅ 引用模型 + 原子持久化 + 去重 + 失效检测/清理 |
-| 7 | 拖入角色 | PetWindow dropEvent + RECEIVE 动画 |
+| 7 | 拖入角色 | ✅ 两条 PetWindow 轨接收本地 file URL + Pocket 引用 + RECEIVE/Save 动画 |
 | 8 | Pocket UI | 列表窗 + 右键菜单 |
 | 9 | 拖出到 Explorer | QMimeData urls 标准拖放 |
 | 10 | 复制到/移动到 | file_ops + 冲突/异常全套 |
@@ -277,3 +277,11 @@ D:\pet-desktop\
 `PocketService` 是纯 Python、无 Qt 依赖的引用仓库。`PocketItem` 字段固定为 `id/path/name/item_type/added_at`，其中 path 在加入时规范为绝对路径，`item_type` 只允许 file/directory。Pocket **不复制、不移动、不删除目标文件**；当前阶段所有 remove/cleanup 操作只修改 `pocket.json` 中的引用。
 
 默认存储为 `DATA_DIR/pocket.json`，同 Reminder 一样使用同目录临时文件 + replace 落盘。Windows 路径按不区分大小写规则去重；重复加入返回已有条目。`exists` 动态反映目标当前状态，列表可选择隐藏失效项，`cleanup_missing()` 仅移除失效引用。损坏的根 JSON 回退为空，坏条目和重复条目在加载时跳过并记录 warning。
+
+---
+
+## 19. Phase 7 拖入角色（2026-08-12）
+
+两个 PetWindow 均启用 Qt drop，入口只接受 `mimeData().urls()` 中实际存在的本地 file URL；网页、文本或已经消失的路径不接收。drop 后逐项调用 `PocketService.add()`，不引入 shutil 或任何文件操作。
+
+WebEngine 当前轨以素材中现成的 `Save` 作为 RECEIVE 动画，原生备用轨暂以 alert fallback 表示接收（Phase 15 事件映射时统一）。成功、重复、全失败分别显示明确气泡；批量拖入允许部分成功。测试 fixture 将 Pocket 存储重定向至 D 盘 `.tmp/tests`，不读取用户真实 Pocket。
