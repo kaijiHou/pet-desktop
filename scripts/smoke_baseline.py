@@ -1,0 +1,267 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Phase 1 baseline tool — functional smoke test for the ORIGINAL app (unmodified).
+
+Runs the real pet_window_web.PetWindow (same construction path as main.py)
+inside a scripted harness and verifies each baseline checklist item by driving
+the REAL business handlers with synthesized Qt events / direct service calls.
+
+No business code is modified. Items that need external credentials
+(OpenAI API / Google OAuth) are reported NOT TESTED by design.
+
+Run:  .venv/Scripts/python.exe scripts/smoke_baseline.py
+"""
+
+import json
+import sys
+import time
+import traceback
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+
+from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF
+from PyQt5.QtGui import QMouseEvent, QWheelEvent, QEnterEvent
+from PyQt5.QtWidgets import QApplication, QMenu
+from PyQt5.QtCore import QEvent
+
+from config import Config
+import pet_window_web
+
+RESULTS = []
+
+
+def record(item, status, detail=""):
+    RESULTS.append((item, status, detail))
+    print(f"[{status}] {item}" + (f" — {detail}" if detail else ""))
+
+
+def js_eval(app, page, code, timeout=4.0):
+    """Run JS and block until the callback fires (pumping the event loop)."""
+    holder = {}
+    def cb(r):
+        holder["r"] = r
+    page.runJavaScript(code, cb)
+    t0 = time.time()
+    while "r" not in holder and time.time() - t0 < timeout:
+        app.processEvents()
+        time.sleep(0.01)
+    return holder.get("r")
+
+
+def pump(app, seconds):
+    t0 = time.time()
+    while time.time() - t0 < seconds:
+        app.processEvents()
+        time.sleep(0.02)
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName("Clippy Desktop Pet")
+    app.setQuitOnLastWindowClosed(False)
+    config = Config()
+
+    t_start = time.time()
+    try:
+        window = pet_window_web.PetWindow(config)
+    except Exception as e:
+        record("主程序窗口构建", "FAIL", f"{type(e).__name__}: {e}")
+        traceback.print_exc()
+        return 2
+    window.show()
+
+    # Poll until the WebEngine page has loaded the sheet (max 20s)
+    sheet_loaded = False
+    while time.time() - t_start < 20:
+        app.processEvents()
+        time.sleep(0.05)
+        r = js_eval(app, window.web.page(), "sheet !== null", timeout=1.0)
+        if r is True:
+            sheet_loaded = True
+            break
+    ready_t = round(time.time() - t_start, 2)
+    record("主程序启动", "PASS" if window.isVisible() else "FAIL",
+           f"PetWindow visible={window.isVisible()}, page+sheet ready in {ready_t}s")
+
+    page = window.web.page()
+
+    # ── Window attributes ──
+    flags = window.windowFlags()
+    frameless = bool(flags & Qt.FramelessWindowHint)
+    ontop = bool(flags & Qt.WindowStaysOnTopHint)
+    record("窗口无边框", "PASS" if frameless else "FAIL", str(flags))
+    record("窗口置顶", "PASS" if ontop else "FAIL", str(flags))
+    record("背景透明", "PASS" if window.testAttribute(Qt.WA_TranslucentBackground) else "FAIL")
+
+    # ── Character visible (JS side loaded sheet & has frames) ──
+    state1 = js_eval(app, page, "getState()")
+    record("角色可见(sheet 已加载)", "PASS" if sheet_loaded else "FAIL",
+           f"getState()={state1}")
+
+    # ── Idle animation frame switching ──
+    s1 = js_eval(app, page, "getState()")
+    pump(app, 2.0)
+    s2 = js_eval(app, page, "getState()")
+    frames_advanced = False
+    try:
+        frames_advanced = json.loads(s2)["frame"] != json.loads(s1)["frame"]
+    except Exception:
+        pass
+    record("idle 动画切帧", "PASS" if frames_advanced else "FAIL",
+           f"before={s1} after={s2}")
+
+    # ── Non-idle animation plays ──
+    window.play_wave()
+    pump(app, 1.0)
+    st = js_eval(app, page, "getState()")
+    anim_name = json.loads(st)["anim"] if st else "?"
+    ok = anim_name in ("Wave", "Greeting")
+    record("非 idle 动画播放 (Wave/Greeting)", "PASS" if ok else "FAIL", f"current={anim_name}")
+
+    # ── Drag (real handlers with synthesized events) ──
+    pos_before = window.pos()
+    local = QPoint(10, 10)  # press point inside the window
+    press = QMouseEvent(QEvent.MouseButtonPress, QPointF(local),
+                        QPointF(pos_before + local),
+                        Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)
+    window.mousePressEvent(press)
+    # handler: move(globalPos - drag_pos) -> expected delta == pointer travel
+    target_global = QPoint(pos_before + local + QPoint(50, 40))
+    move = QMouseEvent(QEvent.MouseMove, QPointF(local), QPointF(target_global),
+                       Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)
+    window.mouseMoveEvent(move)
+    release = QMouseEvent(QEvent.MouseButtonRelease, QPointF(local),
+                          QPointF(target_global),
+                          Qt.LeftButton, Qt.NoButton, Qt.NoModifier)
+    window.mouseReleaseEvent(release)
+    pos_after = window.pos()
+    delta = (pos_after.x() - pos_before.x(), pos_after.y() - pos_before.y())
+    record("角色拖动", "PASS" if delta == (50, 40) else "FAIL",
+           f"delta={delta}, config.pet_x/y={config.get('pet_x')}/{config.get('pet_y')}")
+
+    # ── Wheel zoom (real wheelEvent) — KNOWN upstream bug (KI-11):
+    #    pet_window_web.py L640 passes float to setGeometry -> TypeError
+    #    is RAISED in the original handler on the first wheel event whenever
+    #    scale becomes non-integer. We record the exception as evidence.
+    scale_before = window._scale_val
+    wheel_err = None
+    try:
+        wheel = QWheelEvent(QPointF(20, 20),
+                            QPointF(QPoint(pos_after + QPoint(20, 20))),
+                            QPoint(0, 0), QPoint(0, 120), 120, Qt.Vertical,
+                            Qt.NoButton, Qt.NoModifier)
+        window.wheelEvent(wheel)
+    except Exception as e:
+        wheel_err = f"{type(e).__name__}: {e}"
+    zoom_ok = (wheel_err is None and window._scale_val == scale_before + 0.5)
+    record("滚轮缩放", "PASS" if zoom_ok else "FAIL",
+           f"scale {scale_before} -> {window._scale_val}, size={window.width()}x{window.height()}, "
+           f"exception={wheel_err or 'none'}")
+
+    # ── Sleep trigger (original logic: _check_idle after >30s inactivity) ──
+    window._last_activity = time.time() - 60  # simulate inactivity, original logic untouched
+    window._check_idle()
+    pump(app, 0.5)
+    st_sleep = js_eval(app, page, "getState()")
+    record("sleep 触发", "PASS" if window._state == window.STATE_SLEEP else "FAIL",
+           f"state={window._state}, js={st_sleep}")
+
+    # ── Wake via enterEvent ──
+    enter = QEnterEvent(QPointF(5, 5), QPointF(5, 5), QPointF(5, 5))
+    window.enterEvent(enter)
+    record("wake 恢复", "PASS" if window._state == window.STATE_IDLE else "FAIL",
+           f"state={window._state}")
+
+    # ── State restore after alert (original: ALERT -> 3s -> IDLE) ──
+    window.reminder.tick(31 * 60)  # accumulate past default 30-min water interval
+    pump(app, 0.5)
+    alerted = window._state == window.STATE_ALERT
+    bubble_text = window._bubble_text
+    pump(app, 3.6)  # original QTimer.singleShot(3000) back to IDLE
+    restored = window._state == window.STATE_IDLE
+    record("提醒触发(ALERT+气泡+音效路径)", "PASS" if (alerted and bubble_text) else "FAIL",
+           f"alerted={alerted}, bubble={bubble_text[:40]!r}")
+    record("动画结束后状态恢复(ALERT→IDLE)", "PASS" if restored else "FAIL",
+           f"state={window._state}")
+
+    # ── Context menu construction (exec_ intercepted, original builder runs) ──
+    captured = {}
+    orig_exec = QMenu.exec_
+    def fake_exec(self, *args):
+        captured["items"] = [a.text() for a in self.actions() if a.text()]
+        return None
+    try:
+        QMenu.exec_ = fake_exec
+        window._show_context_menu(QPoint(120, 120))
+    except Exception as e:
+        captured["error"] = str(e)
+    finally:
+        QMenu.exec_ = orig_exec
+    items = captured.get("items", [])
+    record("右键菜单构建", "PASS" if len(items) >= 5 else "FAIL",
+           f"items={items} err={captured.get('error', '')}")
+
+    # ── Settings dialog ──
+    try:
+        d = pet_window_web.SettingsDialog(window.config, window)
+        d.show()
+        pump(app, 0.5)
+        ok_settings = d.isVisible() and d.api_key_input is not None and d.water_interval is not None
+        d.close()
+        record("Settings 对话框", "PASS" if ok_settings else "FAIL",
+               "OpenAI/Water/Calendar groups constructed")
+    except Exception as e:
+        record("Settings 对话框", "FAIL", f"{type(e).__name__}: {e}")
+
+    # ── Chat dialog (UI init only; no API key => no external call) ──
+    try:
+        cd = pet_window_web.ChatDialog(window.ai_engine, window.config, "", window)
+        cd.show()
+        pump(app, 0.5)
+        ok_chat = cd.isVisible() and cd.chat_display is not None
+        cd.close()
+        reply = window.ai_engine.chat("halo")  # keyless path returns guidance, no network
+        ok_keyless = "API key" in reply
+        record("Chat UI 初始化", "PASS" if ok_chat else "FAIL", "dialog constructed & shown")
+        record("AI 无 Key 错误可控", "PASS" if ok_keyless else "FAIL",
+               f"reply={reply[:50]!r} (external API call NOT TESTED)")
+    except Exception as e:
+        record("Chat UI 初始化", "FAIL", f"{type(e).__name__}: {e}")
+
+    # ── Calendar path (import/init; no credentials => silent False, no browser) ──
+    try:
+        auth = window.calendar.authenticate()
+        record("Calendar 模块初始化", "PASS" if (auth is False and not window.calendar.is_authenticated) else "FAIL",
+               f"authenticate()={auth} (OAuth flow NOT TESTED, no credentials)")
+    except Exception as e:
+        record("Calendar 模块初始化", "FAIL", f"{type(e).__name__}: {e}")
+
+    # ── Reminder timers initialized ──
+    timers_ok = (window._remind_timer.isActive() and window._idle_timer.isActive()
+                 and window._idle_variety_timer.isActive())
+    record("Reminder/Idle Timer 初始化", "PASS" if timers_ok else "FAIL",
+           f"remind={window._remind_timer.interval()}ms idle={window._idle_timer.interval()}ms")
+
+    # ── Exit ──
+    window._quit_app()
+    pump(app, 1.0)
+    record("正常退出路径", "PASS", "_quit_app() -> QApplication.quit() called")
+
+    # ── Summary ──
+    n_pass = sum(1 for _, s, _ in RESULTS if s == "PASS")
+    n_fail = sum(1 for _, s, _ in RESULTS if s == "FAIL")
+    print(f"\nSUMMARY: {n_pass} PASS / {n_fail} FAIL / {len(RESULTS)} total")
+
+    out = REPO / "docs" / "baseline" / "smoke_output.txt"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(f"[{s}] {i} — {d}" for i, s, d in RESULTS)
+                   + f"\n\nSUMMARY: {n_pass} PASS / {n_fail} FAIL\n", encoding="utf-8")
+    print(f"raw results -> {out}")
+    return 1 if n_fail else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

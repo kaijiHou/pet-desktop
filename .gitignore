@@ -29,3 +29,9 @@ Desktop/*.png
 # ─── OS ───
 .DS_Store
 Thumbs.db
+
+# ─── Dev environment (Phase 1 hygiene) ───
+.venv/
+.cache/
+.tmp/
+logs/

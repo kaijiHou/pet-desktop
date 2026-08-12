@@ -1,0 +1,26 @@
+Baseline process-tree metrics — 2026-08-12T14:03:03
+page load: 2.93s
+
+### idle_1min
+  samples=59  proc_counts=[3]
+  CPU  avg=9.77%  peak=38.4%
+  RSS  avg=402.6 MB  peak=405.9 MB
+
+### idle_5min_cont
+  samples=237  proc_counts=[3]
+  CPU  avg=7.24%  peak=18.5%
+  RSS  avg=289.0 MB  peak=408.6 MB
+
+### animation
+  samples=30  proc_counts=[3]
+  CPU  avg=8.91%  peak=16.9%
+  RSS  avg=169.6 MB  peak=191.2 MB
+
+### ui_dialogs
+  samples=22  proc_counts=[3]
+  CPU  avg=15.42%  peak=67.6%
+  RSS  avg=136.3 MB  peak=150.3 MB
+
+### idle_5min (cumulative A+B window)
+  CPU  avg=7.74%  peak=38.4%
+  RSS  avg=311.6 MB  peak=408.6 MB

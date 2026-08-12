@@ -47,4 +47,18 @@ ReadDirectoryChangesW 只能报告"某路径发生 FILE_ACTION_REMOVED 等动作
 ## KI-09 🟡 PATH 中无真实 Python
 
 系统 PATH 的 `python` 是 Microsoft Store 空壳，无 `py` launcher，无裸 pip。可用解释器：uv 管理的 cpython 3.11.15（D:\hermes-agent\python\）与 D:\anaconda（3.9.7，偏旧）。
-**处置**：Phase 1 用 uv 以 3.11.15 在 `D:\pet-desktop\.venv` 建虚拟环境，不新装 Python。
+**处置**：Phase 1 已用 uv 以 3.11.15 在 `D:\pet-desktop\.venv` 建虚拟环境，不新装 Python。
+
+## KI-10 🟡 Baseline 只能使用 synthetic asset 验证渲染机制（KI-01 的 Phase 1 结论）
+
+上游仓库缺少 README 要求的外部 sprite sheet（`clippy_sheet.png` 被 .gitignore 排除，且 Clippy 形象受微软版权保护、README 声明不可再分发），**真实原版角色视觉不可复现**。
+**处置**：Phase 1 用 `scripts/gen_synthetic_assets.py` 生成 synthetic placeholder sheet（3348x3162，每帧带编号与几何标识，肉眼可辨切帧）部署到原代码固定的运行时路径 `~/desktop-pet/assets/`。所有"角色可见/动画切帧 PASS"结论**仅针对渲染机制**，不代表真实官方素材的视觉效果。性能数据同理：可用于衡量原架构（尤其 Chromium/WebEngine 开销），不代表真实 sprite 的最终渲染性能。
+
+## KI-11 🔴 上游 wheelEvent 滚轮缩放必现 TypeError（Phase 1 实测发现）
+
+`pet_window_web.py` L640：`self.web.setGeometry(10, 10, 124 * self._scale_val, 93 * self._scale_val)` —— `setFixedSize` 处已 `int()`，但 `setGeometry` 的两个尺寸参数是 float。`_scale_val` 步进 0.5，**任何一次滚轮缩放在 scale 为非整数时必然抛**：
+```text
+TypeError: setGeometry(...): argument 3 has unexpected type 'float'
+```
+异常发生在 `self._js(f"setScale(...)")` **之前**，因此：① 窗口固定尺寸更新成功、② webview 几何尺寸未更新、③ JS 缩放未下发 —— 每次滚轮后 webview 与窗口尺寸错位一层。smoke 实测 scale 3.5→4.0 时必现（见 docs/baseline/smoke_output.txt）。
+**处置**：Phase 1 按任务约束不修（保持原版可测量基线）。Phase 2 起接管渲染轨时顺带消除；若提前需要人工体验，一行 `int()` 修复即可（待批准后执行）。

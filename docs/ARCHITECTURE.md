@@ -48,7 +48,7 @@ D:\pet-desktop\                     (克隆自上游，全部 < 100KB，无二�
 |---|---|---|
 | 窗口骨架 | `QWidget` + `FramelessWindowHint \| WindowStaysOnTopHint \| Tool` + `WA_TranslucentBackground` + `WA_ShowWithoutActivating` | ✅ 直接复用 |
 | 拖动 | `mousePressEvent` 记 `globalPos - topLeft` 偏移，`mouseMoveEvent` 跟随，`mouseReleaseEvent` 存 `pet_x/pet_y` 到 config | ✅ 直接复用 |
-| 滚轮缩放 | `wheelEvent`，scale ∈ [1,6] 步进 0.5，`setFixedSize` + webview geometry + JS `setScale()` | ✅ 复用（JS 调用换成原生重绘） |
+| 滚轮缩放 | `wheelEvent`，scale ∈ [1,6] 步进 0.5，`setFixedSize` + webview geometry + JS `setScale()` | ⚠️ 复用（注意 KI-11：setGeometry 传 float 必现 TypeError，接管时修复） |
 | 右键菜单 | `QMenu.exec_()` 同步分发 | ✅ 复用（菜单项重构） |
 | 托盘 | `QSystemTrayIcon` + 代码绘制图标 + 菜单 | ✅ 复用（菜单项重构） |
 | 气泡 | 独立 top-level `QLabel` 窗口，QPainter 手绘 Win95 边框，20ms QTimer 打字机效果 | ✅ 直接复用 |

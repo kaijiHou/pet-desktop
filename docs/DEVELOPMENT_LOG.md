@@ -103,3 +103,110 @@ Phase 1：建立基线。
 3. 启动原项目（WebEngine 版）目视验证：显示/拖动/缩放/动画/右键/睡眠/提醒。
 4. 记录 BASELINE_COMMIT、依赖版本、原版 Idle CPU/RAM。
 5. 提交 baseline commit：`chore: establish project baseline`。
+
+---
+
+## 2026-08-12 (二) - Phase 1：建立可重复、可测量的原项目 Baseline
+
+### 目标
+
+在不修改原业务代码的前提下，建立可启动、可人工验收、可测 CPU/RAM、可重复复现的原项目基线。不提前实现后续功能。
+
+### 开始状态
+
+- Git：HEAD=7170124（Phase 0 docs commit），上游基线 5f0afa5，工作区干净。
+- UPSTREAM_BASELINE_COMMIT=5f0afa5，PHASE0_DOC_COMMIT=7170124（已记入 docs/baseline/baseline_environment.txt）。
+- 依赖：未安装；venv：不存在；素材：缺失（KI-01）。
+
+### 实际操作
+
+执行过的重要命令：
+
+```text
+# 会话级环境变量（每个新终端都先执行，未写系统永久变量）
+export UV_CACHE_DIR=D:/pet-desktop/.cache/uv PIP_CACHE_DIR=D:/pet-desktop/.cache/pip
+export TEMP=D:/pet-desktop/.tmp TMP=D:/pet-desktop/.tmp
+uv venv .venv --python 3.11.15                    → D:\pet-desktop\.venv（已验证解释器路径在 D 盘）
+uv pip install --python .venv/Scripts/python.exe PyQt5 PyQtWebEngine Pillow \
+    openai google-api-python-client google-auth-oauthlib pytz pytest psutil
+uv pip list --python .venv/Scripts/python.exe     → 真实版本记入 docs/baseline/baseline_environment.txt
+.venv/Scripts/python.exe scripts/gen_synthetic_assets.py   → sheet 3348x3162 + animations.json（43组/1227帧，校验通过）
+.venv/Scripts/python.exe scripts/smoke_baseline.py         → 19 PASS / 1 FAIL
+.venv/Scripts/python.exe scripts/measure_baseline.py       → 四场景进程树采样 358 样本，约 6 分钟
+```
+
+修改文件：
+
+* `.gitignore` — 追加 `.venv/ .cache/ .tmp/ logs/`（环境卫生，任务书 §25 允许；原文件已有 assets 素材排除，synthetic PNG 天然不进库）
+
+新增文件：
+
+* `scripts/gen_synthetic_assets.py` — synthetic sheet 生成 + clippy.html ANIMS 机械导出（不改坐标/duration/命名，导出后逐组校验帧数与抽验坐标）
+* `scripts/smoke_baseline.py` — 原程序功能性 smoke（真实构建 PetWindow，走原事件处理器）
+* `scripts/measure_baseline.py` — 进程树资源采样器（含 Chromium 子进程）
+* `requirements-baseline.txt` — 实测可用版本清单（KI-06 处置）
+* `docs/baseline/baseline_environment.txt` / `baseline_smoke_test.md` / `baseline_process_metrics.txt` / `baseline_process_metrics.json` / `smoke_output.txt`
+
+删除文件：无。业务代码改动：无（git diff 确认 9 个 .py 原样）。
+
+### 修改原因
+
+- 依赖按"全部 import + README + 启动需要"确定最小集：主轨需要 PyQt5+PyQtWebEngine；openai/google/pytz 是 ai_engine/calendar_service 的模块级 import，main.py 启动路径必然经过（Phase 1 不得绕过，任务书 §4）；pytest/psutil 为测量与后续测试框架。
+- synthetic 素材部署到 `~/desktop-pet/assets/`（C 盘，460KB）：原代码 ASSETS_DIR 固定指向用户目录（KI-02），Phase 1 禁止改业务代码改路径，只能按原预期路径放置；占用极小且已记录。
+- 提醒验证用 `reminder.tick(31*60)` 直接喂累计秒数越过 30min 阈值：不改默认代码逻辑、不需等 30 分钟、验证后立即结束进程（任务书 §10 最小测试配置）。
+
+### 遇到的问题
+
+1. 首次 smoke 中"角色可见 FAIL"——检查时机早于 sheet 异步加载完成。
+2. 滚轮缩放在真实 wheelEvent 下抛 TypeError。
+3. `du`/`find` 遍历 C 盘 AppData 大目录超时。
+4. 上游无 requirements 且模块级 import openai/google——缺任何一个 main.py 直接 ImportError。
+
+### 根因
+
+1. 测试脚本缺陷：sheet 加载是异步的，固定 pump 4s 不够；改为轮询 `sheet !== null`（最长 20s）。
+2. **上游真实 bug（KI-11）**：`wheelEvent` 把 float 传给 `setGeometry`，scale 非整数时必现；异常在 `setScale()` JS 下发之前抛出，导致窗口/webview 尺寸错位。Phase 1 按约束不修。
+3. 工具选择问题：改用目录一层 `ls -lt` 时间戳判断写入归属，不做全树遍历。
+4. 上游代码结构如此；已装 openai==3.0.0、google-api-python-client==2.198.0 等保证原版可启动。
+
+### 解决方案
+
+1. smoke 脚本改轮询等待，复跑全绿（该项转 PASS）。
+2. KI-11 登记为 🔴，留待 Phase 2 渲染轨接管时消除。
+3. C 盘污染判定改证据法：`LOCALAPPDATA/uv/cache` 顶层时间戳全部为 7/30、8/11 历史遗留 → 今日 0 写入。
+4. 完整安装原版启动所需全部依赖。
+
+### 验证
+
+```text
+git status                  → 仅 .gitignore 修改 + scripts/ docs/ requirements-baseline.txt 新增，业务 .py 零改动
+smoke_baseline.py           → 19 PASS / 1 FAIL（KI-11）
+measure_baseline.py         → 四场景完成，358 样本，进程数恒为 3（主进程+2 Chromium 子进程）
+```
+
+Baseline 资源实测（进程树求和，含 Chromium 子进程；详见 TEST_REPORT.md）：
+
+| 场景 | Avg CPU | Peak CPU | Avg RSS | Peak RSS |
+|---|---|---|---|---|
+| idle 1min | 9.77% | 38.4% | 402.6 MB | 405.9 MB |
+| idle 5min 累计 | 7.74% | 38.4% | 311.6 MB | 408.6 MB |
+| 动画播放 | 8.91% | 16.9% | 169.6 MB | 191.2 MB |
+| 对话框+提醒 | 15.42% | 67.6% | 136.3 MB | 150.3 MB |
+
+### C 盘污染检查
+
+- .venv → D:\pet-desktop\.venv ✓；uv cache → D:\pet-desktop\.cache\uv ✓；pip 未使用（uv 安装）；TEMP/TMP → D:\pet-desktop\.tmp ✓
+- C:\Users\13772\AppData\Local\uv\cache：全部历史遗留（7/30、8/11），今日 0 写入 ✓
+- C:\Users\13772\desktop-pet：460KB（原代码固定运行时路径，非缓存）
+- C 盘剩余：1.2G，与 Phase 0 相同 ✓
+
+### 当前状态
+
+- 原项目可在本机重复启动：`.venv/Scripts/python.exe main.py`（素材已就位）。
+- KI-01 状态更新为"已用 synthetic asset 解决机制验证，真实素材永久 BLOCKED"；新增 KI-10、KI-11。
+- ARCHITECTURE.md 修正一处 Phase 0 判断（wheelEvent 并非可直接复用，含 float bug）。
+
+### 下一步
+
+Phase 2：建立正式测试框架（tests/ + pytest 配置，处理 KI-07 的 .gitignore 放行）+ 程序日志基础。**不提前删除 AI Chat / Calendar。**
+
