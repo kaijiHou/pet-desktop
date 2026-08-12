@@ -21,8 +21,6 @@ EXPECTED_DEFAULTS = {
     "pet_scale": 3.0,
     "pet_x": -1,
     "pet_y": -1,
-    "water_interval_min": 30,
-    "water_enabled": True,
     "pet_name": "Clippy",
 }
 
@@ -50,11 +48,11 @@ class TestConfigDefaults:
 class TestConfigPersistence:
     def test_set_persists_and_is_reread_by_new_instance(self, isolated_config, tmp_path, monkeypatch):
         cfg = isolated_config
-        cfg.set("water_interval_min", 99)
+        cfg.set("pet_name", "Persistent")
 
         # A brand-new Config reading the same isolated file sees the value.
         fresh = config_mod.Config()
-        assert fresh.get("water_interval_min") == 99
+        assert fresh.get("pet_name") == "Persistent"
 
     def test_save_writes_valid_json_to_config_file(self, isolated_config, monkeypatch):
         cfg = isolated_config
@@ -76,7 +74,7 @@ class TestConfigPersistence:
 
         # Assert: override applied, other defaults intact.
         assert cfg.get("pet_scale") == 5.0
-        assert cfg.get("water_interval_min") == EXPECTED_DEFAULTS["water_interval_min"]
+        assert cfg.get("pet_name") == EXPECTED_DEFAULTS["pet_name"]
 
 
 # ── Missing / corrupt config file behavior ─────────────────────────────────

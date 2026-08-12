@@ -18,10 +18,6 @@ DEFAULT_CONFIG = {
     "pet_x": -1,  # -1 = center
     "pet_y": -1,
 
-    # Water reminder (minutes)
-    "water_interval_min": 30,
-    "water_enabled": True,
-
     # Character name
     "pet_name": "Clippy",
 }
@@ -41,6 +37,7 @@ LEGACY_CALENDAR_KEYS = {
     "calendar_check_interval_min",
     "calendar_reminder_minutes_before",
 }
+LEGACY_WATER_KEYS = {"water_interval_min", "water_enabled"}
 
 
 class Config:
@@ -55,6 +52,7 @@ class Config:
                     loaded = json.load(f)
                     had_legacy_ai_settings = bool(LEGACY_AI_KEYS.intersection(loaded))
                     had_legacy_calendar_settings = bool(LEGACY_CALENDAR_KEYS.intersection(loaded))
+                    had_legacy_water_settings = bool(LEGACY_WATER_KEYS.intersection(loaded))
                     had_legacy_pet_name = LEGACY_PET_NAME_KEY in loaded
                     if had_legacy_pet_name and "pet_name" not in loaded:
                         loaded["pet_name"] = loaded[LEGACY_PET_NAME_KEY]
@@ -63,13 +61,18 @@ class Config:
                         loaded.pop(key, None)
                     for key in LEGACY_CALENDAR_KEYS:
                         loaded.pop(key, None)
+                    for key in LEGACY_WATER_KEYS:
+                        loaded.pop(key, None)
                     self.data.update(loaded)
-                    if had_legacy_ai_settings or had_legacy_calendar_settings or had_legacy_pet_name:
+                    if (had_legacy_ai_settings or had_legacy_calendar_settings
+                            or had_legacy_water_settings or had_legacy_pet_name):
                         self.save()
             except (json.JSONDecodeError, OSError):
                 pass
 
     def save(self):
+        for key in LEGACY_AI_KEYS | LEGACY_CALENDAR_KEYS | LEGACY_WATER_KEYS | {LEGACY_PET_NAME_KEY}:
+            self.data.pop(key, None)
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_FILE, "w") as f:
             json.dump(self.data, f, indent=2)
@@ -78,6 +81,8 @@ class Config:
         return self.data.get(key, default)
 
     def set(self, key, value):
+        if key in LEGACY_AI_KEYS | LEGACY_CALENDAR_KEYS | LEGACY_WATER_KEYS | {LEGACY_PET_NAME_KEY}:
+            return
         self.data[key] = value
         self.save()
 

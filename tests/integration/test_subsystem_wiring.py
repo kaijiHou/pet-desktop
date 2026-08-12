@@ -17,38 +17,24 @@ GENERATOR = PROJECT_ROOT / "scripts" / "gen_synthetic_assets.py"
 
 @pytest.mark.integration
 class TestReminderConfigPersistence:
-    def test_set_water_interval_survives_config_reload(self, isolated_config):
+    def test_reminder_survives_service_reload_and_fires_once(self, test_temp_root):
         from reminder_service import ReminderService
-        import config as config_mod
+        from datetime import datetime, timedelta
 
-        svc = ReminderService(isolated_config)
-        svc.set_water_interval(77)
+        now = [datetime(2026, 8, 12, 12, 0, 0)]
+        storage = test_temp_root / "reminders.json"
+        svc = ReminderService(storage_path=storage, now_provider=lambda: now[0])
+        created = svc.add_reminder("Integration", now[0] + timedelta(minutes=5))
 
-        fresh_cfg = config_mod.Config()
-        assert fresh_cfg.get("water_interval_min") == 77
-
-        # A reminder rebuilt on the fresh config fires at the new interval.
-        fired = []
-        svc2 = ReminderService(fresh_cfg)
-        svc2.on_water_reminder = fired.append
-        svc2.tick(77 * 60)
-        assert len(fired) == 1
-
-    def test_enable_water_flag_persists_across_reload(self, isolated_config):
-        from reminder_service import ReminderService
-        import config as config_mod
-
-        svc = ReminderService(isolated_config)
-        svc.enable_water(False)
-
-        fresh_cfg = config_mod.Config()
-        assert fresh_cfg.get("water_enabled") is False
+        restarted = ReminderService(storage_path=storage, now_provider=lambda: now[0])
+        assert restarted.list_reminders()[0].id == created.id
 
         fired = []
-        svc2 = ReminderService(fresh_cfg)
-        svc2.on_water_reminder = fired.append
-        svc2.tick(30 * 60)
-        assert fired == []  # still disabled after reload
+        restarted.on_reminder_due = fired.append
+        now[0] += timedelta(minutes=5)
+        restarted.check_due()
+        restarted.check_due()
+        assert [r.content for r in fired] == ["Integration"]
 
 
 @pytest.mark.integration

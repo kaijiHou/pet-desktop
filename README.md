@@ -1,6 +1,6 @@
 # 📎 Clippy Desktop Pet
 
-A Windows desktop pet application — a Clippy-style paperclip character that sits on your desktop and reminds you to drink water.
+A Windows desktop pet application — a Clippy-style paperclip character with private, local reminders.
 
 > **⚠️ Asset Notice**
 > This repository does **not** include any character sprites or artwork. You need to provide your own!
@@ -13,7 +13,7 @@ A Windows desktop pet application — a Clippy-style paperclip character that si
 ## ✨ Features
 
 - 🖇️ **Desktop Pet** — always-on-top character that follows you around
-- 💧 **Water Reminder** — reminds you to drink every 30 minutes (configurable)
+- ⏰ **Local Reminders** — choose a date, time, and message; nothing is sent online
 - 🎭 **43 Animations** — idle, talking, thinking, searching, waving, sleeping, and more
 - 🔊 **Sound Effects** — beeps for reminders and interactions
 - 🪟 **Windows 95 / Office 97 Styling** — retro dialog boxes and tooltips
@@ -43,10 +43,6 @@ pip install PyQt5 PyQtWebEngine Pillow
 python main.py
 ```
 
-### First Run
-
-1. **Water Reminder** — Enabled by default (every 30 min)
-
 ## 🎮 Controls
 
 | Action | How |
@@ -54,13 +50,11 @@ python main.py
 | **Move** | Click & drag |
 | **Resize** | Scroll wheel |
 | **Greet** | Double-click Clippy |
+| **Add a reminder** | Right-click → Add Reminder |
+| **Manage reminders** | Right-click → My Reminders |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |
-
-## ⚙️ Settings
-
-- **Water Reminder** — Enable/disable, interval (5-180 min)
 
 ## 🎨 Custom Characters
 
@@ -81,7 +75,8 @@ clippy-desktop-pet/
 ├── main.py                   # Entry point
 ├── pet_window_web.py         # Main window + dialogs (WebEngine)
 ├── config.py                 # Configuration handler
-├── reminder_service.py       # Water reminder
+├── reminder_service.py       # Persistent local reminder service
+├── reminder_ui.py            # Add/manage reminder dialogs
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/

@@ -413,3 +413,37 @@ scripts/smoke_baseline.py             → 20 PASS / 1 FAIL（仅 KI-11）
 ### 下一步
 
 Phase 5：将旧喝水 Reminder 重构为本地日期+时间提醒。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 5：本地日期+时间提醒
+
+### 范围
+
+将固定间隔喝水提醒替换为完全本地的单次提醒：用户填写内容、日期和时间，可查看与删除；不接云服务、不提前做 Pocket。
+
+### Red → Green
+
+先把 Reminder 测试改写为新契约，首跑得到 **2 failed, 10 passed, 14 errors**，失败覆盖新构造参数、CRUD、持久化、一次性到期语义与配置遗留。实现后全套为 **100 passed, 1 xfailed**。
+
+### 修改
+
+- `reminder_service.py` 新增 Reminder 数据模型、本地 JSON 持久化、排序 CRUD、损坏数据容错、next-due、一次性触发、重启防重与 snooze。
+- 新增 `reminder_ui.py`：Add Reminder 采集内容/日期/时间；My Reminders 展示待办并删除。
+- WebEngine 主窗口与原生备用窗口同步接入：托盘/右键新增 Add Reminder、My Reminders；到期时 ALERT 动画、提示音和内容气泡。
+- 删除 5 秒轮询，改为最近到期项的 `QTimer(singleShot=True)`；应用恢复 Active 时补查睡眠期间到期项。
+- 删除喝水设置、回调、音效命名和配置默认值；旧 `water_*` 键启动后自动从磁盘清理。
+- smoke 测试的运行数据改到 `.tmp/smoke/`，提醒测试不触碰用户真实文件；原 Phase 4 证据保持不变。
+
+### 验证
+
+```text
+pytest tests/unit tests/integration -q → 89 passed
+pytest tests/smoke -q                 → 11 passed, 1 xfailed
+pytest tests -q                       → 100 passed, 1 xfailed
+scripts/smoke_baseline.py             → 20 PASS / 1 FAIL（仅 KI-11）
+```
+
+### 下一步
+
+Phase 6：实现 Pocket 引用型数据层。尚未执行。

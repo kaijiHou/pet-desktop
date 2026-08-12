@@ -80,3 +80,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - Google Calendar/OAuth 已完整删除；未新增 Known Issue。
 - 旧 config 的 `calendar_*` 键会自动清理。为避免未经授权删除用户数据，本阶段不删除用户目录中可能存在的 OAuth token/credentials 文件。
 - KI-11 仍是唯一回归失败并继续由 strict xfail 固定；KI-12 不变，因为 WebEngine 仍为当前渲染轨。
+
+## Phase 5 状态更新
+
+- 固定间隔喝水提醒已被本地日期+时间提醒替代；旧配置的 `water_*` 键会自动清理。
+- Reminder 存储损坏时安全回退为空，单条坏记录会跳过并写 warning；未新增阻塞问题。
+- KI-11 仍是唯一 GUI 回归失败；KI-12 不变，WebEngine 尚未移除。

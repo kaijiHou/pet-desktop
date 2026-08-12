@@ -4,9 +4,12 @@ Runs on the REAL platform (offscreen segfaults QWebEngineView.page()).
 Windows/dialogs are constructed but never shown.
 """
 
+from datetime import datetime, timedelta
+
 import pytest
 
 import pet_window_web
+from reminder_ui import AddReminderDialog, ReminderListDialog
 
 
 @pytest.mark.smoke
@@ -35,14 +38,35 @@ class TestGuiConstruction:
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert d is not None
-        assert d.minimumWidth() >= 420
+        assert d.minimumWidth() >= 360
         d.close()
 
-    def test_settings_dialog_reflects_config_values(self, pet_window):
+    def test_settings_dialog_has_no_legacy_reminder_controls(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
-        assert d.water_interval.value() == pet_window.config.get("water_interval_min")
-        assert d.water_enabled.isChecked() == pet_window.config.get("water_enabled")
+        assert not hasattr(d, "water_interval")
+        assert not hasattr(d, "water_enabled")
         d.close()
+
+    def test_local_reminder_dialogs_construct(self, pet_window):
+        add_dialog = AddReminderDialog(pet_window)
+        assert add_dialog.content_edit is not None
+        assert add_dialog.date_edit.date().isValid()
+        add_dialog.close()
+
+        list_dialog = ReminderListDialog(pet_window.reminder, pet_window)
+        assert list_dialog.reminder_list.count() == 0
+        list_dialog.close()
+
+    def test_reminder_list_shows_and_deletes_pending_item(self, pet_window):
+        reminder = pet_window.reminder.add_reminder(
+            "GUI smoke", datetime.now() + timedelta(hours=1)
+        )
+        dialog = ReminderListDialog(pet_window.reminder, pet_window)
+        assert dialog.reminder_list.count() == 1
+        assert "GUI smoke" in dialog.reminder_list.item(0).text()
+        dialog.delete_selected()
+        assert pet_window.reminder.list_reminders() == []
+        dialog.close()
 
     def test_settings_dialog_has_no_openai_controls(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
@@ -70,6 +94,8 @@ class TestGuiConstruction:
         assert len(items) >= 3, f"context menu should have >=3 items, got {items}"
         assert all("Tanya" not in item and "Chat" not in item for item in items)
         assert all("Jadwal" not in item and "Calendar" not in item for item in items)
+        assert any("Add Reminder" in item for item in items)
+        assert any("My Reminders" in item for item in items)
 
     def test_window_can_be_closed(self, pet_window):
         # close() on an unshown frameless tool window must not raise.

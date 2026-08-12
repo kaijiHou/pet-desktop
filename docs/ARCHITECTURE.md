@@ -217,7 +217,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 2 | 测试框架+日志+PathManager | 导出 animations.json；pytest 骨架；paths.py 全 D 盘 |
 | 3 | 删 AI Chat | ✅ ai_engine.py、ChatDialog、openai 运行依赖、config 键、菜单项均已删除 |
 | 4 | 删 Google Calendar | ✅ calendar_service.py、OAuth、菜单项、Reminder 会议分支、依赖均已删除 |
-| 5 | 通用 Reminder | JSON 持久化 + next-due timer + snooze/complete；V1 单次，重复视成本 |
+| 5 | 通用 Reminder | ✅ 本地 JSON 持久化 + next-due singleShot + 唤醒补查；V1 单次提醒 |
 | 6 | Pocket 数据层 | 引用模型 + 持久化 + 失效检测 |
 | 7 | 拖入角色 | PetWindow dropEvent + RECEIVE 动画 |
 | 8 | Pocket UI | 列表窗 + 右键菜单 |
@@ -259,3 +259,13 @@ D:\pet-desktop\
 5. 已登记历史问题用 `xfail(strict=True)` 固定（当前仅 KI-11）：修复后会 XPASS 失败，强制同步更新标记与文档。禁止为凑绿删测试/放宽断言/滥用 skip。
 
 **日志现状**：`main.py` 入口 wrapper 已接入 applog（startup / exit / uncaught exception 三类生命周期记录，异常原样 re-raise 保持退出码不变）。业务模块尚未逐点接入——Phase 3 删除/改造模块时顺带补 `logger = logging.getLogger(__name__)`。日志文件：`logs/app.log`（RotatingFileHandler，已 gitignore）。
+
+---
+
+## 17. Phase 5 本地提醒实现（2026-08-12）
+
+`ReminderService` 现为不依赖 Qt 的本地领域服务。`Reminder` 保存 `id/content/due_at/created_at/status`，默认写入 `DATA_DIR/reminders.json`；写入先生成同目录临时文件再原子替换。损坏 JSON 回退为空，单条坏数据跳过，不影响其他提醒。
+
+窗口层只持有一个 `QTimer(singleShot=True)`：每次增删、触发后根据 `next_due_at()` 重排最近到期项，超过 Qt 最大间隔时分段唤醒。应用重新变为 Active 时补跑 `check_due()`，覆盖系统睡眠期间错过的到期时间。到期项先持久化为 completed，再调用 UI callback，确保异常退出或重启不会重复通知。
+
+`reminder_ui.py` 提供 Add Reminder（内容、日期、时间）和 My Reminders（按到期时间排序、删除）两个对话框。V1 为单次提醒；服务保留 10 分钟 snooze 能力，交互式完成/稍后按钮留待后续提醒体验迭代。

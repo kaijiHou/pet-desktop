@@ -36,11 +36,11 @@ def _beep(freq=800, duration=150):
 
 # ─── Event Sounds ───
 
-def play_water_reminder():
-    """Play water reminder sound - cheerful double beep."""
-    threading.Thread(target=_water_beep, daemon=True).start()
+def play_reminder():
+    """Play a cheerful double beep for a due local reminder."""
+    threading.Thread(target=_reminder_beep, daemon=True).start()
 
-def _water_beep():
+def _reminder_beep():
     try:
         import winsound
         winsound.Beep(880, 120)

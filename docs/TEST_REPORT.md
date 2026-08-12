@@ -117,3 +117,14 @@ Phase 3 新增 `unit/test_ai_removal.py`，固定以下边界：`ai_engine.py` �
 | GUI regression | `PYTHONUTF8=1 python scripts/smoke_baseline.py` | **20 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
 
 新增 `unit/test_calendar_removal.py`，验证服务文件、OAuth 路径常量、Calendar config/UI/窗口/Reminder 引用和当前运行依赖全部移除；旧配置键从磁盘清理。喝水 Reminder 原有触发、禁用、间隔更新和跨 Config 重载测试全部保留并通过。Phase 4 原始 smoke 输出见 `docs/phase4_smoke_output.txt`。
+
+### Phase 5（2026-08-12）— 本地日期+时间提醒
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| unit + integration | `pytest tests/unit tests/integration -q` | **89 passed** |
+| smoke | `pytest tests/smoke -q` | **11 passed, 1 xfailed**（KI-11） |
+| 全套 | `pytest tests -q` | **100 passed, 1 xfailed** |
+| GUI regression | `python scripts/smoke_baseline.py` | **20 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
+
+新增 Reminder CRUD/持久化/损坏数据/排序/next-due/一次触发/重启防重/snooze 契约，以及旧 water 配置清理边界。GUI smoke 验证新增对话框构造、提醒列表删除、菜单入口；脚本实测到期项触发 ALERT、内容气泡和音效路径，且最近到期 singleShot timer 正常激活。原始输出见 `docs/phase5_smoke_output.txt`。

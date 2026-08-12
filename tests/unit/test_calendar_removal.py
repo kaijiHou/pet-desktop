@@ -41,7 +41,7 @@ class TestCalendarRemoval:
 
         cfg = config_mod.Config()
 
-        assert cfg.get("water_interval_min") == 44
+        assert cfg.get("water_interval_min") is None
         assert cfg.get("calendar_enabled") is None
         persisted = config_file.read_text(encoding="utf-8")
         assert "calendar_" not in persisted

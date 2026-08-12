@@ -17,7 +17,11 @@ import json
 import sys
 import time
 import traceback
+from datetime import datetime, timedelta
 from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
@@ -27,7 +31,8 @@ from PyQt5.QtGui import QMouseEvent, QWheelEvent, QEnterEvent
 from PyQt5.QtWidgets import QApplication, QMenu
 from PyQt5.QtCore import QEvent
 
-from config import Config
+import config as config_mod
+import reminder_service
 import pet_window_web
 
 RESULTS = []
@@ -62,7 +67,14 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Clippy Desktop Pet")
     app.setQuitOnLastWindowClosed(False)
-    config = Config()
+    smoke_dir = REPO / ".tmp" / "smoke"
+    smoke_dir.mkdir(parents=True, exist_ok=True)
+    config_mod.CONFIG_DIR = smoke_dir
+    config_mod.CONFIG_FILE = smoke_dir / "config.json"
+    reminder_service.REMINDERS_FILE = smoke_dir / "reminders.json"
+    if reminder_service.REMINDERS_FILE.exists():
+        reminder_service.REMINDERS_FILE.unlink()
+    config = config_mod.Config()
 
     t_start = time.time()
     try:
@@ -179,7 +191,8 @@ def main():
            f"state={window._state}")
 
     # ── State restore after alert (original: ALERT -> 3s -> IDLE) ──
-    window.reminder.tick(31 * 60)  # accumulate past default 30-min water interval
+    window.reminder.add_reminder("Smoke reminder", datetime.now() - timedelta(seconds=1))
+    window._check_due_reminders()
     pump(app, 0.5)
     alerted = window._state == window.STATE_ALERT
     bubble_text = window._bubble_text
@@ -217,12 +230,12 @@ def main():
         d = pet_window_web.SettingsDialog(window.config, window)
         d.show()
         pump(app, 0.5)
-        ok_settings = (d.isVisible() and d.water_interval is not None
+        ok_settings = (d.isVisible() and not hasattr(d, "water_interval")
                        and not hasattr(d, "api_key_input")
                        and not hasattr(d, "cal_enabled"))
         d.close()
         record("Settings 对话框", "PASS" if ok_settings else "FAIL",
-               "Water group constructed; AI/Calendar controls absent")
+               "legacy Water/AI/Calendar controls absent")
     except Exception as e:
         record("Settings 对话框", "FAIL", f"{type(e).__name__}: {e}")
 
@@ -246,7 +259,10 @@ def main():
            "requirements.txt has no Google Calendar/OAuth packages")
 
     # ── Reminder timers initialized ──
-    timers_ok = (window._remind_timer.isActive() and window._idle_timer.isActive()
+    future = window.reminder.add_reminder("Future smoke reminder", datetime.now() + timedelta(minutes=5))
+    window._schedule_next_reminder()
+    timers_ok = (window._remind_timer.isActive() and window._remind_timer.isSingleShot()
+                 and window._idle_timer.isActive()
                  and window._idle_variety_timer.isActive())
     record("Reminder/Idle Timer 初始化", "PASS" if timers_ok else "FAIL",
            f"remind={window._remind_timer.interval()}ms idle={window._idle_timer.interval()}ms")
@@ -261,7 +277,7 @@ def main():
     n_fail = sum(1 for _, s, _ in RESULTS if s == "FAIL")
     print(f"\nSUMMARY: {n_pass} PASS / {n_fail} FAIL / {len(RESULTS)} total")
 
-    out = REPO / "docs" / "phase4_smoke_output.txt"
+    out = REPO / "docs" / "phase5_smoke_output.txt"
     out.write_text("\n".join(f"[{s}] {i} — {d}" for i, s, d in RESULTS)
                    + f"\n\nSUMMARY: {n_pass} PASS / {n_fail} FAIL\n", encoding="utf-8")
     print(f"raw results -> {out}")

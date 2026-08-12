@@ -5,6 +5,7 @@ Desktop Pet Window — PyQt5 floating transparent pet with animations.
 import math
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtCore import (
@@ -24,6 +25,8 @@ from PyQt5.QtWidgets import (
 from config import Config, CONFIG_DIR
 from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
 from reminder_service import ReminderService
+from reminder_ui import AddReminderDialog, ReminderListDialog
+import sounds
 
 
 # ─── Settings Dialog ─────────────────────────────────────────────────────────
@@ -35,27 +38,13 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.config = config
         self.setWindowTitle("🐱 Mochi Settings")
-        self.setFixedSize(420, 380)
+        self.setFixedSize(380, 160)
         self._build_ui()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        # ── Water Settings ──
-        water_group = QGroupBox("💧 Drink Water Reminder")
-        water_layout = QFormLayout(water_group)
-
-        self.water_enabled = QCheckBox("Enable water reminder")
-        self.water_enabled.setChecked(self.config.get("water_enabled", True))
-        water_layout.addRow(self.water_enabled)
-
-        self.water_interval = QSpinBox()
-        self.water_interval.setRange(5, 180)
-        self.water_interval.setValue(self.config.get("water_interval_min", 45))
-        self.water_interval.setSuffix(" minutes")
-        water_layout.addRow("Interval:", self.water_interval)
-
-        layout.addWidget(water_group)
+        layout.addWidget(QLabel("Clippy is ready to keep your local reminders."))
 
         # ── Buttons ──
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -64,8 +53,6 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
 
     def _save(self):
-        self.config.set("water_enabled", self.water_enabled.isChecked())
-        self.config.set("water_interval_min", self.water_interval.value())
         self.accept()
 
 
@@ -82,7 +69,7 @@ class PetWindow(QWidget):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
-        self.reminder = ReminderService(config)
+        self.reminder = ReminderService()
 
         # Sprite loader
         self.sprite_loader = PetSpriteLoader(CONFIG_DIR / "assets", config.get("pet_scale", 2))
@@ -107,6 +94,7 @@ class PetWindow(QWidget):
 
         # Position
         self._load_position()
+        QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
 
     def _setup_window(self):
         self.setWindowFlags(
@@ -141,8 +129,10 @@ class PetWindow(QWidget):
         # Tray menu
         tray_menu = QMenu()
 
-        water_action = tray_menu.addAction("💧 Reset timer minum")
-        water_action.triggered.connect(self._reset_water)
+        add_action = tray_menu.addAction("➕ Add Reminder")
+        add_action.triggered.connect(self._open_add_reminder)
+        reminder_action = tray_menu.addAction("⏰ My Reminders")
+        reminder_action.triggered.connect(self._open_reminders)
 
         tray_menu.addSeparator()
 
@@ -173,10 +163,10 @@ class PetWindow(QWidget):
         self._anim_timer.setSingleShot(True)  # each frame schedules next
         self._schedule_next_frame()
 
-        # Reminder tick timer (every 5 seconds)
+        # One-shot timer scheduled for the nearest pending reminder.
         self._remind_timer = QTimer(self)
-        self._remind_timer.timeout.connect(self._remind_tick)
-        self._remind_timer.start(5000)
+        self._remind_timer.setSingleShot(True)
+        self._remind_timer.timeout.connect(self._check_due_reminders)
 
         # Idle check: after 5 min no activity → sleep
         self._idle_timer = QTimer(self)
@@ -191,7 +181,8 @@ class PetWindow(QWidget):
         self._anim_timer.start(max(16, min(2000, dur)))
 
     def _setup_callbacks(self):
-        self.reminder.on_water_reminder = self._on_water_reminder
+        self.reminder.on_reminder_due = self._on_reminder_due
+        self._schedule_next_reminder()
 
     def _setup_speech_bubble(self):
         """Speech bubble state — drawn inside PetWindow paintEvent."""
@@ -412,20 +403,40 @@ class PetWindow(QWidget):
 
     # ── Reminders ──
 
-    def _remind_tick(self):
-        self.reminder.tick(5)
+    def _schedule_next_reminder(self):
+        self._remind_timer.stop()
+        due_at = self.reminder.next_due_at()
+        if due_at is None:
+            return
+        delay_ms = max(0, int((due_at - datetime.now()).total_seconds() * 1000))
+        self._remind_timer.start(min(delay_ms, 2_147_000_000))
 
-    def _on_water_reminder(self, msg: str):
+    def _check_due_reminders(self):
+        self.reminder.check_due()
+        self._schedule_next_reminder()
+
+    def _application_state_changed(self, state):
+        if state == Qt.ApplicationActive:
+            self._check_due_reminders()
+
+    def _on_reminder_due(self, reminder):
         self.set_state(self.STATE_ALERT)
-        self.show_bubble(msg, 8000)
+        sounds.play_reminder()
+        self.show_bubble(f"⏰ Reminder: {reminder.content}", 10000)
         # Reset to idle after a bit
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
 
-    def _reset_water(self):
-        self.reminder.reset_water_timer()
-        self.show_bubble("✅ Timer minum di-reset! Aku kasih tau nanti lagi~", 3000)
-        self.set_state(self.STATE_TALKING)
-        QTimer.singleShot(2000, lambda: self.set_state(self.STATE_IDLE))
+    def _open_add_reminder(self):
+        dialog = AddReminderDialog(self)
+        if dialog.exec_():
+            content, due_at = dialog.values()
+            self.reminder.add_reminder(content, due_at)
+            self._schedule_next_reminder()
+            self.show_bubble(f"✅ Reminder saved for {due_at:%Y-%m-%d %H:%M}", 4000)
+
+    def _open_reminders(self):
+        ReminderListDialog(self.reminder, self).exec_()
+        self._schedule_next_reminder()
 
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
@@ -450,15 +461,18 @@ class PetWindow(QWidget):
             QMenu::item:selected { background: #ecd8c0; }
         """)
 
-        water_action = menu.addAction("💧 Reset Timer Minum")
+        add_action = menu.addAction("➕ Add Reminder")
+        reminder_action = menu.addAction("⏰ My Reminders")
         menu.addSeparator()
         settings_action = menu.addAction("⚙️ Settings")
         menu.addSeparator()
         quit_action = menu.addAction("✖️ Keluar")
 
         action = menu.exec_(pos)
-        if action == water_action:
-            self._reset_water()
+        if action == add_action:
+            self._open_add_reminder()
+        elif action == reminder_action:
+            self._open_reminders()
         elif action == settings_action:
             self._open_settings()
         elif action == quit_action:
@@ -470,8 +484,6 @@ class PetWindow(QWidget):
             self._update_from_settings()
 
     def _update_from_settings(self):
-        self.reminder.set_water_interval(self.config.get("water_interval_min", 45))
-        self.reminder.enable_water(self.config.get("water_enabled", True))
         self.tray_icon.setToolTip(f"{self.config.pet_name} — Desktop Pet")
 
     # ── Utilities ──
@@ -515,7 +527,7 @@ def main():
     name = config.pet_name
     welcome_msg = (
         f"Hai! Aku {name}~ 🐱\n"
-        "Aku bakal ingetin kamu minum air dan ngasih tau jadwalmu!"
+        "Aku siap membantu mengingat hal pentingmu!"
     )
 
     QTimer.singleShot(1500, lambda: (
