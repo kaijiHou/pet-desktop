@@ -668,3 +668,29 @@ PyQt5.QtWebEngineWidgets spec     → None
 ```
 
 下一步 Phase 17：完整回归与人工验收。尚未执行。
+
+---
+
+## 2026-08-12 (四) - Phase 17：完整回归与真实平台验收
+
+### 验收与修正
+
+- 新增 `scripts/acceptance_phase17.py`，全部读写隔离在 `.tmp/tests`；真实 Windows 平台 9 PASS / 0 FAIL。
+- 真实 `ReadDirectoryChangesW` 捕获 added/modified/renamed_from/renamed_to/removed；真实复制、移动、Reminder、Pocket 引用全部通过。
+- 用实际前台 Explorer 窗口核验 Shell COM，返回精确存在目录；中文路径可用。
+- 目视检查原生 neutral placeholder 截图，透明窗口、角色与名称均正常。
+- 60 秒稳定性：1 进程，avg CPU 1.35%、peak 3.0%，avg RSS 82.0MB、peak 87.0MB。
+- 验收发现并修正路径债务：配置与运行数据迁至项目/可执行文件旁 `data/`；删除三个硬编码原作者路径的旧启动脚本。
+- 真实跨窗口 Pocket 鼠标拖放因桌面自动化未提供 Qt 窗口几何而记为 BLOCKED；标准 file URL、CopyAction 与源文件不移动继续由自动化覆盖，不伪报人工 PASS。
+
+### Fresh verification
+
+```text
+pytest tests/unit -q          → 136 passed
+pytest tests/integration -q   → 2 passed
+pytest tests/smoke -q         → 24 passed
+pytest tests -q               → 162 passed
+acceptance_phase17.py         → 9 PASS / 0 FAIL
+```
+
+下一步 Phase 18：PyInstaller clean build、独立 EXE 启动验证与 release 交付。

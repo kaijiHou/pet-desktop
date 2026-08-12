@@ -15,15 +15,15 @@
 `pet_window_web.py` L30：`ASSETS_DIR = CONFIG_DIR / "assets"`（即 `~/desktop-pet/assets/`）。原版必须手动把素材复制到用户目录才能渲染。
 **处置**：PathManager 统一后，素材路径固定为项目内 `D:\pet-desktop\assets\`。
 
-## KI-03 🟠 config 默认写 C 盘
+## KI-03 ✅ config 默认写 C 盘（Phase 17 已修复）
 
 `config.py` L11：`CONFIG_DIR = Path.home() / "desktop-pet"`。
-**处置**：Phase 2 起由 PathManager 接管，配置写 `D:\pet-desktop\config\`。
+**处置**：Phase 17 由 PathManager 正式接管，开发态写项目 `data/`，冻结态写可执行文件旁 `data/`。
 
-## KI-04 🟡 上游脚本硬编码原作者路径
+## KI-04 ✅ 上游脚本硬编码原作者路径（Phase 17 已清理）
 
 `launch_mochi.bat` / `Mochi.vbs` / `add_to_startup.bat` / `pet_sprite.py __main__` 均含 `C:\Users\clara\...`。
-**处置**：三个启动脚本随 Phase 3/4 清理删除；pet_sprite.py 的 `__main__` 块改造或删除。
+**处置**：三个启动脚本已删除；pet_sprite 原生实现不含作者路径。
 
 ## KI-05 🟡 GitHub 直连失败
 
@@ -147,3 +147,10 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - KI-11 已修复；KI-12 随 WebEngine 删除关闭。正式套件 0 xfail。
 - 仓库不分发 sprite sheet；无自备素材时显示原创中性占位。Phase 1 本机 synthetic sheet 仍只用于机制/性能验证，不提交。
 - 帧缓存上限 96，idle 默认停帧；资源实测完整进程树为 1 个进程、avg RSS 78.7MB。
+
+## Phase 17 状态更新
+
+- KI-03 关闭：配置、Pocket、Reminder、Destinations 默认统一写项目/可执行文件旁 `data/`，不再隐式写 C 盘用户主目录。
+- KI-04 关闭：三个硬编码 `C:\Users\clara` 的旧启动脚本已删除；原生 sprite 模块也无作者路径。
+- KI-08 保持为已接受语义边界：真实 Win32 验收捕获五类文件事件，但仍不推断事件来源程序。
+- 真实 Explorer 前台目录查询通过。跨窗口 Pocket 鼠标拖放因桌面自动化不给 Qt 几何而 **BLOCKED**；底层标准 file URL + CopyAction 已由测试覆盖，需发布前由人手拖一次确认 Windows 手感。

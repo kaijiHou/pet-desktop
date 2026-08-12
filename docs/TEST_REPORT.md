@@ -231,3 +231,18 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | WebEngine import probe | `find_spec('PyQt5.QtWebEngineWidgets')` | **None** |
 
 新增 native placeholder/WebEngine removal 边界与事件动画回落测试；动画元数据测试改为跟踪 JSON 唯一源，GUI offscreen 全通过，KI-11 缩放测试从 strict xfail 转为普通 PASS。对比 Phase 1 WebEngine idle 3 进程、avg RSS 311.6–402.6MB、peak 408.6MB，原生轨内存下降约 75–80%。原始 smoke 和指标见 `docs/phase16_smoke_output.txt`、`docs/phase16_native_metrics.json`。
+
+### Phase 17（2026-08-12）— 完整回归与真实 Windows 验收
+
+| 层 | 命令/方式 | 结果 |
+|---|---|---|
+| Unit | `pytest tests/unit -q` | **136 passed** |
+| Integration | `pytest tests/integration -q` | **2 passed** |
+| GUI Smoke | `pytest tests/smoke -q` | **24 passed** |
+| Full | `pytest tests -q` | **162 passed**（0 xfail） |
+| 真实平台 acceptance | `python scripts/acceptance_phase17.py` | **9 PASS / 0 FAIL** |
+| 稳定性 60s | `measure_native.py --duration 60` | **1 process; avg CPU 1.35%; peak 3.0%; avg RSS 82.0MB; peak 87.0MB** |
+| 真实 Explorer COM | 指定前台 Explorer + `current_directory()` | **PASS**（存在目录，中文路径可用） |
+| Pocket 跨窗口鼠标拖出 | Windows 桌面自动化 | **BLOCKED**（Qt 窗口未提供可输入几何） |
+
+真实 acceptance 覆盖原生可见绘制/截图、拖动、整数缩放、本地提醒、Pocket 引用、真实复制、真实移动、Win32 五类目录事件和无 WebEngine 运行时。验收数据均在 `D:\pet-desktop\.tmp\tests`。跨窗口鼠标拖出没有伪报通过；底层 QMimeData 本地 file URL、QDrag CopyAction 与源文件保持存在由正式 smoke 覆盖。

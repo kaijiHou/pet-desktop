@@ -18,6 +18,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+release/
 
 # ─── Tests & temp ───
 # Rooted: upstream used a global `test_*.py` which also ignored tests/ (Phase 2 fix).
@@ -35,3 +36,4 @@ Thumbs.db
 .cache/
 .tmp/
 logs/
+data/

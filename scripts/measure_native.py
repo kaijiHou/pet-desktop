@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-"""Short native-renderer process-tree CPU/RSS measurement."""
+"""Native-renderer process-tree CPU/RSS measurement."""
 
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import json
+import argparse
 import statistics
 import sys
 import time
@@ -23,7 +24,7 @@ import reminder_service
 from pet_window import PetWindow
 
 
-def main(duration=30):
+def main(duration=30, output=None):
     temp = ROOT / ".tmp" / "native-measure"
     temp.mkdir(parents=True, exist_ok=True)
     config_mod.CONFIG_DIR = temp
@@ -70,10 +71,14 @@ def main(duration=30):
         "peak_rss_mb": round(max(s["rss_mb"] for s in samples), 1),
         "max_processes": max(s["processes"] for s in samples),
     }
-    output = ROOT / "docs" / "phase16_native_metrics.json"
+    output = Path(output) if output else ROOT / "docs" / "phase16_native_metrics.json"
     output.write_text(json.dumps({"summary": summary, "samples": samples}, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--duration", type=int, default=30)
+    parser.add_argument("--output")
+    args = parser.parse_args()
+    main(args.duration, args.output)

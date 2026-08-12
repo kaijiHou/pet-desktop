@@ -3,11 +3,11 @@
 import json
 from collections import OrderedDict
 from pathlib import Path
-
 from PIL import Image, ImageChops, ImageDraw
+from paths import BUNDLE_ROOT
 
 
-ASSETS_DIR = Path(__file__).parent / "assets"
+ASSETS_DIR = BUNDLE_ROOT / "assets"
 SPRITE_SHEET = ASSETS_DIR / "clippy_sheet.png"
 ANIMATIONS_FILE = ASSETS_DIR / "animations.json"
 SPRITE_W, SPRITE_H = 124, 93

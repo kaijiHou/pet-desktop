@@ -1,0 +1,56 @@
+{
+  "platform": "win32",
+  "qt_platform": "windows",
+  "temp_root": "D:\\pet-desktop\\.tmp\\tests\\phase17-h7cj4_ot",
+  "summary": {
+    "passed": 9,
+    "failed": 0
+  },
+  "results": [
+    {
+      "name": "原生透明窗口可见绘制",
+      "status": "PASS",
+      "detail": "392x299"
+    },
+    {
+      "name": "角色拖动",
+      "status": "PASS",
+      "detail": "1508,721 -> 1532,739"
+    },
+    {
+      "name": "整数安全缩放",
+      "status": "PASS",
+      "detail": "392x299 -> 454x345"
+    },
+    {
+      "name": "本地提醒到期",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "Pocket仅保存引用",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "真实本地复制",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "真实本地移动",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "ReadDirectoryChangesW真实事件",
+      "status": "PASS",
+      "detail": "added, modified, removed, renamed_from, renamed_to"
+    },
+    {
+      "name": "WebEngine运行时不存在",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

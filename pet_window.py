@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QSpinBox, QFormLayout, QGroupBox, QDialogButtonBox,
 )
 
-from config import Config, CONFIG_DIR
+from config import Config
 from pet_sprite import ANIMATIONS, ASSETS_DIR, PetSpriteLoader, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
 from pocket_ui import PocketDialog

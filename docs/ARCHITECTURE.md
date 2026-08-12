@@ -359,3 +359,11 @@ Pocket UI 提供 Recent destination 下拉框、Copy/Move to Recent 和 Clear Re
 Renderer 将逻辑 state 与具体 animation 分离：事件动画播放一轮后停回 RestPose；15–30 秒 singleShot 随机触发一次 idle 小动作，不持续空转。帧缓存用 LRU 上限 96，scale 改变无需无限保留旧尺寸。magic pink 透明处理改为 Pillow 通道运算，避免 Python 逐像素启动扫描。无用户 sprite sheet 时动态生成原创中性回形针占位，不再透明空窗，也不分发微软角色素材。
 
 30 秒进程树实测：1 进程，avg CPU 1.25%、peak 3.0%，avg RSS 78.7MB、peak 79.5MB。对比 Phase 1 WebEngine idle：3 进程，avg RSS 311.6–402.6MB、peak 408.6MB；内存约下降 75–80%，Chromium 子进程归零。
+
+---
+
+## 29. Phase 17 完整验收与便携路径（2026-08-12）
+
+真实 Windows 平台验收覆盖窗口绘制、拖动、缩放、本地提醒、Pocket 引用、真实复制/移动以及 ReadDirectoryChangesW 五类事件；隔离数据全部位于项目 `.tmp/tests`。前台 Explorer Shell COM 也对真实窗口与含中文的目录完成核验。
+
+验收发现 Phase 0 已登记的路径债务尚未真正关闭：运行配置仍默认写用户主目录，三个作者专用启动脚本仍硬编码 `C:\Users\clara`。现统一由 `paths.py` 解析源码/冻结程序根：开发态使用项目根，PyInstaller 冻结态使用 exe 所在目录；配置/Pocket/Reminder/Destination 放 `data/`，日志放 `logs/`，打包资源从 bundle root 读取。三个失效启动脚本删除，Phase 18 生成正式可执行文件。

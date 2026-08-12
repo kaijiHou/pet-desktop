@@ -9,15 +9,21 @@ Deliberately minimal — this does NOT migrate the user config system
 """
 
 from pathlib import Path
+import sys
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    PROJECT_ROOT = Path(sys.executable).resolve().parent
+    BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", PROJECT_ROOT))
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent
+    BUNDLE_ROOT = PROJECT_ROOT
 
 # Project-local directories (all on the project drive, D: in this workspace)
 LOG_DIR = PROJECT_ROOT / "logs"
 TEMP_DIR = PROJECT_ROOT / ".tmp"
 
-# User runtime state (upstream fixed location — see docs/KNOWN_ISSUES.md).
-# Kept here only so logging/tests have a named reference; business code
-# continues to use config.CONFIG_DIR unchanged.
-DATA_DIR = Path.home() / "desktop-pet"
+# Runtime state stays beside the project/executable instead of silently
+# consuming the system drive. It contains configuration and local indexes,
+# never the user's referenced Pocket payloads.
+DATA_DIR = PROJECT_ROOT / "data"
 CONFIG_DIR = DATA_DIR

@@ -4,11 +4,8 @@ Saves/loads user preferences as JSON.
 """
 
 import json
-import os
-from pathlib import Path
+from paths import CONFIG_DIR
 
-
-CONFIG_DIR = Path.home() / "desktop-pet"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 

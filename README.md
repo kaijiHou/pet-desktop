@@ -45,6 +45,9 @@ pip install PyQt5 Pillow
 python main.py
 ```
 
+Runtime settings and local indexes are stored in the project/executable's
+`data/` folder. Logs are stored beside it in `logs/`.
+
 ## 🎮 Controls
 
 | Action | How |
@@ -98,8 +101,7 @@ clippy-desktop-pet/
 ├── assets/
 │   ├── clippy_sheet.png      # ⚠️ YOU PROVIDE THIS (neutral placeholder otherwise)
 │   └── animations.json       # Tracked 43-animation metadata catalog
-├── launch_mochi.bat          # Windows launcher
-├── Mochi.vbs                 # Silent VBS launcher
+├── paths.py                  # Project/bundle-local runtime paths
 └── .gitignore
 ```
 
