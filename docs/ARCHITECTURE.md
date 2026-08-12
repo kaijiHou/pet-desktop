@@ -221,7 +221,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 6 | Pocket 数据层 | ✅ 引用模型 + 原子持久化 + 去重 + 失效检测/清理 |
 | 7 | 拖入角色 | ✅ 两条 PetWindow 轨接收本地 file URL + Pocket 引用 + RECEIVE/Save 动画 |
 | 8 | Pocket UI | ✅ 列表窗 + 右键菜单 + 打开/定位/复制路径/移除/清失效 |
-| 9 | 拖出到 Explorer | QMimeData urls 标准拖放 |
+| 9 | 拖出到 Explorer | ✅ QMimeData 本地 file URLs + Qt.CopyAction 标准拖放 |
 | 10 | 复制到/移动到 | file_ops + 冲突/异常全套 |
 | 11 | 常用目的地 | favorites |
 | 12 | 最近目的地 | recents 去重/上限 |
@@ -293,3 +293,11 @@ WebEngine 当前轨以素材中现成的 `Save` 作为 RECEIVE 动画，原生�
 `PocketDialog` 从 service 每次刷新引用，文件与目录使用不同图标，失效路径显示 `[missing]` 与灰色文字。操作包括 Open、Show in Explorer、Copy Path、Remove from Pocket、Clean Missing；双击等价于 Open，列表右键提供前四项。PetWindow 托盘及角色右键菜单均新增 Pocket 入口。
 
 安全边界：Remove 和 Clean Missing 只调用 PocketService 修改 JSON；确认提示明确写出原文件不会删除。Open 使用 Qt 本地 URL，Explorer 定位以参数列表启动且不使用 shell。自动测试拦截剪贴板，不覆盖用户真实剪贴板；Open/Explorer 外部副作用不在测试中执行。
+
+---
+
+## 21. Phase 9 从 Pocket 拖出（2026-08-12）
+
+Pocket 列表启用 Qt drag。`mime_data_for_selected()` 将所有已选且仍存在的引用转换为 `QUrl.fromLocalFile`，装入标准 `QMimeData.urls`；`startDrag()` 仅以 `Qt.CopyAction` 交给目标应用。它不直接复制或移动文件，也不修改 Pocket；最终落地行为由 Windows/目标应用按标准文件拖放语义处理。
+
+失效引用被过滤；若选择中没有有效路径则不创建 QDrag。多选数据结构已支持，当前 QListWidget 默认选择模式仍为单选，后续可按体验需要开放 ExtendedSelection。

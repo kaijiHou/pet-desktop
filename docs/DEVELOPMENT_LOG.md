@@ -531,3 +531,26 @@ scripts/smoke_baseline.py            → 21 PASS / 1 FAIL（仅 KI-11；菜单�
 ### 下一步
 
 Phase 9：从 Pocket 用标准 `QMimeData` file URL 拖出到 Explorer。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 9：从 Pocket 拖出
+
+### 修改
+
+- 新增 `PocketListWidget` 并启用 drag。
+- 有效引用转换为标准本地 file URL，`QDrag.exec_(Qt.CopyAction)` 交由 Explorer/Desktop 处理。
+- missing 引用不生成 mime data，空选择不启动 QDrag。
+- 无 shutil、无源文件写入、无 Pocket 数据变化。
+
+### 验证
+
+```text
+pytest tests -q → 120 passed, 1 xfailed
+```
+
+自动化验证 URL 的本地路径往返、CopyAction 源码边界、源文件仍存在与 missing 拒绝。真实鼠标拖到 Explorer 的端到端人工体验留 Phase 17。
+
+### 下一步
+
+Phase 10：实现显式“复制到 / 移动到”文件操作服务与冲突/异常报告。尚未执行。

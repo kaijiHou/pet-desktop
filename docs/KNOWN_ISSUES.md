@@ -104,3 +104,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - Pocket UI 的 Open/Explorer 定位依赖 Windows shell；自动化只覆盖调用边界，不在测试中真的启动外部窗口。完整人工验收放到 Phase 17。
 - Remove from Pocket 与 Clean Missing 均只删除引用，确认文案明确原文件不受影响。
 - KI-11、KI-12 状态不变。
+
+## Phase 9 状态更新
+
+- 标准 file URL + CopyAction 数据路径已自动化；真实拖到不同 Explorer/桌面目标的 Windows shell 行为留 Phase 17 人工验收。
+- 当前列表为单选；底层 mime 构建已支持多选，是否开放多选属后续 UX 决策。
+- KI-11、KI-12 状态不变。

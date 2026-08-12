@@ -15,6 +15,7 @@ A Windows desktop pet application — a Clippy-style paperclip character with pr
 - 🖇️ **Desktop Pet** — always-on-top character that follows you around
 - ⏰ **Local Reminders** — choose a date, time, and message; nothing is sent online
 - 📥 **Drag to Pocket** — drop local files or folders on Clippy to save references without moving them
+- 📤 **Drag from Pocket** — drag referenced items back to Explorer or the desktop
 - 🎭 **43 Animations** — idle, talking, thinking, searching, waving, sleeping, and more
 - 🔊 **Sound Effects** — beeps for reminders and interactions
 - 🪟 **Windows 95 / Office 97 Styling** — retro dialog boxes and tooltips
@@ -55,6 +56,7 @@ python main.py
 | **Manage reminders** | Right-click → My Reminders |
 | **Add to Pocket** | Drag a local file or folder onto Clippy |
 | **Open Pocket** | Right-click → Pocket |
+| **Drag from Pocket** | Drag an item from the Pocket list to Explorer/Desktop |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |

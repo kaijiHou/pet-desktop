@@ -2,8 +2,8 @@
 
 import subprocess
 
-from PyQt5.QtCore import QUrl, Qt
-from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtCore import QMimeData, QUrl, Qt
+from PyQt5.QtGui import QDesktopServices, QDrag
 from PyQt5.QtWidgets import (
     QApplication,
     QDialog,
@@ -16,6 +16,35 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+
+
+class PocketListWidget(QListWidget):
+    """List that exports selected existing paths as standard file URLs."""
+
+    def __init__(self, service, parent=None):
+        super().__init__(parent)
+        self.service = service
+        self.setDragEnabled(True)
+
+    def mime_data_for_selected(self):
+        urls = []
+        for list_item in self.selectedItems():
+            pocket_item = self.service.get(list_item.data(Qt.UserRole))
+            if pocket_item and pocket_item.exists:
+                urls.append(QUrl.fromLocalFile(str(pocket_item.path)))
+        if not urls:
+            return None
+        mime = QMimeData()
+        mime.setUrls(urls)
+        return mime
+
+    def startDrag(self, supported_actions):
+        mime = self.mime_data_for_selected()
+        if mime is None:
+            return
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        drag.exec_(Qt.CopyAction)
 
 
 class PocketDialog(QDialog):
@@ -33,7 +62,7 @@ class PocketDialog(QDialog):
         self.empty_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.empty_label)
 
-        self.item_list = QListWidget()
+        self.item_list = PocketListWidget(service)
         self.item_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.item_list.customContextMenuRequested.connect(self._show_context_menu)
         self.item_list.itemDoubleClicked.connect(lambda _: self.open_selected())

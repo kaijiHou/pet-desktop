@@ -137,6 +137,32 @@ class TestGuiConstruction:
         assert dialog.item_list.count() == 0
         dialog.close()
 
+    def test_pocket_drag_exports_standard_local_file_urls(self, pet_window, test_temp_root):
+        source = test_temp_root / "drag-out.txt"
+        source.touch()
+        pet_window.pocket.add(source)
+        dialog = PocketDialog(pet_window.pocket, pet_window)
+
+        mime = dialog.item_list.mime_data_for_selected()
+
+        assert mime is not None and mime.hasUrls()
+        assert mime.urls()[0].isLocalFile()
+        from pathlib import Path
+        assert Path(mime.urls()[0].toLocalFile()) == source.resolve()
+        assert source.exists()
+        dialog.remove_selected(confirm=False)
+        dialog.close()
+
+    def test_missing_pocket_item_cannot_start_drag(self, pet_window, test_temp_root):
+        source = test_temp_root / "no-drag.txt"
+        source.touch()
+        pet_window.pocket.add(source)
+        source.unlink()
+        dialog = PocketDialog(pet_window.pocket, pet_window)
+        assert dialog.item_list.mime_data_for_selected() is None
+        dialog.cleanup_missing()
+        dialog.close()
+
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert d is not None
