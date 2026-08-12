@@ -35,10 +35,9 @@
 仓库没有 requirements.txt / pyproject.toml，仅 README 一行：`pip install PyQt5 PyQtWebEngine Pillow openai google-api-python-client pytz`。
 **处置**：Phase 1 建立 requirements.txt 并记录实测可用版本；删除模块后同步裁剪。
 
-## KI-07 🟡 .gitignore 忽略测试文件
+## KI-07 ✅ .gitignore 忽略测试文件（Phase 2 已修复）
 
-上游 `.gitignore` 含 `test_*.py`，我们的 tests/ 若不处理将不会被 git 跟踪。
-**处置**：Phase 2 调整 .gitignore（放行 tests/）。
+上游 `.gitignore` 含全局 `test_*.py`（无目录锚定），导致 tests/ 下的测试文件被忽略。Phase 2 经 `git check-ignore -v` 定位到 `.gitignore:24:test_*.py`，已改为目录锚定 `/test_*.py`（仅拦截根目录散落测试，放行 tests/），并验证 `git add -n tests/` 全部可入库。
 
 ## KI-08 🟡 Windows 文件事件的语义限制（预告，Phase 14 正式验证）
 
@@ -61,4 +60,10 @@ ReadDirectoryChangesW 只能报告"某路径发生 FILE_ACTION_REMOVED 等动作
 TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 ```
 异常发生在 `self._js(f"setScale(...)")` **之前**，因此：① 窗口固定尺寸更新成功、② webview 几何尺寸未更新、③ JS 缩放未下发 —— 每次滚轮后 webview 与窗口尺寸错位一层。smoke 实测 scale 3.5→4.0 时必现（见 docs/baseline/smoke_output.txt）。
-**处置**：Phase 1 按任务约束不修（保持原版可测量基线）。Phase 2 起接管渲染轨时顺带消除；若提前需要人工体验，一行 `int()` 修复即可（待批准后执行）。
+**处置**：Phase 1 按任务约束不修（保持原版可测量基线）。Phase 2 已自动化复现：`tests/smoke/test_ki11_wheel_zoom.py`（strict xfail，稳定 XFAIL，89 passed + 1 xfailed 套件的一部分）；修复后将 XPASS 失败强制移除标记。Phase 2 起接管渲染轨时顺带消除；若提前需要人工体验，一行 `int()` 修复即可（待批准后执行）。
+
+## KI-12 🟡 QWebEngine 在 offscreen 平台 segfault（Phase 2 实测发现）
+
+`QWebEngineView.page()` 在 `QT_QPA_PLATFORM=offscreen` 下必现段错误（exit 139）。经 probe_offscreen1~10 逐步二分：崩溃点精确在 `web.page()` 访问本身（与 `setBackgroundColor` 无关）；`AA_ShareOpenGLContexts` + 软件 GL 标志均无效。根因：Chromium 内核需要真实 OpenGL context，offscreen 平台默认不提供。真实 `windows` 平台下构造→page()→正常退出全生命周期 exit 0。
+**影响**：GUI 测试无法用 offscreen 隔离，只能在真实平台运行（构造但不 show，teardown 隐藏 tray）。
+**处置**：tests/conftest.py 已注释记录该决策；GUI 测试 fixture 按真实平台设计。若未来需要 CI headless 跑 GUI 测试，需另行评估（本阶段不做）。

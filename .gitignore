@@ -21,7 +21,8 @@ dist/
 build/
 
 # ─── Tests & temp ───
-test_*.py
+# Rooted: upstream used a global `test_*.py` which also ignored tests/ (Phase 2 fix).
+/test_*.py
 *.tgz
 *.tar.gz
 Desktop/*.png

@@ -51,3 +51,38 @@
 - `scripts/smoke_baseline.py` — 原程序功能性 smoke（真实构建 PetWindow，驱动原事件处理器）：**19 PASS / 1 FAIL**
 - `scripts/measure_baseline.py` — 进程树资源采样，四场景完成（见上表）
 - 外部服务：AI API NOT TESTED（no key，UI 初始化+无 Key 错误路径已测）；Google OAuth NOT TESTED（no credentials，模块初始化已测）
+
+### Phase 2（2026-08-12）— 正式 pytest 框架
+
+**套件总结果：`pytest tests -v` → 89 passed, 1 xfailed, 6.25s**（pytest 9.1.1，venv 内执行，fresh 两次一致）
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| unit | `pytest tests/unit -q` | 77 passed, 6.04s |
+| integration | `pytest tests/integration -q` | 3 passed, 0.65s |
+| smoke（含 GUI + KI-11） | `pytest tests/smoke -q` | 9 passed, 1 xfailed, 5.43s |
+| **全套** | `pytest tests -v` | **89 passed, 1 xfailed, 6.25s** |
+
+覆盖内容（全部 characterization，固定上游当前行为，不含任何新业务逻辑）：
+
+| 测试文件 | 对象 | 要点 |
+|---|---|---|
+| unit/test_config.py | Config | 默认值、set/save 持久化、重读合并、缺失文件回退、**损坏文件静默回退**（当前真实行为，未修） |
+| unit/test_animation_metadata.py | 动画元数据 | 基于 clippy.html 真实源提取：43 组 / 1227 帧 / 帧 `[x,y,duration]` / 全帧对齐 124×93 网格 / duration 非负（实测恰 1 帧为 0：IdleSideToSide[25]，如实刻画） |
+| unit/test_animation_selection.py | 动画选择 | ANIM_* 12 组均非空字符串列表；`_random_anim` 恒返回组内元素；JS 端 `setAnimation` 对未知名为静默 no-op（源码断言） |
+| unit/test_reminder_service.py | Reminder 现状 | tick 驱动、默认 30min、触发即重置、disabled 不触发、间隔下限 1min 钳制、日历提醒 15min 周期 + 同事件只通知一次 + 异常吞掉 |
+| unit/test_applog.py | 日志基础 | 文件创建+写入、RotatingFileHandler 上限配置、setup 幂等不叠加 handler、不可写目录降级不抛 |
+| unit/test_paths.py | paths 模块 | project root/log/temp 全部项目内，无 C 盘硬编码 |
+| unit/test_test_environment.py | 测试环境自检 | TEMP/TMP 指向 D 盘 .tmp/tests、测试产物被 git 忽略、测试文件本身不被忽略 |
+| integration/test_subsystem_wiring.py | Reminder×Config | 间隔修改跨 Config 重载存活；animations.json 与 clippy.html 源一致性 |
+| smoke/test_gui_smoke.py | GUI 构造 | **真实 windows 平台**（offscreen 会 segfault，见 KI-12）：PetWindow/SettingsDialog/ChatDialog 构造不 show；右键菜单项（exec_ 被拦截）；无网络（Chat 不调 chat()，无凭据不 OAuth） |
+| smoke/test_ki11_wheel_zoom.py | KI-11 | `xfail(strict=True)` 稳定复现 float→setGeometry TypeError；修复后会 XPASS 强制提醒 |
+
+**原 Baseline Smoke 回归（Phase 2 结束时重跑）：`scripts/smoke_baseline.py` → 19 PASS / 1 FAIL，与 Phase 1 基线一字不差，唯一 FAIL 仍是 KI-11（TypeError 报错文本相同）。**
+
+外部服务边界（沿用 Phase 1 原则）：AI API NOT TESTED（无 key，仅构造路径）；Google OAuth NOT TESTED（无凭据，`authenticate()` 返回 False 已测）。
+
+日志接入实测：`main.py` 启动 8s → `logs/app.log` 出现 `startup: pet-desktop launching (python 3.11.15)`。
+
+业务代码零改动确认：`git diff 5f0afa5 --stat -- <8 个业务 .py>` 为空；本阶段唯一被修改的业务侧文件是入口 wrapper `main.py`（+26/-1，纯日志，异常原样 re-raise）。
+

@@ -237,3 +237,29 @@ ChatDialog、SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论�
 | 18 | 打包 | PyInstaller，build/dist/release 全 D 盘，clean build |
 
 > 说明：WebEngine 的移除放在原生渲染完全接管并回归通过之后（Phase 16），而不是 Phase 3，避免中间态没有可用渲染器。但 AI Chat / Calendar 的删除不依赖渲染轨，按原顺序执行。
+
+---
+
+## 16. Phase 2 产出：测试框架 + 日志基础（2026-08-12 就位）
+
+```
+D:\pet-desktop\
+├── pytest.ini               testpaths=tests；markers: unit/integration/gui/baseline/smoke；--strict-markers
+├── tests/
+│   ├── conftest.py          D 盘 temp 纪律：TEMP/TMP→.tmp/tests；isolated_config（monkeypatch CONFIG_DIR）；qapp 单例
+│   ├── unit/                77 tests：Config / 动画元数据 / 动画选择 / Reminder / applog / paths / 测试环境自检
+│   ├── integration/         3 tests：Reminder×Config 持久化联动；animations.json ↔ clippy.html 源一致性
+│   └── smoke/               9 tests + 1 xfail：GUI 构造（真实平台）；KI-11 strict xfail
+├── applog.py                stdlib logging + RotatingFileHandler（1MB×3 备份），日志写 paths.LOG_DIR
+└── paths.py                 统一路径常量（PROJECT_ROOT / LOG_DIR / TEMP_DIR，无 C 盘硬编码）
+```
+
+**测试设计原则（Phase 3 起必须遵守）：**
+
+1. Characterization first：先固定上游当前行为（包括已确认的 bug 与缺陷行为，如 Config 损坏静默回退、duration=0 帧），再改代码。
+2. 测试 temp 一律走 `isolated_config` / `.tmp/tests/`，conftest 在 import 时就把 TEMP/TMP 指到 D 盘。
+3. GUI 测试用**真实 windows 平台**——`QWebEngineView.page()` 在 offscreen 下必 segfault（KI-12，Chromium 需要真实 OpenGL context）。fixture 构造但不 show，teardown 隐藏托盘。
+4. 阻塞式 `QMenu.exec_` / 对话框 `exec_` 用 monkeypatch 拦截，绝不在测试线程里真跑。
+5. 已登记历史问题用 `xfail(strict=True)` 固定（当前仅 KI-11）：修复后会 XPASS 失败，强制同步更新标记与文档。禁止为凑绿删测试/放宽断言/滥用 skip。
+
+**日志现状**：`main.py` 入口 wrapper 已接入 applog（startup / exit / uncaught exception 三类生命周期记录，异常原样 re-raise 保持退出码不变）。业务模块尚未逐点接入——Phase 3 删除/改造模块时顺带补 `logger = logging.getLogger(__name__)`。日志文件：`logs/app.log`（RotatingFileHandler，已 gitignore）。

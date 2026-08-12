@@ -1,0 +1,59 @@
+"""Smoke-test fixtures (Phase 2).
+
+GUI tests run on the REAL platform (offscreen segfaults QWebEngineView.page()
+— see tests/conftest.py note). Windows are constructed WITHOUT show() and the
+tray icon is hidden, so nothing appears on the user's screen. Config storage
+is redirected into a per-module temp dir; calendar is disabled so no OAuth is
+ever attempted; the startup sound is silenced (audio hardware side effect).
+"""
+
+import shutil
+from pathlib import Path
+
+import pytest
+
+from tests.conftest import TEST_TEMP_ROOT
+
+
+@pytest.fixture(scope="module")
+def pet_window(qapp):
+    """Construct the real PetWindow once per module, fully isolated.
+
+    Behavior-preserving isolation (no production change):
+      * config.CONFIG_DIR/CONFIG_FILE patched to a temp dir
+      * calendar_enabled=False so _init_calendar skips authenticate()
+      * sounds.play_startup silenced (audio is an external side effect)
+    """
+    import config as config_mod
+    import pet_window_web
+    import sounds
+
+    tmp = TEST_TEMP_ROOT / "gui" / "pet_window"
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    cfg_dir = tmp / "desktop-pet"
+    cfg_dir.mkdir(parents=True)
+
+    saved = (config_mod.CONFIG_DIR, config_mod.CONFIG_FILE)
+    config_mod.CONFIG_DIR = cfg_dir
+    config_mod.CONFIG_FILE = cfg_dir / "config.json"
+    saved_sound = sounds.play_startup
+    sounds.play_startup = lambda: None
+
+    cfg = config_mod.Config()
+    cfg.set("calendar_enabled", False)  # never touch Google OAuth in tests
+
+    window = pet_window_web.PetWindow(cfg)
+    window.tray_icon.hide()
+
+    yield window
+
+    # teardown
+    try:
+        window.close()
+        window.tray_icon.hide()
+    except Exception:
+        pass
+    sounds.play_startup = saved_sound
+    config_mod.CONFIG_DIR, config_mod.CONFIG_FILE = saved
+    shutil.rmtree(tmp, ignore_errors=True)

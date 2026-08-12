@@ -210,3 +210,131 @@ Baseline 资源实测（进程树求和，含 Chromium 子进程；详见 TEST_R
 
 Phase 2：建立正式测试框架（tests/ + pytest 配置，处理 KI-07 的 .gitignore 放行）+ 程序日志基础。**不提前删除 AI Chat / Calendar。**
 
+---
+
+## 2026-08-12 (三) - Phase 2：正式测试框架 + 测试基础设施 + 程序日志基础
+
+### 目标
+
+在不开发产品功能的前提下，建立正式 pytest 测试框架、可复用测试基础设施、程序日志基础，为 Phase 3 起的每次业务修改提供回归保护。**不删除 AI/Calendar/WebEngine，不切 legacy 渲染，不重构 Reminder。**
+
+### 开始状态
+
+- Git：HEAD=1d89c85（Phase 1 baseline + smoke 刷新），工作区干净。上游基线 5f0afa5。
+- 测试：无正式测试套件（仅 Phase 1 ad-hoc smoke 脚本）。
+- 日志：无（程序无任何 logging 接入）。
+
+### 实际操作
+
+执行过的重要命令：
+
+```text
+# Git Fresh Check（每阶段开始必做）
+git status / git rev-parse HEAD / git log --oneline -3 / git diff --stat
+  → HEAD=1d89c85, working tree clean
+
+# 定位 .gitignore 对 tests/ 的影响（KI-07 根因）
+git check-ignore tests                      → exit=1（tests/ 本身未被忽略）
+git check-ignore tests/test_example.py      → exit=0（被忽略！）
+git check-ignore -v tests/test_example.py   → .gitignore:24:test_*.py（全局规则，无目录锚定）
+
+# 逐文件读源码做 characterization（config.py / reminder_service.py / main.py / pet_window_web.py / clippy.html）
+# 数据事实核查（animations.json：43 组 / 1227 帧 / 恰 1 个 duration=0 帧 / 全帧对齐 124x93 网格）
+# GUI 构造可行性探测（见"遇到的问题"，probe_offscreen*.py 共 9 个探针，均在 .tmp/ 未入库）
+
+# 正式测试（venv 内 pytest 9.1.1）
+.venv/Scripts/python.exe -m pytest tests/unit -q          → 77 passed, 6.04s
+.venv/Scripts/python.exe -m pytest tests/integration -q   → 3 passed, 0.65s
+.venv/Scripts/python.exe -m pytest tests/smoke -q         → 9 passed, 1 xfailed, 5.43s
+.venv/Scripts/python.exe -m pytest tests -v               → 89 passed, 1 xfailed, 6.25s
+
+# 原 Baseline Smoke 回归
+.venv/Scripts/python.exe scripts/smoke_baseline.py        → 19 PASS / 1 FAIL（与基线一字不差）
+
+# 日志接入实测
+.venv/Scripts/python.exe main.py（后台启动 8s）→ logs/app.log 写入 startup 行 ✓
+
+# 业务代码零改动确认
+git diff 5f0afa5 --stat -- config.py pet_window_web.py ... sounds.py → 空（8 个业务文件全零改动）
+```
+
+修改文件：
+
+* `.gitignore` — 全局 `test_*.py` 改为目录锚定 `/test_*.py`（放行 tests/，KI-07 根因修复）
+* `main.py` — 入口 wrapper 接入 applog（behavior-preserving：异常记录后原样 re-raise，退出码不变）
+
+新增文件：
+
+* `pytest.ini` — testpaths=tests；markers：unit/integration/gui/baseline/smoke；`--strict-markers`
+* `tests/conftest.py` — D 盘 temp 隔离（TEMP/TMP→.tmp/tests，`isolated_config` monkeypatch CONFIG_DIR，`qapp` 单例）
+* `tests/smoke/conftest.py` — `pet_window` fixture（真实平台、构造不 show、隐藏 tray）
+* `tests/unit/test_config.py` — Config characterization（默认值/持久化/损坏回退，10 tests）
+* `tests/unit/test_animation_metadata.py` — 动画元数据（43 组/帧结构/网格对齐/duration，基于真实 HTML 源）
+* `tests/unit/test_animation_selection.py` — ANIM_* 分组与 _random_anim 选择逻辑（不构造 GUI）
+* `tests/unit/test_reminder_service.py` — Reminder 当前行为（tick 驱动/触发/禁用/日历，16 tests）
+* `tests/unit/test_applog.py` — 日志基础（文件创建/rotation 配置/幂等/不可写降级）
+* `tests/unit/test_paths.py` — 路径模块（无 C 盘硬编码）
+* `tests/unit/test_test_environment.py` — 测试环境自检（temp 在 D 盘/产物被 git 忽略）
+* `tests/integration/test_subsystem_wiring.py` — Reminder+Config 持久化联动 / animations.json 与 HTML 源一致性
+* `tests/smoke/test_gui_smoke.py` — GUI 构造 smoke（真实平台，9 tests）
+* `tests/smoke/test_ki11_wheel_zoom.py` — KI-11 自动化（strict xfail，稳定 XFAIL）
+* `applog.py` — 日志基础（stdlib logging + RotatingFileHandler，D:\pet-desktop\logs\app.log）
+* `paths.py` — 统一路径常量（project root/log dir/temp dir，无 C 盘硬编码）
+
+删除文件：无。业务代码改动：仅 main.py 入口 wrapper（+26/-1，纯日志接入）。
+
+### 修改原因
+
+- `.gitignore` 全局 `test_*.py` 规则（Phase 0 预判的 KI-07）经 `git check-ignore -v` 证实会忽略 `tests/test_example.py`，导致正式测试文件无法入库。改为 `/test_*.py`（目录锚定）仅拦截根目录散落测试，放行 tests/。
+- `main.py` 接入日志是唯一的最小侵入点：入口 wrapper 记录启动/退出/未捕获异常，异常原样 re-raise 保证退出码与上游一致；业务代码（pet_window_web.py 等 8 个文件）零改动，`git diff 5f0afa5` 验证为空。
+- GUI 测试用真实平台而非 offscreen（见"根因"第 1 条）；`QMenu.exec_` 用 monkeypatch 拦截（同 Phase 1 ad-hoc smoke 技术）避免阻塞。
+
+### 遇到的问题
+
+1. GUI smoke 首次探测 segfault（exit 139）。
+2. 需确认 ChatDialog/Calendar 构造是否触发真实网络请求。
+3. animations.json 存在 duration=0 帧，不能盲目断言 `duration>0`。
+
+### 根因
+
+1. **offscreen 平台下 `QWebEngineView.page()` 必 segfault**——Chromium 内核需要真实 OpenGL context，offscreen 默认不提供（`AA_ShareOpenGLContexts`+软件 GL 标志均无效）。经 probe_offscreen1~10 逐步二分定位：崩溃点精确在 `web.page()` 访问，与 `setBackgroundColor` 无关；真实 windows 平台全生命周期（构造→page()→正常退出）exit 0。故 GUI 测试改用真实平台、构造但不 show。
+2. ChatDialog 构造仅接线控件，`.chat()` 从未被调用 → 无 OpenAI 请求；`~/desktop-pet/credentials/` 不存在 → `calendar.authenticate()` 安全返回 False，无 OAuth。两者均经代码阅读+实测确认。
+3. 上游真实数据：`IdleSideToSide[25]` 帧 duration=0（43 组中恰 1 帧）。characterization test 按真实情况刻画，不为绿而改断言。
+
+### 解决方案
+
+1. GUI 测试全部在真实平台运行，`pet_window` fixture 构造后不 show、teardown 隐藏 tray 再 close，避免扰民。
+2. 网络边界在 characterization 层明确标注 NOT TESTED（同 Phase 1 原则）。
+3. duration 断言改为"非负 + 网格对齐"，并单独记录唯一 0-duration 帧的存在。
+
+### 验证
+
+```text
+pytest tests -v                              → 89 passed, 1 xfailed, 6.25s（KI-11 strict XFAIL 稳定复现）
+scripts/smoke_baseline.py                    → 19 PASS / 1 FAIL（与 Phase 1 基线一字不差，唯一 FAIL 仍为 KI-11）
+main.py 后台启动 8s                          → logs/app.log 写入 "startup: pet-desktop launching (python 3.11.15)"
+git diff 5f0afa5 --stat -- <8 业务 .py>      → 空（业务代码相对上游零改动）
+git check-ignore tests/unit/__pycache__/...  → 命中 __pycache__/ 规则，缓存不入库
+安全扫描（grep api_key/secret/token/…）       → 仅空字符串断言 + 已忽略 .pyc，无真实密钥
+```
+
+### C 盘污染检查
+
+- 测试 temp 全部经 conftest 指到 `D:\pet-desktop\.tmp\tests\`；TEMP/TMP 在 conftest import 时重设。
+- 探针脚本 probe_offscreen*.py 均在 `.tmp/`（已 gitignore），未入库、未写 C 盘。
+- `~/desktop-pet/`（C 盘）仅 Phase 1 的 460KB synthetic sheet，本阶段 0 新增。
+- C 盘剩余仍 1.2G，无变化。
+
+### 当前状态
+
+- 正式测试框架就位：89 passed + 1 xfailed，unit/integration/smoke 三层，markers 已注册。
+- 程序日志基础就位：applog.py + paths.py，main.py 已接入，实测写盘。
+- KI-11 已自动化（strict xfail），修复后将强制 XPASS 失败提醒移除标记。
+- KI-07（.gitignore 忽略测试）已根因修复。
+- 业务代码相对上游基线 5f0afa5 零改动。
+
+### 下一步
+
+Phase 3：按任务书推进（删除 AI Chat / Calendar / WebEngine，切换渲染轨等）。**本阶段不执行。**
+
+
