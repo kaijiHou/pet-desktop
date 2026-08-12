@@ -1,0 +1,27 @@
+{
+  "phase": 18,
+  "platform": "windows-x64",
+  "format": "one-folder",
+  "pyinstaller": "6.15.0",
+  "tests": {
+    "passed": 166,
+    "failed": 0,
+    "xfailed": 0
+  },
+  "artifact": {
+    "path": "release/DesktopPet-windows-x64.zip",
+    "bytes": 45788195,
+    "sha256": "d9a00cd6f1095c25c618e19e724615a07dd8d52e5465bde89b8429b7ee119c06",
+    "unpacked_files": 148,
+    "unpacked_bytes": 114840484
+  },
+  "black_box": {
+    "running": true,
+    "responding": true,
+    "process_count": 1,
+    "animation_catalog": true,
+    "user_assets_dir": true,
+    "log_created": true,
+    "webengine_files": 0
+  }
+}

@@ -154,3 +154,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - KI-04 关闭：三个硬编码 `C:\Users\clara` 的旧启动脚本已删除；原生 sprite 模块也无作者路径。
 - KI-08 保持为已接受语义边界：真实 Win32 验收捕获五类文件事件，但仍不推断事件来源程序。
 - 真实 Explorer 前台目录查询通过。跨窗口 Pocket 鼠标拖放因桌面自动化不给 Qt 几何而 **BLOCKED**；底层标准 file URL + CopyAction 已由测试覆盖，需发布前由人手拖一次确认 Windows 手感。
+
+## Phase 18 状态更新
+
+- Windows x64 one-folder ZIP 已构建并从全新解压副本启动通过；WebEngine/Chromium 文件数为 0。
+- PyInstaller 报告的缺失项均为跨平台或可选模块；发行 EXE 黑盒启动与功能边界通过，未新增产品阻塞问题。
+- 唯一未自动完成的体验项仍是 Phase 17 的真实跨窗口鼠标拖放，状态保持 **BLOCKED**，其余 Phase 18 发布门槛 PASS。

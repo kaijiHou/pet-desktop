@@ -694,3 +694,28 @@ acceptance_phase17.py         → 9 PASS / 0 FAIL
 ```
 
 下一步 Phase 18：PyInstaller clean build、独立 EXE 启动验证与 release 交付。
+
+---
+
+## 2026-08-12 (五) - Phase 18：Windows 打包与发布
+
+### 实现
+
+- `pet-desktop.spec`：PyInstaller 6.15 Windows x64 one-folder，显式打包动画元数据并排除 WebEngine。
+- 冻结态区分 bundle 只读资源与 EXE 旁用户目录，自定义 `assets/clippy_sheet.png` 可直接替换。
+- `build_release.ps1`：路径边界校验、全量测试、clean build、release 整理、ZIP、SHA-256 manifest；所有 build/dist/release/cache/temp 在 D 盘。
+- `verify_release.ps1`：从 ZIP 解压的新副本启动黑盒验收。
+- 新增 packaging contract 测试与 `requirements-dev.txt`。
+
+### 最终发行结果
+
+```text
+pytest tests -q                  → 166 passed
+clean build                      → PASS
+unpacked one-folder             → 148 files / 109.5 MB
+DesktopPet-windows-x64.zip       → 45,788,195 bytes
+SHA-256                          → d9a00cd6f1095c25c618e19e724615a07dd8d52e5465bde89b8429b7ee119c06
+extracted ZIP black-box          → PASS（1 process, responsive, logs/assets/catalog OK, WebEngine files 0）
+```
+
+Phase 0–18 全部完成。Pocket 跨窗口鼠标拖放仍保留 Phase 17 已记录的人工 BLOCKED 项，不把底层自动化覆盖冒充人工体验结论。

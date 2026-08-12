@@ -367,3 +367,11 @@ Renderer 将逻辑 state 与具体 animation 分离：事件动画播放一轮�
 真实 Windows 平台验收覆盖窗口绘制、拖动、缩放、本地提醒、Pocket 引用、真实复制/移动以及 ReadDirectoryChangesW 五类事件；隔离数据全部位于项目 `.tmp/tests`。前台 Explorer Shell COM 也对真实窗口与含中文的目录完成核验。
 
 验收发现 Phase 0 已登记的路径债务尚未真正关闭：运行配置仍默认写用户主目录，三个作者专用启动脚本仍硬编码 `C:\Users\clara`。现统一由 `paths.py` 解析源码/冻结程序根：开发态使用项目根，PyInstaller 冻结态使用 exe 所在目录；配置/Pocket/Reminder/Destination 放 `data/`，日志放 `logs/`，打包资源从 bundle root 读取。三个失效启动脚本删除，Phase 18 生成正式可执行文件。
+
+---
+
+## 30. Phase 18 Windows 发行结构（2026-08-12）
+
+采用 PyInstaller 6.15 的 Windows x64 one-folder，不用 one-file 临时解压，也不需要安装器。`DesktopPet.exe` 与 `_internal/` 必须整体保留；只读 `animations.json` 进入 `_internal/assets`，用户自定义 `assets/clippy_sheet.png` 从 EXE 同级目录读取，运行 `data/`、`logs/` 也落在 EXE 同级目录。
+
+`scripts/build_release.ps1` 在项目根内验证 build/dist/release 清理边界，测试通过后 clean build，并输出 ZIP 与 SHA-256 manifest；PyInstaller config cache、TEMP、TMP 均固定到项目 D 盘。`scripts/verify_release.ps1` 解压到新的 `.tmp/tests` 目录，从 ZIP 副本启动 EXE，核验单进程、响应、动画目录、可替换素材目录、日志以及 WebEngine 文件为零。

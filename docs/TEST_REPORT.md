@@ -246,3 +246,17 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | Pocket 跨窗口鼠标拖出 | Windows 桌面自动化 | **BLOCKED**（Qt 窗口未提供可输入几何） |
 
 真实 acceptance 覆盖原生可见绘制/截图、拖动、整数缩放、本地提醒、Pocket 引用、真实复制、真实移动、Win32 五类目录事件和无 WebEngine 运行时。验收数据均在 `D:\pet-desktop\.tmp\tests`。跨窗口鼠标拖出没有伪报通过；底层 QMimeData 本地 file URL、QDrag CopyAction 与源文件保持存在由正式 smoke 覆盖。
+
+### Phase 18（2026-08-12）— Windows 打包与发布
+
+| 层 | 命令/方式 | 结果 |
+|---|---|---|
+| Packaging contract | `pytest tests/unit/test_packaging.py -q` | **4 passed** |
+| Full pre-build | `pytest tests -q` | **166 passed** |
+| Clean build | `scripts/build_release.ps1` | **PASS** |
+| Direct EXE | `release/DesktopPet/DesktopPet.exe`，等待 5s | **PASS**（responsive，单进程，日志生成） |
+| Extracted ZIP | `scripts/verify_release.ps1` | **PASS** |
+| WebEngine scan | 解压包递归文件名 | **0 files** |
+| Artifact | one-folder / ZIP | **109.5 MB / 45,788,195 bytes** |
+
+ZIP SHA-256：`d9a00cd6f1095c25c618e19e724615a07dd8d52e5465bde89b8429b7ee119c06`。manifest 与实际 hash 一致。解压副本具备 `_internal/assets/animations.json`、EXE 同级用户 `assets/`、运行时 `logs/app.log`；没有依赖项目 `.venv`。

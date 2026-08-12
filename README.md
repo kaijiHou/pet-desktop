@@ -48,6 +48,23 @@ python main.py
 Runtime settings and local indexes are stored in the project/executable's
 `data/` folder. Logs are stored beside it in `logs/`.
 
+### Windows release build
+
+```powershell
+# Install development/build dependencies once
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+
+# Full tests + clean one-folder build + ZIP + SHA-256 manifest
+powershell -ExecutionPolicy Bypass -File scripts\build_release.ps1
+
+# Extract the ZIP to a fresh temp directory and launch the packaged EXE
+powershell -ExecutionPolicy Bypass -File scripts\verify_release.ps1
+```
+
+The deliverable is `release/DesktopPet-windows-x64.zip`. Unzip the whole
+folder and run `DesktopPet/DesktopPet.exe`; do not move the EXE out of its
+`_internal` folder structure.
+
 ## 🎮 Controls
 
 | Action | How |
@@ -98,6 +115,11 @@ clippy-desktop-pet/
 ├── file_watch.py             # Event-driven Pocket directory watcher
 ├── events.py                 # Typed events and animation fallback
 ├── sounds.py                 # Sound effects
+├── pet-desktop.spec          # Reproducible PyInstaller one-folder build
+├── requirements-dev.txt      # Test/build-only dependencies
+├── scripts/
+│   ├── build_release.ps1     # Clean build, ZIP, and SHA-256 manifest
+│   └── verify_release.ps1    # Extracted-package black-box check
 ├── assets/
 │   ├── clippy_sheet.png      # ⚠️ YOU PROVIDE THIS (neutral placeholder otherwise)
 │   └── animations.json       # Tracked 43-animation metadata catalog

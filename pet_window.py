@@ -85,7 +85,7 @@ class PetWindow(QWidget):
         )
 
         # Sprite loader
-        self.sprite_loader = PetSpriteLoader(ASSETS_DIR, config.get("pet_scale", 3))
+        self.sprite_loader = PetSpriteLoader(scale=config.get("pet_scale", 3))
 
         # State
         self._state = self.STATE_IDLE

@@ -4,11 +4,12 @@ import json
 from collections import OrderedDict
 from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw
-from paths import BUNDLE_ROOT
+from paths import BUNDLE_ROOT, PROJECT_ROOT
 
 
 ASSETS_DIR = BUNDLE_ROOT / "assets"
-SPRITE_SHEET = ASSETS_DIR / "clippy_sheet.png"
+USER_ASSETS_DIR = PROJECT_ROOT / "assets"
+SPRITE_SHEET = USER_ASSETS_DIR / "clippy_sheet.png"
 ANIMATIONS_FILE = ASSETS_DIR / "animations.json"
 SPRITE_W, SPRITE_H = 124, 93
 
@@ -69,10 +70,11 @@ class ClippySprites:
 
 
 class PetSpriteLoader:
-    def __init__(self, assets_dir=ASSETS_DIR, scale=3.0):
-        self.assets_dir = Path(assets_dir)
+    def __init__(self, assets_dir=None, scale=3.0):
+        self.assets_dir = Path(assets_dir) if assets_dir is not None else ASSETS_DIR
         self.scale = float(scale)
-        self._sprites = ClippySprites(self.assets_dir / "clippy_sheet.png")
+        sheet_dir = self.assets_dir if assets_dir is not None else USER_ASSETS_DIR
+        self._sprites = ClippySprites(sheet_dir / "clippy_sheet.png")
 
     def get_frame(self, animation, frame):
         return self._sprites.get_frame(animation, frame, self.scale)
