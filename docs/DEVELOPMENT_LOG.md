@@ -447,3 +447,35 @@ scripts/smoke_baseline.py             → 20 PASS / 1 FAIL（仅 KI-11）
 ### 下一步
 
 Phase 6：实现 Pocket 引用型数据层。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 6：Pocket 引用型数据层
+
+### 范围
+
+只实现 Pocket 的领域模型与本地持久化；不接窗口、不实现拖入/拖出，也不进行真实文件复制、移动或删除。
+
+### Red → Green
+
+先新增 `test_pocket_service.py`，首跑在收集阶段按预期因模块不存在失败。实现后 12 项 Pocket 契约全绿，全套增至 **112 passed, 1 xfailed**。
+
+### 修改
+
+- 新增 `PocketItem`：`id/path/name/item_type/added_at`，并提供动态 `exists` 状态。
+- 新增 `PocketService`：加入文件/目录、路径去重、列出、移除引用、清理失效引用、重启持久化。
+- 路径规范为绝对路径，Windows 大小写差异不会产生重复条目。
+- `pocket.json` 使用临时文件 + replace 写入；损坏根数据回退为空，坏条目跳过。
+- 测试明确验证源文件内容不变且没有任何副本产生。
+
+### 验证
+
+```text
+pytest tests/unit/test_pocket_service.py -q → 12 passed
+pytest tests -q                             → 112 passed, 1 xfailed
+scripts/smoke_baseline.py                   → 20 PASS / 1 FAIL（仅 KI-11）
+```
+
+### 下一步
+
+Phase 7：让 PetWindow 接收文件/目录拖入并写入 Pocket，引出 RECEIVE 动画。尚未执行。

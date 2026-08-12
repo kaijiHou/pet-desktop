@@ -77,6 +77,7 @@ clippy-desktop-pet/
 ├── config.py                 # Configuration handler
 ├── reminder_service.py       # Persistent local reminder service
 ├── reminder_ui.py            # Add/manage reminder dialogs
+├── pocket_service.py         # Reference-only file/folder Pocket data
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/

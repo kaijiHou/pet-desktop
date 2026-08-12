@@ -128,3 +128,13 @@ Phase 3 新增 `unit/test_ai_removal.py`，固定以下边界：`ai_engine.py` �
 | GUI regression | `python scripts/smoke_baseline.py` | **20 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
 
 新增 Reminder CRUD/持久化/损坏数据/排序/next-due/一次触发/重启防重/snooze 契约，以及旧 water 配置清理边界。GUI smoke 验证新增对话框构造、提醒列表删除、菜单入口；脚本实测到期项触发 ALERT、内容气泡和音效路径，且最近到期 singleShot timer 正常激活。原始输出见 `docs/phase5_smoke_output.txt`。
+
+### Phase 6（2026-08-12）— Pocket 引用型数据层
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| Pocket targeted | `pytest tests/unit/test_pocket_service.py -q` | **12 passed** |
+| 全套 | `pytest tests -q` | **112 passed, 1 xfailed**（KI-11） |
+| GUI regression | `python scripts/smoke_baseline.py` | **20 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
+
+新增 12 项测试覆盖空存储、文件/目录引用、源文件零改动、缺失路径拒绝、路径去重、移除、重启、损坏/坏条目、动态 exists、隐藏失效项和清理失效引用。Phase 6 未改 GUI，原有 Reminder 与桌宠回归完整保留。

@@ -168,7 +168,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `logsetup.py` | logs/app.log RotatingFileHandler；禁止逐帧日志 |
 | `reminder_service.py` v2 | Reminder 数据模型（content/due/repeat/snooze）、JSON 持久化、next-due 单次定时器、唤醒补检查 |
 | `reminder_ui.py` | 添加提醒对话框、我的提醒列表、到期气泡（完成/稍后提醒） |
-| `pocket_service.py` | 引用型条目 {id,path,name,item_type,added_at}、exists 检查、JSON 持久化、去重、清理失效 |
+| `pocket_service.py` | ✅ Phase 6：引用型条目 {id,path,name,item_type,added_at}、exists 检查、JSON 持久化、去重、清理失效 |
 | `pocket_ui.py` | 口袋浮动窗口：列表、打开/定位/复制路径、右键菜单、拖出（QMimeData file URLs） |
 | `file_ops.py` (FileOperationService) | shutil 复制/移动 + 全套异常处理 + 同名冲突策略 + 部分失败报告 |
 | `destinations.py` (DestinationService) | 常用位置（增删）+ 最近位置（去重/置顶/上限 10/清空） |
@@ -218,7 +218,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 3 | 删 AI Chat | ✅ ai_engine.py、ChatDialog、openai 运行依赖、config 键、菜单项均已删除 |
 | 4 | 删 Google Calendar | ✅ calendar_service.py、OAuth、菜单项、Reminder 会议分支、依赖均已删除 |
 | 5 | 通用 Reminder | ✅ 本地 JSON 持久化 + next-due singleShot + 唤醒补查；V1 单次提醒 |
-| 6 | Pocket 数据层 | 引用模型 + 持久化 + 失效检测 |
+| 6 | Pocket 数据层 | ✅ 引用模型 + 原子持久化 + 去重 + 失效检测/清理 |
 | 7 | 拖入角色 | PetWindow dropEvent + RECEIVE 动画 |
 | 8 | Pocket UI | 列表窗 + 右键菜单 |
 | 9 | 拖出到 Explorer | QMimeData urls 标准拖放 |
@@ -269,3 +269,11 @@ D:\pet-desktop\
 窗口层只持有一个 `QTimer(singleShot=True)`：每次增删、触发后根据 `next_due_at()` 重排最近到期项，超过 Qt 最大间隔时分段唤醒。应用重新变为 Active 时补跑 `check_due()`，覆盖系统睡眠期间错过的到期时间。到期项先持久化为 completed，再调用 UI callback，确保异常退出或重启不会重复通知。
 
 `reminder_ui.py` 提供 Add Reminder（内容、日期、时间）和 My Reminders（按到期时间排序、删除）两个对话框。V1 为单次提醒；服务保留 10 分钟 snooze 能力，交互式完成/稍后按钮留待后续提醒体验迭代。
+
+---
+
+## 18. Phase 6 Pocket 数据层（2026-08-12）
+
+`PocketService` 是纯 Python、无 Qt 依赖的引用仓库。`PocketItem` 字段固定为 `id/path/name/item_type/added_at`，其中 path 在加入时规范为绝对路径，`item_type` 只允许 file/directory。Pocket **不复制、不移动、不删除目标文件**；当前阶段所有 remove/cleanup 操作只修改 `pocket.json` 中的引用。
+
+默认存储为 `DATA_DIR/pocket.json`，同 Reminder 一样使用同目录临时文件 + replace 落盘。Windows 路径按不区分大小写规则去重；重复加入返回已有条目。`exists` 动态反映目标当前状态，列表可选择隐藏失效项，`cleanup_missing()` 仅移除失效引用。损坏的根 JSON 回退为空，坏条目和重复条目在加载时跳过并记录 warning。

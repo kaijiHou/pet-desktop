@@ -86,3 +86,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - 固定间隔喝水提醒已被本地日期+时间提醒替代；旧配置的 `water_*` 键会自动清理。
 - Reminder 存储损坏时安全回退为空，单条坏记录会跳过并写 warning；未新增阻塞问题。
 - KI-11 仍是唯一 GUI 回归失败；KI-12 不变，WebEngine 尚未移除。
+
+## Phase 6 状态更新
+
+- Pocket 数据层只保存引用，remove/cleanup 不碰目标文件；未新增破坏性文件操作风险。
+- 目标文件可能被外部改名、移动或删除；当前以 `exists=False` 如实标记，无法自动追踪新路径。这是引用模型的预期边界，Phase 14 文件事件只能提升实时性，不能保证跨卷追踪身份。
+- KI-11、KI-12 状态不变；Phase 6 未触碰 GUI 渲染轨。
