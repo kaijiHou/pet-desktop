@@ -121,3 +121,8 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 - Favorites 只允许添加当时存在的目录；之后失效会保留并标记 missing，避免静默丢失用户配置。
 - 收藏移除只改 destinations.json，不删除目录。KI-11、KI-12 状态不变。
+
+## Phase 12 状态更新
+
+- Recents 只记录成功操作；最多 10 条，重复置顶。清空历史不影响 favorites 或磁盘。
+- missing 最近目录会展示但禁止执行，等待用户清空或路径恢复。KI-11、KI-12 不变。

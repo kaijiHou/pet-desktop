@@ -113,11 +113,26 @@ class PocketDialog(QDialog):
             favorite_row.addWidget(button)
         layout.addLayout(favorite_row)
 
+        recent_row = QHBoxLayout()
+        recent_row.addWidget(QLabel("Recent destination:"))
+        self.recent_combo = QComboBox()
+        recent_row.addWidget(self.recent_combo, 1)
+        self.copy_recent_button = QPushButton("Copy to Recent")
+        self.move_recent_button = QPushButton("Move to Recent")
+        self.clear_recents_button = QPushButton("Clear Recents")
+        self.copy_recent_button.clicked.connect(lambda: self.perform_recent("copy"))
+        self.move_recent_button.clicked.connect(lambda: self.perform_recent("move"))
+        self.clear_recents_button.clicked.connect(self.clear_recents)
+        for button in (self.copy_recent_button, self.move_recent_button, self.clear_recents_button):
+            recent_row.addWidget(button)
+        layout.addLayout(recent_row)
+
         close_button = QPushButton("Close")
         close_button.clicked.connect(self.accept)
         layout.addWidget(close_button, alignment=Qt.AlignRight)
         self.refresh()
         self.refresh_favorites()
+        self.refresh_recents()
 
     def refresh(self):
         self.item_list.clear()
@@ -183,6 +198,9 @@ class PocketDialog(QDialog):
             result = next(result for result in report.items if result.status == "succeeded")
             self.service.replace_path(item.id, result.destination)
             self.refresh()
+        if report.succeeded:
+            self.destinations.record_recent(destination)
+            self.refresh_recents()
         if notify:
             QMessageBox.information(
                 self,
@@ -218,6 +236,26 @@ class PocketDialog(QDialog):
         if not favorite or not favorite.exists:
             return None
         return self.perform_selected(action, favorite.path, notify=notify)
+
+    def refresh_recents(self):
+        self.recent_combo.clear()
+        for recent in self.destinations.list_recents():
+            suffix = " [missing]" if not recent.exists else ""
+            self.recent_combo.addItem(f"{recent.name}{suffix}", recent.id)
+        has_recents = self.recent_combo.count() > 0
+        self.copy_recent_button.setEnabled(has_recents)
+        self.move_recent_button.setEnabled(has_recents)
+        self.clear_recents_button.setEnabled(has_recents)
+
+    def perform_recent(self, action, notify=True):
+        recent = self.destinations.get_recent(self.recent_combo.currentData())
+        if not recent or not recent.exists:
+            return None
+        return self.perform_selected(action, recent.path, notify=notify)
+
+    def clear_recents(self):
+        self.destinations.clear_recents()
+        self.refresh_recents()
 
     def remove_selected(self, confirm=True):
         item = self.selected_item()

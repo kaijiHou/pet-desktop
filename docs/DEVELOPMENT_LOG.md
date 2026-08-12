@@ -592,3 +592,16 @@ pytest tests -q                          → 140 passed, 1 xfailed
 ```
 
 下一步 Phase 12：记录最近目的地（去重置顶、上限 10、清空）。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 12：最近目的地
+
+成功 Copy/Move 后记录目标目录，重复路径移到首位且不重复，历史上限 10；UI 可直接 Copy/Move to Recent 或清空历史。失败/取消不记录，missing 不执行，清空不影响 favorites 与磁盘目录。
+
+```text
+pytest destinations + GUI targeted → 31 passed
+pytest tests -q                    → 145 passed, 1 xfailed
+```
+
+下一步 Phase 13：获取当前前台 Explorer 目录并作为快捷目标。尚未执行。

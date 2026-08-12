@@ -171,7 +171,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `pocket_service.py` | ✅ Phase 6：引用型条目 {id,path,name,item_type,added_at}、exists 检查、JSON 持久化、去重、清理失效 |
 | `pocket_ui.py` | ✅ Phase 8：列表、打开/定位/复制路径、移除引用、清理失效；拖出留 Phase 9 |
 | `file_ops.py` (FileOperationService) | ✅ Phase 10：shutil 复制/移动 + rename/skip 冲突策略 + 部分失败报告 |
-| `destinations.py` (DestinationService) | Phase 11 ✅ favorites；Phase 12 补 recents（去重/置顶/上限 10/清空） |
+| `destinations.py` (DestinationService) | ✅ favorites + recents（成功后记录、去重置顶、上限 10、清空） |
 | `explorer.py` | COM IShellWindows 获取前台 Explorer 当前目录 |
 | `events.py` (EventDispatcher + AnimationController) | WindowsEvent/PocketEvent/ReminderEvent/FileOperationEvent → 动画名 → fallback 链（specific→generic→idle）+ 缺失日志 |
 | `file_watch.py` | ReadDirectoryChangesW 事件驱动监听（仅监听用户指定的口袋相关目录，不扫全盘） |
@@ -224,7 +224,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 9 | 拖出到 Explorer | ✅ QMimeData 本地 file URLs + Qt.CopyAction 标准拖放 |
 | 10 | 复制到/移动到 | ✅ file_ops + 自动编号/跳过冲突 + 部分失败报告 + Pocket 路径同步 |
 | 11 | 常用目的地 | ✅ 目录收藏增删/去重/失效状态 + Pocket 快捷 Copy/Move |
-| 12 | 最近目的地 | recents 去重/上限 |
+| 12 | 最近目的地 | ✅ 成功操作后记录、去重置顶、上限 10、清空 |
 | 13 | 当前 Explorer 目录 | COM IShellWindows |
 | 14 | Windows 文件事件 | ReadDirectoryChangesW |
 | 15 | 事件→动画 | EventDispatcher/AnimationController + fallback |
@@ -317,3 +317,11 @@ Pocket UI 新增 Copy To / Move To。目标通过目录选择器显式选择；�
 `DestinationService` 在 `DATA_DIR/destinations.json` 的 `favorites` 数组持久化 `{id,path,name,added_at}`。只允许加入当前存在的目录，Windows 路径不区分大小写去重；目录后来消失时保留记录并显示 `[missing]`，不猜测或自动替换路径。移除收藏只改 JSON。
 
 Pocket UI 增加 Favorite destination 选择框、Add/Remove Favorite，以及 Copy/Move to Favorite。执行前再次检查目录存在；仍复用 Phase 10 FileOperationService，因此冲突与错误语义完全一致。测试文件隔离到 D 盘临时目录。
+
+---
+
+## 24. Phase 12 最近目的地（2026-08-12）
+
+recents 与 favorites 共用 destinations.json 但分数组保存。只有 OperationReport 至少一项 succeeded 后才 `record_recent(destination)`；同一路径再次成功会复用稳定 ID 并移到首位，最多保存 10 条。失败、跳过或取消选择器不会新增历史。
+
+Pocket UI 提供 Recent destination 下拉框、Copy/Move to Recent 和 Clear Recents。missing 条目保留标记但禁止执行；清空只清 recents，不动 favorites、目标目录或 Pocket。

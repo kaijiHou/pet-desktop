@@ -184,3 +184,12 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | 全套 | `pytest tests -q` | **140 passed, 1 xfailed**（KI-11） |
 
 覆盖空状态、目录添加与重启、文件/缺失拒绝、去重、移除引用不删目录、missing 状态、损坏存储。GUI 集成验证收藏列表与快捷 Copy，并确认移除收藏后目录仍存在。
+
+### Phase 12（2026-08-12）— 最近目的地
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| Destination + GUI targeted | `pytest test_destinations.py test_gui_smoke.py -q` | **31 passed** |
+| 全套 | `pytest tests -q` | **145 passed, 1 xfailed**（KI-11） |
+
+覆盖新近顺序、重用置顶去重、10 条上限、清空不影响 favorites；GUI 验证成功操作自动记录并可清空，目标目录仍存在。

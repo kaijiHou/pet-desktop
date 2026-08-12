@@ -59,6 +59,7 @@ python main.py
 | **Drag from Pocket** | Drag an item from the Pocket list to Explorer/Desktop |
 | **Copy or move** | Pocket → select an item → Copy To… / Move To… |
 | **Favorite folders** | Pocket → Add Favorite… then reuse it for copy/move |
+| **Recent folders** | Successful copy/move destinations appear automatically in Pocket |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |

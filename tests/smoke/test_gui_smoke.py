@@ -203,6 +203,24 @@ class TestGuiConstruction:
         dialog.remove_selected(confirm=False)
         dialog.close()
 
+    def test_successful_operation_records_recent_and_clear_keeps_target(self, pet_window, test_temp_root):
+        source = test_temp_root / "recent-source.txt"
+        target = test_temp_root / "recent-target"
+        source.touch(); target.mkdir()
+        pet_window.pocket.add(source)
+        destinations = DestinationService(test_temp_root / "recent-destinations.json")
+        dialog = PocketDialog(pet_window.pocket, pet_window, destinations=destinations)
+
+        report = dialog.perform_selected("copy", target, notify=False)
+        assert report.succeeded == 1
+        assert destinations.list_recents()[0].path == target.resolve()
+        assert dialog.recent_combo.count() == 1
+        dialog.clear_recents()
+        assert destinations.list_recents() == []
+        assert target.exists()
+        dialog.remove_selected(confirm=False)
+        dialog.close()
+
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert d is not None
