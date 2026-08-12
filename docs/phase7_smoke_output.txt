@@ -1,7 +1,7 @@
 [PASS] 主程序启动 — PetWindow visible=True, page+sheet ready in 4.0s
 [PASS] 窗口无边框 — <PyQt5.QtCore.Qt.WindowFlags object at 0x00000236A90EE490>
 [PASS] 窗口置顶 — <PyQt5.QtCore.Qt.WindowFlags object at 0x00000236A90EE490>
-[PASS] 背景透明 — 
+[PASS] 背景透明
 [PASS] 角色可见(sheet 已加载) — getState()={"anim":"Idle1_1","frame":1,"scale":3.5,"frameCount":43}
 [PASS] idle 动画切帧 — before={"anim":"Idle1_1","frame":1,"scale":3.5,"frameCount":43} after={"anim":"Thinking","frame":9,"scale":3.5,"frameCount":45}
 [PASS] 非 idle 动画播放 (Wave/Greeting) — current=Wave
