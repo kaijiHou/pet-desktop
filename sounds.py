@@ -51,21 +51,6 @@ def _water_beep():
         pass
 
 
-def play_meeting_reminder():
-    """Meeting reminder - attention sound."""
-    threading.Thread(target=_meeting_beep, daemon=True).start()
-
-def _meeting_beep():
-    try:
-        import winsound
-        for f in [660, 880, 1100]:
-            winsound.Beep(f, 100)
-            import time
-            time.sleep(0.08)
-    except:
-        pass
-
-
 def play_alert():
     """Alert/exclamation sound."""
     threading.Thread(target=_alert_beep, daemon=True).start()

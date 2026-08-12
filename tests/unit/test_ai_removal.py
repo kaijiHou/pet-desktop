@@ -1,7 +1,7 @@
 """Phase 3 regression tests: AI Chat/OpenAI are fully removed.
 
-Calendar, reminders, and the current WebEngine renderer intentionally remain
-in this phase.  These tests guard that narrow boundary.
+Reminders and the current WebEngine renderer intentionally remain. These tests
+guard the AI-removal boundary after later phases remove other integrations.
 """
 
 from pathlib import Path

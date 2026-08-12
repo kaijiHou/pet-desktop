@@ -1,6 +1,6 @@
 # 📎 Clippy Desktop Pet
 
-A Windows desktop pet application — a Clippy-style paperclip character that sits on your desktop, reminds you to drink water, and checks Google Calendar for meetings.
+A Windows desktop pet application — a Clippy-style paperclip character that sits on your desktop and reminds you to drink water.
 
 > **⚠️ Asset Notice**
 > This repository does **not** include any character sprites or artwork. You need to provide your own!
@@ -14,7 +14,6 @@ A Windows desktop pet application — a Clippy-style paperclip character that si
 
 - 🖇️ **Desktop Pet** — always-on-top character that follows you around
 - 💧 **Water Reminder** — reminds you to drink every 30 minutes (configurable)
-- 📅 **Google Calendar** — checks upcoming meetings and notifies you
 - 🎭 **43 Animations** — idle, talking, thinking, searching, waving, sleeping, and more
 - 🔊 **Sound Effects** — beeps for reminders and interactions
 - 🪟 **Windows 95 / Office 97 Styling** — retro dialog boxes and tooltips
@@ -34,7 +33,7 @@ git clone https://github.com/YOUR_USERNAME/clippy-desktop-pet.git
 cd clippy-desktop-pet
 
 # Install dependencies
-pip install PyQt5 PyQtWebEngine Pillow google-api-python-client google-auth-oauthlib pytz
+pip install PyQt5 PyQtWebEngine Pillow
 
 # Add your character sprite sheet
 # Place your 124×93 frame sprite sheet at: assets/clippy_sheet.png
@@ -47,7 +46,6 @@ python main.py
 ### First Run
 
 1. **Water Reminder** — Enabled by default (every 30 min)
-2. **Google Calendar** (optional) — Enable in Settings, authenticate with Google
 
 ## 🎮 Controls
 
@@ -63,7 +61,6 @@ python main.py
 ## ⚙️ Settings
 
 - **Water Reminder** — Enable/disable, interval (5-180 min)
-- **Google Calendar** — Enable/disable, reminder timing
 
 ## 🎨 Custom Characters
 
@@ -84,8 +81,7 @@ clippy-desktop-pet/
 ├── main.py                   # Entry point
 ├── pet_window_web.py         # Main window + dialogs (WebEngine)
 ├── config.py                 # Configuration handler
-├── calendar_service.py       # Google Calendar API
-├── reminder_service.py       # Water & meeting reminders
+├── reminder_service.py       # Water reminder
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/
@@ -99,7 +95,6 @@ clippy-desktop-pet/
 
 ## 📝 Notes
 
-- **Google Calendar** uses OAuth 2.0 — credentials go in `credentials/` (excluded)
 - **Clippy** is a trademark of Microsoft Corporation. This project is not affiliated with or endorsed by Microsoft.
 - Sound effects are simple `winsound.Beep()` calls — no external audio files needed.
 

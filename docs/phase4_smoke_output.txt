@@ -1,0 +1,25 @@
+[PASS] 主程序启动 — PetWindow visible=True, page+sheet ready in 4.37s
+[PASS] 窗口无边框 — <PyQt5.QtCore.Qt.WindowFlags object at 0x000001D5A28F97E0>
+[PASS] 窗口置顶 — <PyQt5.QtCore.Qt.WindowFlags object at 0x000001D5A28F97E0>
+[PASS] 背景透明
+[PASS] 角色可见(sheet 已加载) — getState()={"anim":"Idle1_1","frame":1,"scale":3.5,"frameCount":43}
+[PASS] idle 动画切帧 — before={"anim":"Idle1_1","frame":1,"scale":3.5,"frameCount":43} after={"anim":"Explain","frame":3,"scale":3.5,"frameCount":7}
+[PASS] 非 idle 动画播放 (Wave/Greeting) — current=Wave
+[PASS] 角色拖动 — delta=(50, 40), config.pet_x/y=1792/952
+[FAIL] 滚轮缩放 — scale 3.0 -> 3.5, size=454x345, exception=TypeError: arguments did not match any overloaded call:
+  setGeometry(self, a0: QRect): argument 1 has unexpected type 'int'
+  setGeometry(self, ax: int, ay: int, aw: int, ah: int): argument 3 has unexpected type 'float'
+[PASS] sleep 触发 — state=sleep, js={"anim":"IdleSnooze","frame":4,"scale":3.5,"frameCount":88}
+[PASS] wake 恢复 — state=idle
+[PASS] 提醒触发(ALERT+气泡+音效路径) — alerted=True, bubble='💦 Minum dong! Jangan sampai dehidrasi na'
+[PASS] 动画结束后状态恢复(ALERT→IDLE) — state=idle
+[PASS] 右键菜单构建 — items=['💧 Reset Timer Minum', '⚙️ Settings', '✖️ Keluar'] err=
+[PASS] Settings 对话框 — Water group constructed; AI/Calendar controls absent
+[PASS] AI Chat 已移除 — ChatDialog and PetWindow.ai_engine absent
+[PASS] OpenAI 运行依赖已移除 — requirements.txt has no OpenAI package
+[PASS] Google Calendar 已移除 — calendar_service.py and PetWindow.calendar absent
+[PASS] Google Calendar 运行依赖已移除 — requirements.txt has no Google Calendar/OAuth packages
+[PASS] Reminder/Idle Timer 初始化 — remind=5000ms idle=60000ms
+[PASS] 正常退出路径 — _quit_app() -> QApplication.quit() called
+
+SUMMARY: 20 PASS / 1 FAIL

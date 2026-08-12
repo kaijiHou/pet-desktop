@@ -102,3 +102,18 @@
 Phase 3 新增 `unit/test_ai_removal.py`，固定以下边界：`ai_engine.py` 不存在；生产窗口无 `AIEngine/ChatDialog/_open_chat/play_chat`；默认配置无 OpenAI/personality 键；加载旧配置会剔除并从磁盘清理相关键，同时把旧 `ai_name` 保值迁移为 `pet_name`；当前 `requirements.txt` 不含 OpenAI SDK。GUI smoke 同时确认 Settings 无 API 控件、右键菜单无聊天入口，而 Calendar/Reminder 服务仍正常持有。
 
 原 Phase 1 baseline 证据保留在 `docs/baseline/`，不被后续运行覆盖；Phase 3 smoke 原始输出写 `docs/phase3_smoke_output.txt`。Google OAuth 仍为 NOT TESTED（无凭据），符合本阶段不改 Calendar 的边界。
+
+### Phase 4（2026-08-12）— 删除 Google Calendar / OAuth
+
+范围严格限制为 Calendar/OAuth 删除及其 Reminder 会议分支；喝水提醒、WebEngine 主渲染和桌宠交互保留。
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| 针对性 | `pytest test_calendar_removal.py + config/reminder/gui -q` | **36 passed** |
+| unit | `pytest tests/unit -q` | **81 passed** |
+| integration | `pytest tests/integration -q` | **3 passed** |
+| smoke | `pytest tests/smoke -q` | **9 passed, 1 xfailed**（KI-11） |
+| 全套 | `pytest tests -q` | **93 passed, 1 xfailed** |
+| GUI regression | `PYTHONUTF8=1 python scripts/smoke_baseline.py` | **20 PASS / 1 FAIL**；唯一 FAIL 为 KI-11 |
+
+新增 `unit/test_calendar_removal.py`，验证服务文件、OAuth 路径常量、Calendar config/UI/窗口/Reminder 引用和当前运行依赖全部移除；旧配置键从磁盘清理。喝水 Reminder 原有触发、禁用、间隔更新和跨 Config 重载测试全部保留并通过。Phase 4 原始 smoke 输出见 `docs/phase4_smoke_output.txt`。

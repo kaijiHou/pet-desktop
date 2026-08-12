@@ -1,8 +1,7 @@
 """GUI construction smoke tests (Phase 2).
 
 Runs on the REAL platform (offscreen segfaults QWebEngineView.page()).
-Windows/dialogs are constructed but never shown. Calendar is disabled in the
-fixture, so no Google OAuth occurs.
+Windows/dialogs are constructed but never shown.
 """
 
 import pytest
@@ -29,9 +28,9 @@ class TestGuiConstruction:
 
     def test_pet_window_owns_services(self, pet_window):
         w = pet_window
-        assert w.calendar is not None
         assert w.reminder is not None
         assert not hasattr(w, "ai_engine")
+        assert not hasattr(w, "calendar")
 
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
@@ -49,6 +48,8 @@ class TestGuiConstruction:
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert not hasattr(d, "api_key_input")
         assert not hasattr(d, "model_input")
+        assert not hasattr(d, "cal_enabled")
+        assert not hasattr(d, "cal_remind_before")
         d.close()
 
     def test_context_menu_items_are_constructed(self, pet_window, monkeypatch, qapp):
@@ -66,8 +67,9 @@ class TestGuiConstruction:
         pet_window._show_context_menu(QPoint(120, 120))
 
         items = captured.get("items", [])
-        assert len(items) >= 4, f"context menu should have >=4 items, got {items}"
+        assert len(items) >= 3, f"context menu should have >=3 items, got {items}"
         assert all("Tanya" not in item and "Chat" not in item for item in items)
+        assert all("Jadwal" not in item and "Calendar" not in item for item in items)
 
     def test_window_can_be_closed(self, pet_window):
         # close() on an unshown frameless tool window must not raise.

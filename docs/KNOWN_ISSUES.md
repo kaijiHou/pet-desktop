@@ -74,3 +74,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - KI-11 未顺手修复，仍由 strict xfail 固定；Phase 3 smoke 唯一 FAIL 仍为该问题。
 - KI-12 不变：WebEngine 仍是当前渲染轨，因此 GUI 测试继续使用真实 Windows 平台。
 - 旧 config 中可能保存的 OpenAI 凭据在下一次 `Config()` 加载时会被剔除并立即重写文件；测试已验证磁盘中不再保留旧值。
+
+## Phase 4 状态更新
+
+- Google Calendar/OAuth 已完整删除；未新增 Known Issue。
+- 旧 config 的 `calendar_*` 键会自动清理。为避免未经授权删除用户数据，本阶段不删除用户目录中可能存在的 OAuth token/credentials 文件。
+- KI-11 仍是唯一回归失败并继续由 strict xfail 固定；KI-12 不变，因为 WebEngine 仍为当前渲染轨。

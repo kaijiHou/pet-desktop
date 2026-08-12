@@ -7,8 +7,8 @@ Runs the real pet_window_web.PetWindow (same construction path as main.py)
 inside a scripted harness and verifies each baseline checklist item by driving
 the REAL business handlers with synthesized Qt events / direct service calls.
 
-Google OAuth is reported NOT TESTED by design; the removed AI surface is
-checked explicitly as a Phase 3 regression boundary.
+Removed AI and Calendar surfaces are checked explicitly as regression
+boundaries; the remaining checks are fully local.
 
 Run:  .venv/Scripts/python.exe scripts/smoke_baseline.py
 """
@@ -204,8 +204,12 @@ def main():
     finally:
         QMenu.exec_ = orig_exec
     items = captured.get("items", [])
-    no_chat = all("Tanya" not in item and "Chat" not in item for item in items)
-    record("右键菜单构建", "PASS" if (len(items) >= 4 and no_chat) else "FAIL",
+    no_removed_items = all(
+        "Tanya" not in item and "Chat" not in item
+        and "Jadwal" not in item and "Calendar" not in item
+        for item in items
+    )
+    record("右键菜单构建", "PASS" if (len(items) >= 3 and no_removed_items) else "FAIL",
            f"items={items} err={captured.get('error', '')}")
 
     # ── Settings dialog ──
@@ -214,10 +218,11 @@ def main():
         d.show()
         pump(app, 0.5)
         ok_settings = (d.isVisible() and d.water_interval is not None
-                       and not hasattr(d, "api_key_input"))
+                       and not hasattr(d, "api_key_input")
+                       and not hasattr(d, "cal_enabled"))
         d.close()
         record("Settings 对话框", "PASS" if ok_settings else "FAIL",
-               "Water/Calendar groups constructed; OpenAI controls absent")
+               "Water group constructed; AI/Calendar controls absent")
     except Exception as e:
         record("Settings 对话框", "FAIL", f"{type(e).__name__}: {e}")
 
@@ -230,13 +235,15 @@ def main():
     record("OpenAI 运行依赖已移除", "PASS" if "openai" not in requirements else "FAIL",
            "requirements.txt has no OpenAI package")
 
-    # ── Calendar path (import/init; no credentials => silent False, no browser) ──
-    try:
-        auth = window.calendar.authenticate()
-        record("Calendar 模块初始化", "PASS" if (auth is False and not window.calendar.is_authenticated) else "FAIL",
-               f"authenticate()={auth} (OAuth flow NOT TESTED, no credentials)")
-    except Exception as e:
-        record("Calendar 模块初始化", "FAIL", f"{type(e).__name__}: {e}")
+    # ── Phase 4 removal boundary ──
+    calendar_removed = (not (REPO / "calendar_service.py").exists()
+                        and not hasattr(window, "calendar"))
+    google_deps = ("google-api-python-client", "google-auth-oauthlib", "pytz")
+    record("Google Calendar 已移除", "PASS" if calendar_removed else "FAIL",
+           "calendar_service.py and PetWindow.calendar absent")
+    record("Google Calendar 运行依赖已移除",
+           "PASS" if all(dep not in requirements for dep in google_deps) else "FAIL",
+           "requirements.txt has no Google Calendar/OAuth packages")
 
     # ── Reminder timers initialized ──
     timers_ok = (window._remind_timer.isActive() and window._idle_timer.isActive()
@@ -254,7 +261,7 @@ def main():
     n_fail = sum(1 for _, s, _ in RESULTS if s == "FAIL")
     print(f"\nSUMMARY: {n_pass} PASS / {n_fail} FAIL / {len(RESULTS)} total")
 
-    out = REPO / "docs" / "phase3_smoke_output.txt"
+    out = REPO / "docs" / "phase4_smoke_output.txt"
     out.write_text("\n".join(f"[{s}] {i} — {d}" for i, s, d in RESULTS)
                    + f"\n\nSUMMARY: {n_pass} PASS / {n_fail} FAIL\n", encoding="utf-8")
     print(f"raw results -> {out}")

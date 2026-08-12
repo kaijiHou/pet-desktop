@@ -3,8 +3,8 @@
 GUI tests run on the REAL platform (offscreen segfaults QWebEngineView.page()
 — see tests/conftest.py note). Windows are constructed WITHOUT show() and the
 tray icon is hidden, so nothing appears on the user's screen. Config storage
-is redirected into a per-module temp dir; calendar is disabled so no OAuth is
-ever attempted; the startup sound is silenced (audio hardware side effect).
+is redirected into a per-module temp dir; the startup sound is silenced
+(audio hardware side effect).
 """
 
 import shutil
@@ -21,7 +21,6 @@ def pet_window(qapp):
 
     Behavior-preserving isolation (no production change):
       * config.CONFIG_DIR/CONFIG_FILE patched to a temp dir
-      * calendar_enabled=False so _init_calendar skips authenticate()
       * sounds.play_startup silenced (audio is an external side effect)
     """
     import config as config_mod
@@ -41,8 +40,6 @@ def pet_window(qapp):
     sounds.play_startup = lambda: None
 
     cfg = config_mod.Config()
-    cfg.set("calendar_enabled", False)  # never touch Google OAuth in tests
-
     window = pet_window_web.PetWindow(cfg)
     window.tray_icon.hide()
 

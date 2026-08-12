@@ -23,9 +23,6 @@ EXPECTED_DEFAULTS = {
     "pet_y": -1,
     "water_interval_min": 30,
     "water_enabled": True,
-    "calendar_enabled": True,
-    "calendar_check_interval_min": 15,
-    "calendar_reminder_minutes_before": 10,
     "pet_name": "Clippy",
 }
 

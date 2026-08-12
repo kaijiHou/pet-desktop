@@ -1,7 +1,6 @@
 """Integration tests: real subsystems wired together (Phase 2).
 
-Only external network boundaries are faked (Google Calendar). Everything else
-is real: real Config persistence, real ReminderService logic, real
+Everything is local and real: Config persistence, ReminderService logic, and
 HTML-source animation metadata.
 """
 

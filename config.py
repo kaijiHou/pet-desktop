@@ -10,8 +10,6 @@ from pathlib import Path
 
 CONFIG_DIR = Path.home() / "desktop-pet"
 CONFIG_FILE = CONFIG_DIR / "config.json"
-OAUTH_FILE = CONFIG_DIR / "credentials" / "token.json"
-CREDENTIALS_FILE = CONFIG_DIR / "credentials" / "credentials.json"
 
 
 DEFAULT_CONFIG = {
@@ -23,11 +21,6 @@ DEFAULT_CONFIG = {
     # Water reminder (minutes)
     "water_interval_min": 30,
     "water_enabled": True,
-
-    # Google Calendar
-    "calendar_enabled": True,
-    "calendar_check_interval_min": 15,
-    "calendar_reminder_minutes_before": 10,
 
     # Character name
     "pet_name": "Clippy",
@@ -43,6 +36,11 @@ LEGACY_AI_KEYS = {
     "ai_personality",
 }
 LEGACY_PET_NAME_KEY = "ai_name"
+LEGACY_CALENDAR_KEYS = {
+    "calendar_enabled",
+    "calendar_check_interval_min",
+    "calendar_reminder_minutes_before",
+}
 
 
 class Config:
@@ -56,14 +54,17 @@ class Config:
                 with open(CONFIG_FILE, "r") as f:
                     loaded = json.load(f)
                     had_legacy_ai_settings = bool(LEGACY_AI_KEYS.intersection(loaded))
+                    had_legacy_calendar_settings = bool(LEGACY_CALENDAR_KEYS.intersection(loaded))
                     had_legacy_pet_name = LEGACY_PET_NAME_KEY in loaded
                     if had_legacy_pet_name and "pet_name" not in loaded:
                         loaded["pet_name"] = loaded[LEGACY_PET_NAME_KEY]
                     loaded.pop(LEGACY_PET_NAME_KEY, None)
                     for key in LEGACY_AI_KEYS:
                         loaded.pop(key, None)
+                    for key in LEGACY_CALENDAR_KEYS:
+                        loaded.pop(key, None)
                     self.data.update(loaded)
-                    if had_legacy_ai_settings or had_legacy_pet_name:
+                    if had_legacy_ai_settings or had_legacy_calendar_settings or had_legacy_pet_name:
                         self.save()
             except (json.JSONDecodeError, OSError):
                 pass

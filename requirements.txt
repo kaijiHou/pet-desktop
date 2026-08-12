@@ -2,8 +2,5 @@
 PyQt5==5.15.11
 PyQtWebEngine==5.15.7
 Pillow==12.3.0
-google-api-python-client==2.198.0
-google-auth-oauthlib==1.4.0
-pytz==2026.3.post1
 pytest==9.1.1
 psutil==7.2.2

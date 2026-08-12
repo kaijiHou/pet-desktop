@@ -376,3 +376,40 @@ scripts/smoke_baseline.py          → 19 PASS / 1 FAIL（仅 KI-11）
 ### 下一步
 
 Phase 4：删除 Google Calendar/OAuth 及其依赖。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 4：删除 Google Calendar / OAuth
+
+### 范围
+
+只删除 Google Calendar/OAuth 及 Reminder 的会议分支；不提前实现 Phase 5 的通用本地提醒，不切换 WebEngine 渲染轨。
+
+### Red → Green
+
+先新增 Calendar 删除边界测试并调整 GUI/config 期望，首跑 **8 failed, 17 passed**。实现后 Calendar/config/Reminder/GUI 针对性集合为 **36 passed**。
+
+### 修改
+
+- 删除 `calendar_service.py`。
+- 两套窗口删除 CalendarService、授权初始化、Settings Calendar 组、托盘/右键日程入口和会议回调。
+- `reminder_service.py` 删除 Calendar 参数、15 分钟检查分支、会议去重集合与会议 callback；水提醒逻辑保持。
+- `config.py` 删除 OAuth 路径常量和 Calendar 默认键；旧 `calendar_*` 加载后自动剔除并重写。
+- 当前 `requirements.txt` 和项目 venv 删除 `google-api-python-client`、`google-auth-oauthlib`、`pytz`；三项模块探测均为 `None`。
+- 不自动删除用户真实 OAuth 文件，避免越权破坏用户数据。
+- README、测试脚本及四份文档同步。
+
+### 验证
+
+```text
+targeted Calendar/config/Reminder/GUI → 36 passed
+pytest tests/unit -q                  → 81 passed
+pytest tests/integration -q           → 3 passed
+pytest tests/smoke -q                 → 9 passed, 1 xfailed
+pytest tests -q                       → 93 passed, 1 xfailed
+scripts/smoke_baseline.py             → 20 PASS / 1 FAIL（仅 KI-11）
+```
+
+### 下一步
+
+Phase 5：将旧喝水 Reminder 重构为本地日期+时间提醒。尚未执行。

@@ -21,7 +21,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from config import Config, CONFIG_DIR
-from calendar_service import CalendarService
 from reminder_service import ReminderService
 import sounds
 
@@ -149,18 +148,6 @@ class SettingsDialog(QDialog):
         water_l.addRow("Interval:", self.water_interval)
         layout.addWidget(water_g)
 
-        cal_g = QGroupBox("📅 Google Calendar")
-        cal_l = QFormLayout(cal_g)
-        self.cal_enabled = QCheckBox("Enable")
-        self.cal_enabled.setChecked(self.config.get("calendar_enabled", False))
-        cal_l.addRow(self.cal_enabled)
-        self.cal_remind_before = QSpinBox()
-        self.cal_remind_before.setRange(1, 60)
-        self.cal_remind_before.setValue(self.config.get("calendar_reminder_minutes_before", 10))
-        self.cal_remind_before.setSuffix(" min before")
-        cal_l.addRow("Remind:", self.cal_remind_before)
-        layout.addWidget(cal_g)
-
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.accepted.connect(self._save)
         btns.rejected.connect(self.reject)
@@ -183,8 +170,6 @@ class SettingsDialog(QDialog):
     def _save(self):
         self.config.set("water_enabled", self.water_enabled.isChecked())
         self.config.set("water_interval_min", self.water_interval.value())
-        self.config.set("calendar_enabled", self.cal_enabled.isChecked())
-        self.config.set("calendar_reminder_minutes_before", self.cal_remind_before.value())
         self.accept()
 
 
@@ -199,8 +184,7 @@ class PetWindow(QWidget):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
-        self.calendar = CalendarService(config)
-        self.reminder = ReminderService(config, self.calendar)
+        self.reminder = ReminderService(config)
         self._state = self.STATE_IDLE
         self._drag_pos = QPoint()
         self._dragging = False
@@ -212,7 +196,6 @@ class PetWindow(QWidget):
         self._setup_timers()
         self._setup_callbacks()
         self._setup_speech_bubble()
-        self._init_calendar()
         self._load_position()
 
     def _setup_window(self):
@@ -273,8 +256,6 @@ class PetWindow(QWidget):
         self.tray_icon.setToolTip("Clippy — Desktop Pet")
         tray_menu = QMenu()
 
-        a = tray_menu.addAction("📅 Cek Jadwal")
-        a.triggered.connect(self._show_schedule)
         a = tray_menu.addAction("💧 Reset timer minum")
         a.triggered.connect(self._reset_water)
         tray_menu.addSeparator()
@@ -302,7 +283,6 @@ class PetWindow(QWidget):
 
     def _setup_callbacks(self):
         self.reminder.on_water_reminder = self._on_water_reminder
-        self.reminder.on_meeting_reminder = self._on_meeting_reminder
 
     def _setup_speech_bubble(self):
         """Speech bubble as a SEPARATE window (like Office 97 tooltip)."""
@@ -427,10 +407,6 @@ class PetWindow(QWidget):
         if auto_dismiss_ms > 0:
             self._bubble_dismiss.start(auto_dismiss_ms)
         self._update_bubble()
-
-    def _init_calendar(self):
-        if self.config.get("calendar_enabled", False):
-            self.calendar.authenticate()
 
     def _load_position(self):
         screen = QApplication.primaryScreen().geometry()
@@ -585,22 +561,9 @@ class PetWindow(QWidget):
         self.show_bubble(msg, 8000)
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
 
-    def _on_meeting_reminder(self, msg):
-        self.set_state(self.STATE_ALERT)
-        sounds.play_meeting_reminder()
-        self.show_bubble(msg, 10000)
-        QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
-
     def _reset_water(self):
         self.reminder.reset_water_timer()
         self.show_bubble("✅ Timer minum di-reset! Aku kasih tau nanti lagi~", 3000)
-        self.set_state(self.STATE_TALKING)
-        QTimer.singleShot(2000, lambda: self.set_state(self.STATE_IDLE))
-
-    def _show_schedule(self):
-        events = self.calendar.get_upcoming_events(5)
-        summary = self.calendar.format_events_summary(events)
-        self.show_bubble(summary, 10000)
         self.set_state(self.STATE_TALKING)
         QTimer.singleShot(2000, lambda: self.set_state(self.STATE_IDLE))
 
@@ -628,15 +591,13 @@ class PetWindow(QWidget):
     def _show_context_menu(self, pos):
         menu = QMenu(self)
         menu.setStyleSheet("QMenu{background:#fff8f0;border:1px solid #d0c0b0;border-radius:6px;padding:4px;}QMenu::item{padding:6px 20px;border-radius:4px;}QMenu::item:selected{background:#ecd8c0;}")
-        sch_a = menu.addAction("📅 Jadwal Hari Ini")
         wat_a = menu.addAction("💧 Reset Timer Minum")
         menu.addSeparator()
         set_a = menu.addAction("⚙️ Settings")
         menu.addSeparator()
         quit_a = menu.addAction("✖️ Keluar")
         action = menu.exec_(pos)
-        if action == sch_a: self._show_schedule()
-        elif action == wat_a: self._reset_water()
+        if action == wat_a: self._reset_water()
         elif action == set_a: self._open_settings()
         elif action == quit_a: self._quit_app()
 
@@ -646,11 +607,8 @@ class PetWindow(QWidget):
             if d._going_bobo:
                 self._go_bobo()
                 return
-            if self.config.get("calendar_enabled", False) and not self.calendar.is_authenticated:
-                self._init_calendar()
             self.reminder.set_water_interval(self.config.get("water_interval_min", 45))
             self.reminder.enable_water(self.config.get("water_enabled", True))
-            self.reminder.enable_calendar(self.config.get("calendar_enabled", False))
 
     def _go_bobo(self):
         """Put Clippy to sleep."""
