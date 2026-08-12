@@ -211,3 +211,12 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | 全套 | `pytest tests -q` | **153 passed, 1 xfailed**（KI-11） |
 
 覆盖五种 Windows action 解析、只接受显式已存在目录、重复 watch 去重、事件 callback 与 stop；源码断言使用 ReadDirectoryChangesW 且无 sleep 轮询。GUI 验证拖入目录进入 watched set。真实 Windows 文件事件 burst 与 rename 配对留 Phase 17 人工验收。
+
+### Phase 15（2026-08-12）— 事件到动画
+
+| 层 | 命令 | 结果 |
+|---|---|---|
+| Events targeted | `pytest tests/unit/test_events.py -q` | **3 passed** |
+| 全套 | `pytest tests -q` | **157 passed, 1 xfailed**（KI-11） |
+
+覆盖具体映射、category fallback、idle fallback、无动画返回 None 与 dispatcher typed event；GUI 验证 Windows removed 解析为真实存在的 EmptyTrash 动画。Reminder/Pocket/FileOperation/Windows producer 均接入 dispatcher。

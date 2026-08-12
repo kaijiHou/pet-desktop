@@ -136,3 +136,8 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 - ReadDirectoryChangesW 只报告目录中发生的事实动作，不能判定由 Explorer、命令行或其他进程触发（KI-08）；实现不作来源推断。
 - 当前只监听明确拖入 Pocket 的目录且不递归；文件条目不监听其整个父目录。KI-11、KI-12 不变。
+
+## Phase 15 状态更新
+
+- Windows watcher callback 已经 Qt signal 跨线程，不直接从 worker 修改 UI。
+- 原生备用轨尚只消费 coarse state，完整 specific animation 接管列入 Phase 16。KI-11、KI-12 不变。

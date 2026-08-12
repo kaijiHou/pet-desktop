@@ -631,3 +631,16 @@ pytest tests -q                         → 153 passed, 1 xfailed
 ```
 
 下一步 Phase 15：统一 EventDispatcher / AnimationController，将 Reminder/Pocket/FileOperation/WindowsEvent 映射到动画及 fallback。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 15：事件到动画
+
+新增 typed AppEvent、Qt EventDispatcher 与 AnimationController fallback。Reminder、Pocket Receive、File Copy/Move、Windows change 全部接入；监听线程通过 signal 回 UI。WebEngine 轨使用具体素材动画，原生备用轨保留 coarse fallback。
+
+```text
+pytest tests/unit/test_events.py -q → 3 passed
+pytest tests -q                    → 157 passed, 1 xfailed
+```
+
+下一步 Phase 16：完整原生动画轨接管、移除 WebEngine/Chromium、修复 KI-11 并做资源优化。尚未执行。

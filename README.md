@@ -92,6 +92,7 @@ clippy-desktop-pet/
 ├── destinations.py           # Favorite destination persistence
 ├── explorer.py               # Foreground File Explorer directory query
 ├── file_watch.py             # Event-driven Pocket directory watcher
+├── events.py                 # Typed events and animation fallback
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/

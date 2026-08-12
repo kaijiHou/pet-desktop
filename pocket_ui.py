@@ -57,12 +57,13 @@ class PocketDialog(QDialog):
     """Browse and manage Pocket references without deleting target files."""
 
     def __init__(self, service, parent=None, file_operations=None, destinations=None,
-                 explorer_service=None):
+                 explorer_service=None, event_dispatcher=None):
         super().__init__(parent)
         self.service = service
         self.file_operations = file_operations or FileOperationService()
         self.destinations = destinations or DestinationService()
         self.explorer_service = explorer_service or ExplorerService()
+        self.event_dispatcher = event_dispatcher
         self.setWindowTitle("Pocket")
         self.setMinimumSize(520, 340)
 
@@ -215,6 +216,9 @@ class PocketDialog(QDialog):
         if report.succeeded:
             self.destinations.record_recent(destination)
             self.refresh_recents()
+            if self.event_dispatcher:
+                from events import AppEvent
+                self.event_dispatcher.dispatch(AppEvent("file_operation", action, report))
         if notify:
             QMessageBox.information(
                 self,

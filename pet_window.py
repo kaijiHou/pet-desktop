@@ -27,6 +27,7 @@ from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
 from pocket_ui import PocketDialog
 from file_watch import FileWatchService
+from events import AnimationController, AppEvent, EventDispatcher
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -75,6 +76,12 @@ class PetWindow(QWidget):
         self.reminder = ReminderService()
         self.pocket = PocketService()
         self.file_watch = FileWatchService()
+        self.events = EventDispatcher(self)
+        self.animation_controller = AnimationController({"RestPose"})
+        self.events.event_received.connect(self._handle_app_event)
+        self.file_watch.on_change = lambda change: self.events.dispatch(
+            AppEvent("windows", change.action, change)
+        )
 
         # Sprite loader
         self.sprite_loader = PetSpriteLoader(CONFIG_DIR / "assets", config.get("pet_scale", 2))
@@ -416,7 +423,7 @@ class PetWindow(QWidget):
                 continue
 
         if added:
-            self.set_state(self.STATE_ALERT)
+            self.events.dispatch(AppEvent("pocket", "receive", {"count": added}))
             detail = f" ({duplicates} already there)" if duplicates else ""
             self.show_bubble(f"📥 Added {added} item(s) to Pocket{detail}.", 4500)
             QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
@@ -479,11 +486,19 @@ class PetWindow(QWidget):
             self._check_due_reminders()
 
     def _on_reminder_due(self, reminder):
-        self.set_state(self.STATE_ALERT)
+        self.events.dispatch(AppEvent("reminder", "due", reminder))
         sounds.play_reminder()
         self.show_bubble(f"⏰ Reminder: {reminder.content}", 10000)
         # Reset to idle after a bit
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
+
+    def _handle_app_event(self, event):
+        # The legacy renderer currently exposes only coarse states; Phase 16
+        # loads the complete animation catalog before it becomes the main track.
+        if event.category == "reminder":
+            self.set_state(self.STATE_ALERT)
+        elif event.category in {"pocket", "file_operation", "windows"}:
+            self.set_state(self.STATE_TALKING)
 
     def _open_add_reminder(self):
         dialog = AddReminderDialog(self)
@@ -498,7 +513,7 @@ class PetWindow(QWidget):
         self._schedule_next_reminder()
 
     def _open_pocket(self):
-        PocketDialog(self.pocket, self).exec_()
+        PocketDialog(self.pocket, self, event_dispatcher=self.events).exec_()
 
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:

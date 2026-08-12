@@ -3,7 +3,7 @@ Desktop Pet Window — WebEngine-based Clippy renderer.
 Uses clippyjs via HTML5 Canvas for smooth pixel-perfect rendering.
 """
 
-import math, sys, time, os, random
+import json, math, sys, time, os, random
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +25,7 @@ from config import Config, CONFIG_DIR
 from pocket_service import PocketService
 from pocket_ui import PocketDialog
 from file_watch import FileWatchService
+from events import AnimationController, AppEvent, EventDispatcher
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -180,6 +181,13 @@ class PetWindow(QWidget):
         self.reminder = ReminderService()
         self.pocket = PocketService()
         self.file_watch = FileWatchService()
+        animation_names = json.loads((Path(__file__).parent / "assets" / "animations.json").read_text(encoding="utf-8"))
+        self.events = EventDispatcher(self)
+        self.animation_controller = AnimationController(animation_names)
+        self.events.event_received.connect(self._handle_app_event)
+        self.file_watch.on_change = lambda change: self.events.dispatch(
+            AppEvent("windows", change.action, change)
+        )
         self._state = self.STATE_IDLE
         self._drag_pos = QPoint()
         self._dragging = False
@@ -581,7 +589,7 @@ class PetWindow(QWidget):
                 continue
 
         if added:
-            self.set_state(self.STATE_TALKING, self.ANIM_RECEIVE)
+            self.events.dispatch(AppEvent("pocket", "receive", {"count": added}))
             detail = f" ({duplicates} already there)" if duplicates else ""
             self.show_bubble(f"📥 Added {added} item(s) to Pocket{detail}.", 4500)
             QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
@@ -623,10 +631,16 @@ class PetWindow(QWidget):
             self._check_due_reminders()
 
     def _on_reminder_due(self, reminder):
-        self.set_state(self.STATE_ALERT)
+        self.events.dispatch(AppEvent("reminder", "due", reminder))
         sounds.play_reminder()
         self.show_bubble(f"⏰ Reminder: {reminder.content}", 10000)
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
+
+    def _handle_app_event(self, event):
+        animation = self.animation_controller.resolve(event)
+        if animation:
+            self._state = self.STATE_ALERT if event.category == "reminder" else self.STATE_TALKING
+            self._js(f"setAnimation('{animation}');")
 
     def _open_add_reminder(self):
         dialog = AddReminderDialog(self)
@@ -641,7 +655,7 @@ class PetWindow(QWidget):
         self._schedule_next_reminder()
 
     def _open_pocket(self):
-        PocketDialog(self.pocket, self).exec_()
+        PocketDialog(self.pocket, self, event_dispatcher=self.events).exec_()
 
     def _check_idle(self):
         if self._state == self.STATE_SLEEP:

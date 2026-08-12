@@ -12,6 +12,7 @@ import pet_window_web
 from reminder_ui import AddReminderDialog, ReminderListDialog
 from pocket_ui import PocketDialog
 from destinations import DestinationService
+from events import AppEvent
 
 
 class FakeDropEvent:
@@ -61,6 +62,13 @@ class TestGuiConstruction:
         assert w.pocket is not None
         assert w.file_watch is not None
         assert w.acceptDrops()
+        assert w.events is not None
+
+    def test_event_dispatch_uses_specific_animation(self, pet_window, monkeypatch):
+        animations = []
+        monkeypatch.setattr(pet_window, "_js", animations.append)
+        pet_window.events.dispatch(AppEvent("windows", "removed"))
+        assert animations[-1] == "setAnimation('EmptyTrash');"
 
     def test_drag_enter_accepts_local_files_only(self, pet_window, test_temp_root):
         from PyQt5.QtCore import QUrl
