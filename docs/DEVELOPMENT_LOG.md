@@ -507,3 +507,27 @@ scripts/smoke_baseline.py         → 21 PASS / 1 FAIL（仅 KI-11）
 ### 下一步
 
 Phase 8：实现 Pocket 列表窗口与右键操作。尚未执行。
+
+---
+
+## 2026-08-12 (三) - Phase 8：Pocket 列表窗口
+
+### 范围与修改
+
+- 新增 `PocketDialog`，展示文件/目录引用及 missing 状态。
+- 提供打开、资源管理器定位、复制路径、移除引用、清理失效引用；双击打开，右键菜单提供常用项。
+- 主/备用 PetWindow 的托盘与右键菜单均新增 Pocket 入口。
+- `PocketService.get()` 为 UI 通过稳定 ID 取条目，不让 UI 持有列表索引。
+- 删除/清理操作只改 JSON；测试确认原文件仍在。剪贴板在测试中用 fake 隔离，Open/Explorer 不实际触发。
+
+### 验证
+
+```text
+pytest Pocket service + GUI targeted → 27 passed
+pytest tests -q                      → 117 passed, 1 xfailed
+scripts/smoke_baseline.py            → 21 PASS / 1 FAIL（仅 KI-11；菜单含 Pocket）
+```
+
+### 下一步
+
+Phase 9：从 Pocket 用标准 `QMimeData` file URL 拖出到 Explorer。尚未执行。

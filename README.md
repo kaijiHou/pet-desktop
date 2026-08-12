@@ -54,6 +54,7 @@ python main.py
 | **Add a reminder** | Right-click → Add Reminder |
 | **Manage reminders** | Right-click → My Reminders |
 | **Add to Pocket** | Drag a local file or folder onto Clippy |
+| **Open Pocket** | Right-click → Pocket |
 | **Settings** | Right-click → Settings |
 | **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
 | **Quit** | Right-click → Keluar |
@@ -80,6 +81,7 @@ clippy-desktop-pet/
 ├── reminder_service.py       # Persistent local reminder service
 ├── reminder_ui.py            # Add/manage reminder dialogs
 ├── pocket_service.py         # Reference-only file/folder Pocket data
+├── pocket_ui.py              # Pocket list and safe reference actions
 ├── sounds.py                 # Sound effects
 ├── pet_sprite.py             # Sprite loader (legacy)
 ├── assets/

@@ -251,7 +251,8 @@ def main():
         and "Jadwal" not in item and "Calendar" not in item
         for item in items
     )
-    record("右键菜单构建", "PASS" if (len(items) >= 3 and no_removed_items) else "FAIL",
+    pocket_item = any("Pocket" in item for item in items)
+    record("右键菜单构建", "PASS" if (len(items) >= 3 and no_removed_items and pocket_item) else "FAIL",
            f"items={items} err={captured.get('error', '')}")
 
     # ── Settings dialog ──
@@ -306,7 +307,7 @@ def main():
     n_fail = sum(1 for _, s, _ in RESULTS if s == "FAIL")
     print(f"\nSUMMARY: {n_pass} PASS / {n_fail} FAIL / {len(RESULTS)} total")
 
-    out = REPO / "docs" / "phase7_smoke_output.txt"
+    out = REPO / "docs" / "phase8_smoke_output.txt"
     out.write_text("\n".join(f"[{s}] {i} — {d}" for i, s, d in RESULTS)
                    + f"\n\nSUMMARY: {n_pass} PASS / {n_fail} FAIL\n", encoding="utf-8")
     print(f"raw results -> {out}")

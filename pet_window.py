@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
 from config import Config, CONFIG_DIR
 from pet_sprite import PetSpriteLoader, generate_sprite, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
+from pocket_ui import PocketDialog
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -136,6 +137,8 @@ class PetWindow(QWidget):
         add_action.triggered.connect(self._open_add_reminder)
         reminder_action = tray_menu.addAction("⏰ My Reminders")
         reminder_action.triggered.connect(self._open_reminders)
+        pocket_action = tray_menu.addAction("📥 Pocket")
+        pocket_action.triggered.connect(self._open_pocket)
 
         tray_menu.addSeparator()
 
@@ -490,6 +493,9 @@ class PetWindow(QWidget):
         ReminderListDialog(self.reminder, self).exec_()
         self._schedule_next_reminder()
 
+    def _open_pocket(self):
+        PocketDialog(self.pocket, self).exec_()
+
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
             self.show()
@@ -515,6 +521,7 @@ class PetWindow(QWidget):
 
         add_action = menu.addAction("➕ Add Reminder")
         reminder_action = menu.addAction("⏰ My Reminders")
+        pocket_action = menu.addAction("📥 Pocket")
         menu.addSeparator()
         settings_action = menu.addAction("⚙️ Settings")
         menu.addSeparator()
@@ -525,6 +532,8 @@ class PetWindow(QWidget):
             self._open_add_reminder()
         elif action == reminder_action:
             self._open_reminders()
+        elif action == pocket_action:
+            self._open_pocket()
         elif action == settings_action:
             self._open_settings()
         elif action == quit_action:

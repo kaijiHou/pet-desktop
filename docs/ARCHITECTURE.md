@@ -169,7 +169,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | `reminder_service.py` v2 | Reminder 数据模型（content/due/repeat/snooze）、JSON 持久化、next-due 单次定时器、唤醒补检查 |
 | `reminder_ui.py` | 添加提醒对话框、我的提醒列表、到期气泡（完成/稍后提醒） |
 | `pocket_service.py` | ✅ Phase 6：引用型条目 {id,path,name,item_type,added_at}、exists 检查、JSON 持久化、去重、清理失效 |
-| `pocket_ui.py` | 口袋浮动窗口：列表、打开/定位/复制路径、右键菜单、拖出（QMimeData file URLs） |
+| `pocket_ui.py` | ✅ Phase 8：列表、打开/定位/复制路径、移除引用、清理失效；拖出留 Phase 9 |
 | `file_ops.py` (FileOperationService) | shutil 复制/移动 + 全套异常处理 + 同名冲突策略 + 部分失败报告 |
 | `destinations.py` (DestinationService) | 常用位置（增删）+ 最近位置（去重/置顶/上限 10/清空） |
 | `explorer.py` | COM IShellWindows 获取前台 Explorer 当前目录 |
@@ -220,7 +220,7 @@ SettingsDialog、气泡、托盘均为原生 Qt 控件。**结论：WebEngine �
 | 5 | 通用 Reminder | ✅ 本地 JSON 持久化 + next-due singleShot + 唤醒补查；V1 单次提醒 |
 | 6 | Pocket 数据层 | ✅ 引用模型 + 原子持久化 + 去重 + 失效检测/清理 |
 | 7 | 拖入角色 | ✅ 两条 PetWindow 轨接收本地 file URL + Pocket 引用 + RECEIVE/Save 动画 |
-| 8 | Pocket UI | 列表窗 + 右键菜单 |
+| 8 | Pocket UI | ✅ 列表窗 + 右键菜单 + 打开/定位/复制路径/移除/清失效 |
 | 9 | 拖出到 Explorer | QMimeData urls 标准拖放 |
 | 10 | 复制到/移动到 | file_ops + 冲突/异常全套 |
 | 11 | 常用目的地 | favorites |
@@ -285,3 +285,11 @@ D:\pet-desktop\
 两个 PetWindow 均启用 Qt drop，入口只接受 `mimeData().urls()` 中实际存在的本地 file URL；网页、文本或已经消失的路径不接收。drop 后逐项调用 `PocketService.add()`，不引入 shutil 或任何文件操作。
 
 WebEngine 当前轨以素材中现成的 `Save` 作为 RECEIVE 动画，原生备用轨暂以 alert fallback 表示接收（Phase 15 事件映射时统一）。成功、重复、全失败分别显示明确气泡；批量拖入允许部分成功。测试 fixture 将 Pocket 存储重定向至 D 盘 `.tmp/tests`，不读取用户真实 Pocket。
+
+---
+
+## 20. Phase 8 Pocket UI（2026-08-12）
+
+`PocketDialog` 从 service 每次刷新引用，文件与目录使用不同图标，失效路径显示 `[missing]` 与灰色文字。操作包括 Open、Show in Explorer、Copy Path、Remove from Pocket、Clean Missing；双击等价于 Open，列表右键提供前四项。PetWindow 托盘及角色右键菜单均新增 Pocket 入口。
+
+安全边界：Remove 和 Clean Missing 只调用 PocketService 修改 JSON；确认提示明确写出原文件不会删除。Open 使用 Qt 本地 URL，Explorer 定位以参数列表启动且不使用 shell。自动测试拦截剪贴板，不覆盖用户真实剪贴板；Open/Explorer 外部副作用不在测试中执行。

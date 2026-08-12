@@ -10,6 +10,7 @@ import pytest
 
 import pet_window_web
 from reminder_ui import AddReminderDialog, ReminderListDialog
+from pocket_ui import PocketDialog
 
 
 class FakeDropEvent:
@@ -96,6 +97,46 @@ class TestGuiConstruction:
         for item in list(pet_window.pocket.list_items()):
             pet_window.pocket.remove(item.id)
 
+    def test_pocket_dialog_lists_copies_and_removes_reference(
+        self, pet_window, test_temp_root, monkeypatch
+    ):
+        from PyQt5.QtWidgets import QApplication
+
+        class FakeClipboard:
+            text_value = ""
+
+            def setText(self, value):
+                self.text_value = value
+
+        clipboard = FakeClipboard()
+        monkeypatch.setattr(QApplication, "clipboard", staticmethod(lambda: clipboard))
+        source = test_temp_root / "pocket-ui.txt"
+        source.touch()
+        pet_window.pocket.add(source)
+        dialog = PocketDialog(pet_window.pocket, pet_window)
+
+        assert dialog.item_list.count() == 1
+        assert "pocket-ui.txt" in dialog.item_list.item(0).text()
+        dialog.copy_selected()
+        assert clipboard.text_value == str(source.resolve())
+        dialog.remove_selected(confirm=False)
+        assert pet_window.pocket.list_items() == []
+        assert source.exists()
+        dialog.close()
+
+    def test_pocket_dialog_marks_and_cleans_missing_reference(self, pet_window, test_temp_root):
+        source = test_temp_root / "missing-ui.txt"
+        source.touch()
+        pet_window.pocket.add(source)
+        source.unlink()
+        dialog = PocketDialog(pet_window.pocket, pet_window)
+
+        assert "[missing]" in dialog.item_list.item(0).text()
+        removed = dialog.cleanup_missing()
+        assert len(removed) == 1
+        assert dialog.item_list.count() == 0
+        dialog.close()
+
     def test_settings_dialog_constructs(self, pet_window):
         d = pet_window_web.SettingsDialog(pet_window.config, pet_window)
         assert d is not None
@@ -157,6 +198,7 @@ class TestGuiConstruction:
         assert all("Jadwal" not in item and "Calendar" not in item for item in items)
         assert any("Add Reminder" in item for item in items)
         assert any("My Reminders" in item for item in items)
+        assert any("Pocket" in item for item in items)
 
     def test_window_can_be_closed(self, pet_window):
         # close() on an unshown frameless tool window must not raise.

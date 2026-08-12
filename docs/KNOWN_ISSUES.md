@@ -98,3 +98,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - Qt file URL 拖入文件/目录已实测；网页 URL 和不存在路径会拒绝。部分路径失败时其余有效项仍能加入。
 - 原生备用渲染轨尚无独立 RECEIVE 状态，暂使用 alert fallback；Phase 15 统一事件到动画映射时处理。
 - KI-11 仍是唯一回归失败；KI-12 不变。
+
+## Phase 8 状态更新
+
+- Pocket UI 的 Open/Explorer 定位依赖 Windows shell；自动化只覆盖调用边界，不在测试中真的启动外部窗口。完整人工验收放到 Phase 17。
+- Remove from Pocket 与 Clean Missing 均只删除引用，确认文案明确原文件不受影响。
+- KI-11、KI-12 状态不变。

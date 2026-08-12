@@ -80,6 +80,9 @@ class PocketService:
         items = self._items if include_missing else [item for item in self._items if item.exists]
         return list(sorted(items, key=lambda item: item.added_at))
 
+    def get(self, item_id: str) -> Optional[PocketItem]:
+        return next((item for item in self._items if item.id == item_id), None)
+
     def remove(self, item_id: str) -> bool:
         original_count = len(self._items)
         self._items = [item for item in self._items if item.id != item_id]

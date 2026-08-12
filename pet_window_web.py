@@ -23,6 +23,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from config import Config, CONFIG_DIR
 from pocket_service import PocketService
+from pocket_ui import PocketDialog
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds
@@ -254,6 +255,8 @@ class PetWindow(QWidget):
         a.triggered.connect(self._open_add_reminder)
         a = tray_menu.addAction("⏰ My Reminders")
         a.triggered.connect(self._open_reminders)
+        a = tray_menu.addAction("📥 Pocket")
+        a.triggered.connect(self._open_pocket)
         tray_menu.addSeparator()
         a = tray_menu.addAction("⚙️ Settings")
         a.triggered.connect(self._open_settings)
@@ -633,6 +636,9 @@ class PetWindow(QWidget):
         ReminderListDialog(self.reminder, self).exec_()
         self._schedule_next_reminder()
 
+    def _open_pocket(self):
+        PocketDialog(self.pocket, self).exec_()
+
     def _check_idle(self):
         if self._state == self.STATE_SLEEP:
             return
@@ -659,6 +665,7 @@ class PetWindow(QWidget):
         menu.setStyleSheet("QMenu{background:#fff8f0;border:1px solid #d0c0b0;border-radius:6px;padding:4px;}QMenu::item{padding:6px 20px;border-radius:4px;}QMenu::item:selected{background:#ecd8c0;}")
         add_a = menu.addAction("➕ Add Reminder")
         list_a = menu.addAction("⏰ My Reminders")
+        pocket_a = menu.addAction("📥 Pocket")
         menu.addSeparator()
         set_a = menu.addAction("⚙️ Settings")
         menu.addSeparator()
@@ -666,6 +673,7 @@ class PetWindow(QWidget):
         action = menu.exec_(pos)
         if action == add_a: self._open_add_reminder()
         elif action == list_a: self._open_reminders()
+        elif action == pocket_a: self._open_pocket()
         elif action == set_a: self._open_settings()
         elif action == quit_a: self._quit_app()
 
