@@ -723,3 +723,5 @@ Phase 0–18 全部完成。Pocket 跨窗口鼠标拖放仍保留 Phase 17 已�
 ### 2026-08-13 后续验收夹具
 
 重新用 Windows Computer Use 尝试独立顶层 Pocket + 唯一 Explorer 目标。控件树可读，但 Qt 窗口仍不提供输入几何，且 drag API 只能在同一个目标窗口内定义起止坐标，不能安全伪造跨应用落点。新增 `scripts/manual_drag_acceptance.py`：自动准备隔离源/目标并在用户一次真实拖放后检查 copy 存在、source 保留，输出机器可读 PASS/FAIL。
+
+用户随后完成真实鼠标拖放；`.tmp/tests/phase17_drag_result.json` 返回 `PASS`，目标副本存在且源文件仍存在。Phase 17 最后一个人工验收项正式关闭，Phase 0–18 发布验收全部完成。
