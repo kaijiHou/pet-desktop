@@ -719,3 +719,7 @@ extracted ZIP black-box          → PASS（1 process, responsive, logs/assets/c
 ```
 
 Phase 0–18 全部完成。Pocket 跨窗口鼠标拖放仍保留 Phase 17 已记录的人工 BLOCKED 项，不把底层自动化覆盖冒充人工体验结论。
+
+### 2026-08-13 后续验收夹具
+
+重新用 Windows Computer Use 尝试独立顶层 Pocket + 唯一 Explorer 目标。控件树可读，但 Qt 窗口仍不提供输入几何，且 drag API 只能在同一个目标窗口内定义起止坐标，不能安全伪造跨应用落点。新增 `scripts/manual_drag_acceptance.py`：自动准备隔离源/目标并在用户一次真实拖放后检查 copy 存在、source 保留，输出机器可读 PASS/FAIL。

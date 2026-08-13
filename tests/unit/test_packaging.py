@@ -41,3 +41,11 @@ def test_release_verifier_checks_black_box_runtime_boundaries():
     for boundary in ("running", "responding", "animation_catalog", "user_assets_dir",
                      "log_created", "webengine_files"):
         assert boundary in source
+
+
+@pytest.mark.unit
+def test_manual_drag_fixture_verifies_copy_semantics():
+    source = (ROOT / "scripts" / "manual_drag_acceptance.py").read_text(encoding="utf-8")
+    assert '"target_copy_exists"' in source
+    assert '"source_still_exists"' in source
+    assert '"status": "PASS"' in source

@@ -243,9 +243,11 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | 真实平台 acceptance | `python scripts/acceptance_phase17.py` | **9 PASS / 0 FAIL** |
 | 稳定性 60s | `measure_native.py --duration 60` | **1 process; avg CPU 1.35%; peak 3.0%; avg RSS 82.0MB; peak 87.0MB** |
 | 真实 Explorer COM | 指定前台 Explorer + `current_directory()` | **PASS**（存在目录，中文路径可用） |
-| Pocket 跨窗口鼠标拖出 | Windows 桌面自动化 | **BLOCKED**（Qt 窗口未提供可输入几何） |
+| Pocket 跨窗口鼠标拖出 | Windows 桌面自动化 | **BLOCKED**（Qt 无输入几何且 API 不支持跨窗口落点）；已提供一键人工夹具 |
 
 真实 acceptance 覆盖原生可见绘制/截图、拖动、整数缩放、本地提醒、Pocket 引用、真实复制、真实移动、Win32 五类目录事件和无 WebEngine 运行时。验收数据均在 `D:\pet-desktop\.tmp\tests`。跨窗口鼠标拖出没有伪报通过；底层 QMimeData 本地 file URL、QDrag CopyAction 与源文件保持存在由正式 smoke 覆盖。
+
+人工闭环：运行 `.venv\Scripts\python.exe scripts\manual_drag_acceptance.py`，把 Pocket 中唯一文件拖到自动打开的 `drag-target` Explorer，然后关闭 Pocket。脚本检查目标副本存在且源文件仍存在，结果写到 `.tmp/tests/phase17_drag_result.json`。
 
 ### Phase 18（2026-08-12）— Windows 打包与发布
 
