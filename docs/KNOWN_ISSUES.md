@@ -165,12 +165,21 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 - **KI-01/KI-10 关闭**：不再要求自制 124×93 43 槽位 sprite sheet。新增 Single Image Mode：一张透明 PNG 即时成为桌宠；无图时显示程序绘制的原创默认伙伴（无版权角色）。Sprite Sheet Mode 保留兼容。
 - **KI-12 确认消失**：Phase 16 删除 WebEngine 后，offscreen 平台不再 segfault，GUI 测试可安全用 offscreen。
-- **KI-11 保持**：滚轮缩放默认关闭（V2 设计），新测试 `test_ki11_wheel_zoom.py` 验证默认不缩放、启用后仍可能触发 setGeometry float TypeError（不修）。
+- **KI-11 superseded by V2.2**：原 wheel 默认关闭/float geometry 问题已由原生整数 geometry 路径替代；当前默认 wheel 开启，Ctrl+wheel 强制缩放，回归测试已通过。
 - **新增 KI-13（已接受）**：offscreen 平台不渲染 CJK 字体——widget.grab 截图中文空白。真实 GUI 用微软雅黑正常。仅影响离屏截图证据，不影响功能。
-- **新增 KI-14（Shell Watcher 简化实现）**：真正 SHChangeNotifyRegister 需要隐藏窗口消息循环；当前用轮询前台 explorer.exe + debounce 的简化版。外部文件事件语义受 §39 限制（无法可靠区分"新建"vs"复制产生的新文件"），已在 `docs/UX_AUDIT.md` §37-39 记录。
+- **KI-14 superseded by V2.2**：ShellWatcher 已有真实隐藏窗口消息循环与 `SHChangeNotifyRegister`；仍不推断事件来源，rename 双 PIDL 语义继续保留为已知边界。
 
 ## Phase 17/18 历史保留（V2 继续有效）
 
 - 配置/数据统一写 `data/`（D 盘项目旁），不再隐式写 C 盘。
 - 旧 `C:\Users\clara` 硬编码启动脚本已删。
 - 单进程、WebEngine=0、低资源基线在 V2 继续保持。
+
+## V2.2 状态更新（2026-08-27）
+
+- **KI-15**：源码层 drag enter/move/drop 已统一本地 URL + CopyAction 并加入诊断日志；真实 Explorer → 源码/EXE 的 OLE/UIPI 验收尚未完成，状态 `NOT TESTED`。
+- **KI-16**：ShellWatcher 已改为真实 Desktop PIDL + SHCNRF NewDelivery 注册，正确使用 `hChange/dwProcessID` Lock 解包；注册 ID 非零及真实 SHChangeNotify 广播测试通过。普通 Explorer 删除的 release EXE 验收状态 `NOT TESTED`。
+- **KI-17**：QuickPanel/PocketWindow 已通过 PetWindow `moveEvent` 实时跟随，live 定位不抢焦点并支持屏幕边界翻转；真人拖动验收状态 `NOT TESTED`。
+- **KI-18**：wheel/Ctrl+wheel 与 50%~300% 设置 slider 均实时同步 Character、geometry、hitbox、badge、bubble anchor；Cancel 回滚、OK 持久化及上下限自动化通过；源码/EXE 肉眼缩放验收状态 `NOT TESTED`。
+
+在 `V22_REAL_ACCEPTANCE.md` 的真实 Windows 清单完成前，不宣称 V2.2 四项交互门槛全部 PASS。

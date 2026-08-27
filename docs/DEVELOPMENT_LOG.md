@@ -760,3 +760,63 @@ Phase 0–18 全部完成。Pocket 跨窗口鼠标拖放仍保留 Phase 17 已�
 ### 状态
 
 V2 重构完成，可 fresh build。下一阶段如继续做产品化增强，见 ARCHITECTURE.md §16 原则。
+
+---
+
+## 2026-08-27 - V2.2 紧急交互修复
+
+### 基线与复现
+
+本轮基线为 `8648f96ce5bc506969fc850d49b9d0430b818bcc`。用户在真实 Windows 上报告四个交互故障：普通滚轮不能可靠改变角色大小；Explorer 拖入显示禁止；普通 Explorer 删除文件后桌宠无反馈；浮动面板关闭困难且桌宠移动后停在旧位置。
+
+初始复现还发现 ShellWatcher 的隐藏窗口在 ctypes 默认 32 位返回类型下会发生 Windows access violation。原有 fake drop 与 Qt 单元测试不能证明 OLE/UIPI 真机行为，因此本轮把自动化和真实验收分开记录。
+
+### KI-15：真实 Explorer drag-in 被拒
+
+- 用户现象/步骤：从 Explorer 拖文件到桌宠，鼠标显示禁止；
+- 根因：入口只在 `dragEnterEvent` 接受，未在 `dragMoveEvent` 持续固定 CopyAction；日志也没有记录 MIME/action，无法区分未收到、拒绝和权限层问题；
+- 修改文件：`pet_window.py`、`pocket_window.py`；
+- failing test：新增 `test_drag_enter_forces_copy_action`、`test_drag_move_keeps_valid_local_file_accepted`；
+- 修复：只接受存在的本地 URL，drag enter/move/drop 全程 `Qt.CopyAction + accept()`，加入 formats/URLs/proposed/possible/accepted/action/Pocket result 日志，引用口袋不移动源文件；
+- fix 后 test：`pytest tests/smoke/test_v22_interactions.py -q` 通过；
+- 真机结果：`docs/V22_REAL_ACCEPTANCE.md` 当前为 `NOT TESTED`，不把 fake event 记为 PASS。
+
+### KI-16：ShellWatcher Win32 registration/lock 参数错误
+
+- 用户现象/步骤：普通 Explorer 删除文件，桌宠没有 DELETE_FILE 动画或气泡；
+- 根因：`fSources` 曾使用 `SHCNF_IDLIST=0`，却按 NewDelivery 解包；wParam/lParam 与 Lock 参数错位；64 位窗口 API 签名缺失导致隐藏窗口创建访问冲突；
+- 修改文件：`shell_watcher.py`、`tests/unit/test_shell_watcher.py`；
+- failing test：真实 `SHChangeNotify` 广播最初无法解码；全套运行出现 access violation；
+- 修复：使用 Desktop PIDL + recursive entry，`SHCNRF_ShellLevel | SHCNRF_InterruptLevel | SHCNRF_RecursiveInterrupt | SHCNRF_NewDelivery`，Lock 正确接收 `hChange/dwProcessID/&pidls/&event_id`，显式声明 64 位 Win32 签名、非零注册检查、线程内注销和事件日志；
+- fix 后 test：ShellWatcher 定向测试 `6 passed`；全套 `222 passed`；真实广播已通过 Qt signal 收到 `created`；
+- 真机结果：普通 Explorer Delete 尚待 release EXE 验收，当前 `NOT TESTED`。
+
+### KI-17：attached panel 不跟随 PetWindow
+
+- 用户现象/步骤：打开快捷/口袋面板，拖动桌宠，面板留在旧坐标；
+- 根因：PetWindow 移动只更新自身 geometry，面板仅在打开瞬间定位；
+- 修改文件：`pet_window.py`、`quick_panel.py`、`pocket_window.py`；
+- failing test：新增 `test_visible_quick_panel_repositions_when_pet_moves`、`test_visible_pocket_repositions_when_pet_moves`；
+- 修复：统一 `moveEvent → _reposition_attached_panels → move_near(..., live=True)`，live 更新不 show/不抢焦点；左右翻转、上下边界和当前屏幕 availableGeometry 均 clamp；Pocket 增加 Esc，保留 X/复用实例；
+- fix 后 test：V2.2 interaction smoke 通过；
+- 真机结果：真实拖动尚待 release EXE 验收，当前 `NOT TESTED`。
+
+### KI-18：size interaction / preview rollback
+
+- 用户现象/步骤：大小设置缺乏明显可用入口，预览取消后视觉尺寸可能不回滚；
+- 根因：wheel 默认关闭且仅改配置时不能保证 render geometry 同步；设置对话框需要 working-copy 与视觉预览分离；
+- 修改文件：`pet_window.py`、`tests/smoke/test_v22_interactions.py`；
+- failing test：新增 `test_scale_slider_live_updates_pet_geometry`、`test_scale_cancel_restores_original_size`、`test_scale_ok_persists`、`test_mouse_wheel_changes_size`、`test_scale_clamped_min`、`test_scale_clamped_max`；
+- 修复：默认 wheel 开启、Ctrl+wheel 强制缩放，slider 50%~300% 即时更新 Character/geometry/hitbox/badge/bubble anchor，Cancel 恢复原始 scale/geometry，OK 持久化；
+- fix 后 test：V2.2 interaction smoke 通过，完整套件 `222 passed`；
+- 真机结果：源码版与 EXE 的肉眼缩放尚待验收，当前 `NOT TESTED`。
+
+### 自动化结果
+
+```text
+pytest tests/smoke/test_v22_interactions.py -q  → 15 passed
+pytest tests/unit/test_shell_watcher.py -q       → 6 passed
+pytest tests -q --tb=short                       → 222 passed
+```
+
+自动化通过只代表代码路径与 Qt 集成边界通过；四项真实 Windows 门槛仍以 `docs/V22_REAL_ACCEPTANCE.md` 为准。

@@ -299,3 +299,18 @@ V2 新增/更新的测试：
 - ZIP：`release/DesktopPet-windows-x64.zip`，45,831,050 bytes
 - SHA256：`449b04f88357bd38a80f8139e7031637bd65db965027a90a5d7ae805000b9979`
 - manifest.json 与实际 hash 一致；解压副本不含项目 `.venv`
+
+## V2.2 紧急交互修复（2026-08-27）
+
+基线：`8648f96ce5bc506969fc850d49b9d0430b818bcc`。目标仓库：`kaijiHou/pet-desktop`，分支：`v2.2-interaction-fix`。
+
+| 层 | 命令/方式 | 结果 |
+|---|---|---|
+| ShellWatcher targeted | `pytest tests/unit/test_shell_watcher.py -q` | **6 passed** |
+| V2.2 interaction targeted | `pytest tests/smoke/test_v22_interactions.py -q` | **15 passed** |
+| Full suite | `pytest tests -q --tb=short` | **222 passed** |
+| 真实 Explorer drag-in | release EXE + 鼠标 | **NOT TESTED** |
+| 真实 Explorer Delete | release EXE + 鼠标 | **NOT TESTED** |
+| 真实 EXE 缩放/面板 | release EXE + 鼠标 | **NOT TESTED** |
+
+ShellWatcher 定向集成测试使用真实 `SHChangeNotifyRegister`、非零注册 ID 和真实 `SHChangeNotify` 广播，验证 NewDelivery Lock 解包及 Qt signal；它不冒充普通 Explorer 鼠标删除验收。完整清单见 `docs/V22_REAL_ACCEPTANCE.md`。

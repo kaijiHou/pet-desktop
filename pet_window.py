@@ -252,6 +252,9 @@ class PetWindow(QWidget):
         if self.config.get("always_on_top", True):
             flags |= Qt.WindowStaysOnTopHint
         self.setWindowFlags(flags)
+        # Keep the otherwise transparent tool window targetable by Windows
+        # accessibility/automation and recognizable in the task switcher.
+        self.setWindowTitle("Desktop Pet")
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_QuitOnClose, False)

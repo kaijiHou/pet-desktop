@@ -397,3 +397,21 @@ Renderer 将逻辑 state 与具体 animation 分离：事件动画播放一轮�
 **渲染**：单图模式下 PetWindow.paintEvent 用 QTransform（scale/rotate/translate）应用语义动画步骤；sheet 模式沿用逐帧链式 timer。单图静止时不启动任何 timer（§40）。
 
 **语义动画 → 实机动作**：EventDispatcher → AnimationController.resolve → 语义名 → PetWindow.play_semantic → sheet 名或单图 transform 步骤。动画结束 `_finish_semantic` 回到 idle 并停 timer。
+
+## 31. V2.2 交互可靠性（2026-08-27）
+
+### Resize contract
+
+`SettingsDialog` 保存 working copy；slider 改变时只调用 `PetWindow._update_scale_preview()`，因此肉眼预览不污染持久化配置。Cancel 恢复打开对话框时的 scale 并重新加载角色，OK 才写入 `Config`。滚轮默认启用，Ctrl+wheel 无条件启用；`CharacterController.set_scale()` 将 scale 限制在 `[1, 6]`，`_resize_to_character()` 使用整数 geometry 并重新计算所有绘制/交互区域。
+
+### Explorer drag contract
+
+PetWindow 与 PocketWindow 都只接受实际存在的本地 file URL。drag enter、drag move 和 drop 均显式设置 `Qt.CopyAction` 并 accept；Pocket 只保存引用，不复制、移动或删除源文件。`pet.dnd` 日志记录 MIME formats、URLs、proposed/possible/drop action、accepted 状态及逐项 Pocket 结果。真实 OLE/UIPI 结果单独记录在 `V22_REAL_ACCEPTANCE.md`。
+
+### Shell notification contract
+
+`ShellWatcher` 在专用线程创建唯一类名的隐藏窗口并运行 message loop，使用 Desktop PIDL + recursive `SHChangeNotifyEntry`，注册源 flags 为 `SHCNRF_ShellLevel | SHCNRF_InterruptLevel | SHCNRF_RecursiveInterrupt | SHCNRF_NewDelivery`。NewDelivery 消息的 `wParam/lParam` 分别作为 `hChange/dwProcessID` 传给 `SHChangeNotification_Lock`，事件 id 来自 `LONG *plEvent`，PIDL 再由 `SHGetPathFromIDListW` 转成路径。注册失败写 ERROR 且 `registered=False`，不会伪报成功；Qt signal 是跨线程到 UI 的唯一边界。
+
+### Attached panels
+
+PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面板通过 `move_near(anchor, live=True)` 更新 geometry，不调用 show/activate；定位使用桌宠当前屏幕的 availableGeometry，右侧空间不足翻到左侧，底部不足向上 clamp。X、Esc 和再次点击只隐藏面板，不退出主窗口，之后再次打开复用实例。
