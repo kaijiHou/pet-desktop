@@ -1,23 +1,21 @@
-"""Pocket window V2 — non-modal floating panel for file management.
+"""Pocket window V2.1 — non-modal floating panel for file management.
 
-Features:
-  - Non-modal (show/hide, not exec_)
-  - Multi-select (Ctrl+click, Shift+click)
-  - Primary: 复制到当前文件夹 / 移动到当前文件夹
-  - Destination picker: 当前文件夹 + favorites + recents + browse
-  - QFileIconProvider for system icons
-  - Elided paths (full in tooltip)
-  - Toast for success (not QMessageBox)
-  - Drag-in to add, drag-out with standard QDrag
-  - Explorer directory snapshot on open
+V2.1 fixes (per code review):
+  * drag-out uses a PocketListWidget subclass that overrides startDrag and
+    builds QMimeData + QUrl.fromLocalFile + QDrag (reviewer issue #3).
+  * multi-file move updates Pocket refs by SOURCE->DESTINATION mapping, not
+    by UUID-vs-filename or by first result (reviewer issue #4).
+  * favorites / recents / browse each offer BOTH 复制到 and 移动到, with the
+    destination decoupled from the action (reviewer issue #5).
+  * Explorer folder shows a refresh button; the snapshot clears when it is
+    no longer a valid directory (reviewer issue #2 partial).
 """
 from pathlib import Path
 from PyQt5.QtCore import Qt, QUrl, QTimer, QPoint, QMimeData
 from PyQt5.QtGui import QDesktopServices, QIcon, QDrag
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
-    QListWidgetItem, QMenu, QFileDialog, QFrame, QSizePolicy, QMessageBox,
-    QAbstractItemView,
+    QListWidgetItem, QMenu, QFileDialog, QFrame, QAbstractItemView,
 )
 import theme
 from file_ops import FileOperationService
@@ -29,8 +27,40 @@ def _elide(text, max_len=40):
     return text if len(text) <= max_len else text[: max_len - 3] + "..."
 
 
+class PocketListWidget(QListWidget):
+    """QListWidget that exports selected paths as standard local-file URLs."""
+
+    def __init__(self, service, parent=None):
+        super().__init__(parent)
+        self.service = service
+
+    def _selected_existing_paths(self):
+        paths = []
+        for li in self.selectedItems():
+            item = self.service.get(li.data(Qt.UserRole))
+            if item and item.exists:
+                paths.append(item.path)
+        return paths
+
+    def mime_data_for_selected(self):
+        paths = self._selected_existing_paths()
+        if not paths:
+            return None
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(str(p)) for p in paths])
+        return mime
+
+    def startDrag(self, supported_actions):
+        mime = self.mime_data_for_selected()
+        if mime is None:
+            return
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        drag.exec_(Qt.CopyAction)
+
+
 class PocketWindow(QWidget):
-    """Non-modal floating pocket panel (V2)."""
+    """Non-modal floating pocket panel (V2.1)."""
 
     def __init__(self, service, parent=None, file_operations=None,
                  destinations=None, explorer_service=None, event_dispatcher=None):
@@ -46,10 +76,10 @@ class PocketWindow(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
-        self._explorer_snapshot = None  # captured on open
+        self._explorer_snapshot = None
         self._toast_timer = QTimer(self)
         self._toast_timer.setSingleShot(True)
-        self._toast_timer.timeout.connect(lambda: self._toast_label.hide())
+        self._toast_timer.timeout.connect(self._toast_hide)
 
         self._build_ui()
         self.setAcceptDrops(True)
@@ -66,7 +96,6 @@ class PocketWindow(QWidget):
         cl.setContentsMargins(12, 10, 12, 10)
         cl.setSpacing(6)
 
-        # Header
         hdr = QHBoxLayout()
         self.title_label = QLabel("文件口袋")
         self.title_label.setObjectName("title")
@@ -75,10 +104,11 @@ class PocketWindow(QWidget):
         hdr.addWidget(self.title_label); hdr.addStretch(); hdr.addWidget(self.count_label)
         cl.addLayout(hdr)
 
-        # List
-        self.item_list = QListWidget()
+        # V2.1: dedicated list widget subclass so drag-out actually works.
+        self.item_list = PocketListWidget(self.service)
         self.item_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.item_list.setDragEnabled(True)
+        self.item_list.setDragDropMode(QAbstractItemView.DragOnly)
         self.item_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.item_list.customContextMenuRequested.connect(self._show_context_menu)
         self.item_list.itemSelectionChanged.connect(self._on_selection_changed)
@@ -89,16 +119,23 @@ class PocketWindow(QWidget):
         self.empty_label.setStyleSheet(f"color: {theme.TEXT_MUTED}; padding: 20px;")
         cl.addWidget(self.empty_label)
 
-        # Explorer section
+        # Explorer section (V2.1: refresh button)
         exp_frame = QFrame()
         exp_frame.setStyleSheet(f"QFrame {{ background: {theme.BG}; border-radius: {theme.RADIUS_SMALL}px; padding: 6px; }}")
         exp_layout = QVBoxLayout(exp_frame)
         exp_layout.setContentsMargins(8, 6, 8, 6)
         exp_layout.setSpacing(4)
 
+        exp_hdr = QHBoxLayout()
         self.explorer_label = QLabel("当前未检测到资源管理器文件夹")
         self.explorer_label.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 8pt;")
-        exp_layout.addWidget(self.explorer_label)
+        self.explorer_label.setWordWrap(True)
+        exp_hdr.addWidget(self.explorer_label, 1)
+        self.refresh_explorer_btn = QPushButton("刷新")
+        self.refresh_explorer_btn.setObjectName("flat")
+        self.refresh_explorer_btn.clicked.connect(self._snapshot_explorer)
+        exp_hdr.addWidget(self.refresh_explorer_btn)
+        exp_layout.addLayout(exp_hdr)
 
         btn_row = QHBoxLayout()
         self.copy_explorer_btn = QPushButton("复制到当前文件夹")
@@ -114,7 +151,6 @@ class PocketWindow(QWidget):
         exp_layout.addLayout(btn_row)
         cl.addWidget(exp_frame)
 
-        # Bottom buttons
         bottom = QHBoxLayout()
         self.dest_btn = QPushButton("选择其他位置...")
         self.dest_btn.clicked.connect(self._show_destination_menu)
@@ -125,7 +161,6 @@ class PocketWindow(QWidget):
 
         root.addWidget(card)
 
-        # Toast
         self._toast_label = QLabel(card)
         self._toast_label.setStyleSheet(f"""
             background: {theme.TOAST_BG}; color: {theme.TOAST_TEXT};
@@ -141,15 +176,12 @@ class PocketWindow(QWidget):
 
     def _snapshot_explorer(self):
         d = self.explorer.current_directory()
-        self._explorer_snapshot = d
-        if d:
-            self.explorer_label.setText(f"当前文件夹\n{d}")
-            self.copy_explorer_btn.setEnabled(True)
-            self.move_explorer_btn.setEnabled(True)
+        self._explorer_snapshot = d if d and d.is_dir() else None
+        if self._explorer_snapshot:
+            self.explorer_label.setText(f"当前文件夹\n{self._explorer_snapshot}")
         else:
             self.explorer_label.setText("当前未检测到资源管理器文件夹")
-            self.copy_explorer_btn.setEnabled(False)
-            self.move_explorer_btn.setEnabled(False)
+        self._on_selection_changed()
 
     def refresh(self):
         items = self.service.list_items()
@@ -163,9 +195,8 @@ class PocketWindow(QWidget):
         for item in items:
             li = QListWidgetItem()
             fi = QFileInfo(str(item.path))
-            icon = provider.icon(fi)
+            li.setIcon(provider.icon(fi))
             suffix = "" if item.exists else " [missing]"
-            li.setIcon(icon)
             li.setText(f"{item.name}{suffix}")
             li.setToolTip(str(item.path))
             li.setData(Qt.UserRole, item.id)
@@ -181,10 +212,10 @@ class PocketWindow(QWidget):
         return [self.service.get(i) for i in ids if self.service.get(i)]
 
     def _on_selection_changed(self):
-        sel = self._selected_items()
-        has = len(sel) > 0
-        self.copy_explorer_btn.setEnabled(has and self._explorer_snapshot is not None)
-        self.move_explorer_btn.setEnabled(has and self._explorer_snapshot is not None)
+        has = len(self._selected_items()) > 0
+        can_explorer = has and self._explorer_snapshot is not None
+        self.copy_explorer_btn.setEnabled(can_explorer)
+        self.move_explorer_btn.setEnabled(can_explorer)
 
     def _toast(self, text, ms=3000):
         self._toast_label.setText(text)
@@ -196,26 +227,47 @@ class PocketWindow(QWidget):
         self._toast_label.show()
         self._toast_timer.start(ms)
 
-    def _do_explorer(self, action):
-        dest = self._explorer_snapshot
-        if not dest: return
+    def _toast_hide(self):
+        self._toast_label.hide()
+
+    # ── core file operation with source->destination mapping ───────────────
+    def _run_operation(self, action, dest, sources_desc=None):
+        """Execute copy/move, update Pocket refs by source->destination."""
         sel = self._selected_items()
-        if not sel: return
+        if not sel:
+            return None
         sources = [p.path for p in sel]
+        # resolve destination strictly
+        dest = Path(dest).expanduser().resolve()
+        if not dest.is_dir():
+            self._toast("目标文件夹不存在")
+            return None
         report = self.file_ops.copy(sources, dest) if action == "copy" else self.file_ops.move(sources, dest)
         if report.succeeded:
             self.destinations.record_recent(dest)
-            self._toast(f"{'已复制' if action == 'copy' else '已移动'}到 {dest}")
+            # V2.1: map each succeeded item by source path -> destination path
+            if action == "move":
+                src_to_dst = {r.source: r.destination for r in report.items if r.status == "succeeded"}
+                for item in sel:
+                    dst = src_to_dst.get(item.path)
+                    if dst is not None:
+                        self.service.replace_path(item.id, dst)
+            verb = "已复制" if action == "copy" else "已移动"
+            self._toast(f"{verb}到 {dest}")
             if self.events:
                 from events import AppEvent
                 self.events.dispatch(AppEvent("file_operation", action, report))
-            if action == "move":
-                for item in sel:
-                    if item.id in [r.source.name for r in report.items if r.status == "succeeded"]:
-                        self.service.replace_path(item.id, report.items[0].destination)
             self.refresh()
+            return report
         else:
             self._toast(f"操作失败: {report.items[0].error if report.items else '未知错误'}")
+            return None
+
+    def _do_explorer(self, action):
+        if not self._explorer_snapshot:
+            self._toast("当前未检测到资源管理器文件夹")
+            return None
+        return self._run_operation(action, self._explorer_snapshot)
 
     def _show_destination_menu(self):
         menu = QMenu(self)
@@ -225,49 +277,42 @@ class PocketWindow(QWidget):
             menu.exec_(self.dest_btn.mapToGlobal(QPoint(0, self.dest_btn.height())))
             return
 
-        # Current Explorer
+        # Current Explorer — both actions, keep same as main buttons.
         if self._explorer_snapshot:
-            act = menu.addAction(f"当前文件夹  {_elide(str(self._explorer_snapshot), 30)}")
-            act.triggered.connect(lambda: self._do_explorer("copy"))
-            act = menu.addAction(f"移动到当前文件夹  {_elide(str(self._explorer_snapshot), 30)}")
-            act.triggered.connect(lambda: self._do_explorer("move"))
+            esc = _elide(str(self._explorer_snapshot), 28)
+            menu.addAction(f"复制到当前文件夹  {esc}").triggered.connect(lambda: self._do_explorer("copy"))
+            menu.addAction(f"移动到当前文件夹  {esc}").triggered.connect(lambda: self._do_explorer("move"))
             menu.addSeparator()
 
-        # Favorites
-        favs = self.destinations.list_favorites()
-        if favs:
-            for fav in favs[:5]:
-                act = menu.addAction(f"常用  {_elide(fav.name, 25)}")
-                act.triggered.connect(lambda checked, p=fav.path: self._do_copy_move(p, "copy"))
+        # Favorites + Recents: decouple destination from action.
+        for fav in self.destinations.list_favorites()[:5]:
+            nm = f"常用  {_elide(fav.name, 24)}"
+            menu.addAction(f"{nm}  [复制]").triggered.connect(lambda checked, p=fav.path: self._run_operation("copy", p))
+            menu.addAction(f"{nm}  [移动]").triggered.connect(lambda checked, p=fav.path: self._run_operation("move", p))
+        if self.destinations.list_favorites():
             menu.addSeparator()
 
-        # Recents
-        recs = self.destinations.list_recents()
-        if recs:
-            for rec in recs[:3]:
-                act = menu.addAction(f"最近  {_elide(rec.name, 25)}")
-                act.triggered.connect(lambda checked, p=rec.path: self._do_copy_move(p, "copy"))
+        for rec in self.destinations.list_recents()[:3]:
+            nm = f"最近  {_elide(rec.name, 24)}"
+            menu.addAction(f"{nm}  [复制]").triggered.connect(lambda checked, p=rec.path: self._run_operation("copy", p))
+            menu.addAction(f"{nm}  [移动]").triggered.connect(lambda checked, p=rec.path: self._run_operation("move", p))
+        if self.destinations.list_recents():
             menu.addSeparator()
 
         browse = menu.addAction("浏览其他文件夹...")
-        browse.triggered.connect(self._browse_copy)
+        browse.triggered.connect(self._browse_other)
         menu.exec_(self.dest_btn.mapToGlobal(QPoint(0, self.dest_btn.height())))
 
-    def _do_copy_move(self, dest, action):
-        sel = self._selected_items()
-        if not sel: return
-        sources = [p.path for p in sel]
-        report = self.file_ops.copy(sources, dest) if action == "copy" else self.file_ops.move(sources, dest)
-        if report.succeeded:
-            self.destinations.record_recent(dest)
-            self._toast(f"已复制到 {dest}")
-            self.refresh()
-        else:
-            self._toast(f"操作失败")
+    def _browse_other(self):
+        menu = QMenu(self)
+        menu.addAction("复制到...").triggered.connect(lambda: self._browse_action("copy"))
+        menu.addAction("移动到...").triggered.connect(lambda: self._browse_action("move"))
+        menu.exec_(self.dest_btn.mapToGlobal(QPoint(0, self.dest_btn.height())))
 
-    def _browse_copy(self):
+    def _browse_action(self, action):
         dest = QFileDialog.getExistingDirectory(self, "选择目标文件夹")
-        if dest: self._do_copy_move(Path(dest), "copy")
+        if dest:
+            self._run_operation(action, Path(dest))
 
     def _show_more_menu(self):
         menu = QMenu(self)
@@ -310,9 +355,11 @@ class PocketWindow(QWidget):
 
     def _show_context_menu(self, pos):
         li = self.item_list.itemAt(pos)
-        if not li: return
+        if not li:
+            return
         item = self.service.get(li.data(Qt.UserRole))
-        if not item: return
+        if not item:
+            return
         menu = QMenu(self)
         menu.addAction("打开").triggered.connect(self._open_selected)
         menu.addAction("在资源管理器中显示").triggered.connect(self._reveal_selected)
@@ -321,16 +368,7 @@ class PocketWindow(QWidget):
         menu.addAction("从口袋移除").triggered.connect(self._remove_selected)
         menu.exec_(self.item_list.mapToGlobal(pos))
 
-    # ── Drag & drop ──
-
-    def startDrag(self, supported_actions):
-        sel = self._selected_items()
-        urls = [QUrl.fromLocalFile(str(s.path)) for s in sel if s.exists]
-        if not urls: return
-        mime = QMimeData(); mime.setUrls(urls)
-        drag = QDrag(self); drag.setMimeData(mime)
-        drag.exec_(Qt.CopyAction)
-
+    # ── Drag & drop ─────────────────────────────────────────────────────────
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()

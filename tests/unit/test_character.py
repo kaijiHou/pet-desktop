@@ -100,6 +100,31 @@ def test_corrupt_image_falls_back_to_buddy(assets_dir, isolated_config):
     assert ctrl.using_builtin_default is True
 
 
+# ── sprite-sheet mode ──────────────────────────────────────────────────────
+
+@pytest.mark.unit
+def test_sheet_mode_uses_sprite_loader(assets_dir, isolated_config):
+    isolated_config.set("character_mode", "sheet")
+    ctrl = CharacterController(isolated_config)
+    assert ctrl.mode == "sheet"
+    # base_size uses sprite sheet frame grid
+    from pet_sprite import SPRITE_W, SPRITE_H
+    ctrl.set_scale(3)
+    w, h = ctrl.base_size()
+    assert w == SPRITE_W * 3 and h == SPRITE_H * 3
+
+
+@pytest.mark.unit
+def test_switch_back_to_single(assets_dir, isolated_config):
+    isolated_config.set("character_mode", "sheet")
+    ctrl = CharacterController(isolated_config)
+    assert ctrl.mode == "sheet"
+    isolated_config.set("character_mode", "single")
+    ctrl.reload()
+    assert ctrl.mode == "single"
+    assert ctrl.using_builtin_default is True
+
+
 # ── import flow ────────────────────────────────────────────────────────────
 
 @pytest.mark.unit

@@ -26,6 +26,9 @@ class SettingsDialog(QDialog):
     def __init__(self, config, parent=None):
         super().__init__(parent)
         self.config = config
+        # Working-copy semantics: we do NOT touch the persisted Config until
+        # the user clicks OK. Cancel leaves config untouched (reviewer #6D).
+        self._work = dict(config.data)
         self.setWindowTitle("设置")
         self.setMinimumWidth(420)
         layout = QVBoxLayout(self)
@@ -41,36 +44,47 @@ class SettingsDialog(QDialog):
         form.addLayout(row_img)
         row_scale = QHBoxLayout(); row_scale.addWidget(QLabel("大小"))
         self.scale_slider = QSlider(Qt.Horizontal); self.scale_slider.setRange(10,60)
-        self.scale_slider.setValue(int(self.config.get("pet_scale", 3.0) * 10))
+        self.scale_slider.setValue(int(self._work.get("pet_scale", 3.0) * 10))
         self.scale_slider.setTickPosition(QSlider.TicksBelow)
+        self.scale_slider.valueChanged.connect(self._on_scale_changed)
         row_scale.addWidget(self.scale_slider, 1); form.addLayout(row_scale)
         self.name_check = QCheckBox("显示角色名称")
-        self.name_check.setChecked(self.config.get("show_pet_name", False))
+        self.name_check.setChecked(self._work.get("show_pet_name", False))
         form.addWidget(self.name_check); layout.addWidget(box)
         box2 = QGroupBox("行为"); bl = QVBoxLayout(box2)
-        self.top_check = QCheckBox("始终置顶"); self.top_check.setChecked(self.config.get("always_on_top", True))
-        self.wheel_check = QCheckBox("允许滚轮调整角色大小（容易误操作）"); self.wheel_check.setChecked(self.config.get("wheel_zoom_enabled", False))
-        self.anim_check = QCheckBox("文件操作时播放动画"); self.anim_check.setChecked(self.config.get("file_event_animations_enabled", True))
-        self.badge_check = QCheckBox("口袋数量角标"); self.badge_check.setChecked(self.config.get("pocket_badge_enabled", True))
+        self.top_check = QCheckBox("始终置顶"); self.top_check.setChecked(self._work.get("always_on_top", True))
+        self.wheel_check = QCheckBox("允许滚轮调整角色大小（容易误操作）"); self.wheel_check.setChecked(self._work.get("wheel_zoom_enabled", False))
+        self.anim_check = QCheckBox("文件操作时播放动画"); self.anim_check.setChecked(self._work.get("file_event_animations_enabled", True))
+        self.badge_check = QCheckBox("口袋数量角标"); self.badge_check.setChecked(self._work.get("pocket_badge_enabled", True))
         for w in (self.top_check, self.wheel_check, self.anim_check, self.badge_check): bl.addWidget(w)
         layout.addWidget(box2)
         box3 = QGroupBox("提醒"); rl = QVBoxLayout(box3)
-        self.sound_check = QCheckBox("提醒声音"); self.sound_check.setChecked(self.config.get("reminder_sound_enabled", True))
-        self.bubble_check = QCheckBox("桌宠气泡"); self.bubble_check.setChecked(self.config.get("reminder_bubble_enabled", True))
+        self.sound_check = QCheckBox("提醒声音"); self.sound_check.setChecked(self._work.get("reminder_sound_enabled", True))
+        self.bubble_check = QCheckBox("桌宠气泡"); self.bubble_check.setChecked(self._work.get("reminder_bubble_enabled", True))
         rl.addWidget(self.sound_check); rl.addWidget(self.bubble_check); layout.addWidget(box3)
         box4 = QGroupBox("数据"); dl = QHBoxLayout(box4)
-        dl.addWidget(QPushButton("打开数据目录")); dl.addWidget(QPushButton("打开日志目录")); dl.addStretch()
+        self.open_data_button = QPushButton("打开数据目录")
+        self.open_data_button.clicked.connect(self._open_data_dir)
+        self.open_log_button = QPushButton("打开日志目录")
+        self.open_log_button.clicked.connect(self._open_log_dir)
+        dl.addWidget(self.open_data_button); dl.addWidget(self.open_log_button); dl.addStretch()
         layout.addWidget(box4)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._save); buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.import_button.clicked.connect(self._import_image)
         self.reset_button.clicked.connect(self._reset_image)
+        self._refresh_preview()
+
+    def _on_scale_changed(self, value):
+        # live preview: report the new size to the window (no persist until OK)
+        self._work["pet_scale"] = value / 10.0
+        if self.parent() and hasattr(self.parent(), "_update_scale_preview"):
+            self.parent()._update_scale_preview(value / 10.0)
 
     def _refresh_preview(self):
         from character import draw_default_buddy; from paths import PROJECT_ROOT
-        from PIL.ImageQt import ImageQt
-        name = self.config.get("character_image", ""); img = None
+        name = self._work.get("character_image", ""); img = None
         if name:
             path = PROJECT_ROOT / "assets" / name
             if path.exists():
@@ -78,7 +92,11 @@ class SettingsDialog(QDialog):
                     from PIL import Image as PILImage; img = PILImage.open(path).convert("RGBA")
                 except OSError: img = None
         if img is None: img = draw_default_buddy()
-        self.image_label.setPixmap(QPixmap.fromImage(ImageQt(img)).scaled(64,64,Qt.KeepAspectRatio,Qt.SmoothTransformation))
+        # Build QImage from raw RGBA (PIL.ImageQt is missing on this build)
+        data = img.tobytes("raw", "RGBA")
+        qimg = QImage(data, img.width, img.height, QImage.Format_RGBA8888)
+        self.image_label.setPixmap(QPixmap.fromImage(qimg).scaled(64,64,Qt.KeepAspectRatio,Qt.SmoothTransformation))
+
     def _import_image(self):
         from character import import_character_image; from paths import PROJECT_ROOT
         from PyQt5.QtWidgets import QFileDialog
@@ -86,15 +104,41 @@ class SettingsDialog(QDialog):
         if not path: return
         try: name = import_character_image(Path(path), PROJECT_ROOT / "assets")
         except ValueError as exc: QMessageBox.warning(self,"导入失败",str(exc)); return
-        self.config.set("character_image", name); self.config.set("character_mode", "single"); self._refresh_preview()
+        # write to working copy only; persisted on OK
+        self._work["character_image"] = name
+        self._work["character_mode"] = "single"
+        self._refresh_preview()
+
     def _reset_image(self):
-        self.config.set("character_image", ""); self._refresh_preview()
+        self._work["character_image"] = ""
+        self._refresh_preview()
+
+    def _open_data_dir(self):
+        from paths import DATA_DIR
+        from PyQt5.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(DATA_DIR)))
+
+    def _open_log_dir(self):
+        from paths import LOG_DIR
+        from PyQt5.QtGui import QDesktopServices
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR)))
+
     def _save(self):
-        c = self.config; c.set("pet_scale", self.scale_slider.value()/10.0)
-        c.set("show_pet_name", self.name_check.isChecked()); c.set("always_on_top", self.top_check.isChecked())
-        c.set("wheel_zoom_enabled", self.wheel_check.isChecked()); c.set("file_event_animations_enabled", self.anim_check.isChecked())
-        c.set("pocket_badge_enabled", self.badge_check.isChecked()); c.set("reminder_sound_enabled", self.sound_check.isChecked())
-        c.set("reminder_bubble_enabled", self.bubble_check.isChecked()); self.accept()
+        # apply working copy + explicit widget values to the persisted config
+        c = self.config
+        c.set("pet_scale", self.scale_slider.value() / 10.0)
+        c.set("show_pet_name", self.name_check.isChecked())
+        c.set("always_on_top", self.top_check.isChecked())
+        c.set("wheel_zoom_enabled", self.wheel_check.isChecked())
+        c.set("file_event_animations_enabled", self.anim_check.isChecked())
+        c.set("pocket_badge_enabled", self.badge_check.isChecked())
+        c.set("reminder_sound_enabled", self.sound_check.isChecked())
+        c.set("reminder_bubble_enabled", self.bubble_check.isChecked())
+        if "character_image" in self._work:
+            c.set("character_image", self._work["character_image"])
+            c.set("character_mode", self._work.get("character_mode", "single"))
+        self.accept()
 
 
 class PetWindow(QWidget):
@@ -110,6 +154,8 @@ class PetWindow(QWidget):
         self.events.event_received.connect(self._handle_app_event)
         self.file_watch.on_change=lambda c:self.events.dispatch(AppEvent("windows",c.action,c))
         self.character=CharacterController(config,scale=config.get("pet_scale",3))
+        # sheet-mode sprite loader (only used when character_mode == 'sheet')
+        self.sprite_loader = PetSpriteLoader(scale=config.get("pet_scale", 3)) if config.get("character_mode", "single") == "sheet" else None
         # Shell watcher (V2 Phase 5)
         from shell_watcher import ShellWatcher
         self._shell_watcher = ShellWatcher()
@@ -125,7 +171,10 @@ class PetWindow(QWidget):
         QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
 
     def _setup_window(self):
-        self.setWindowFlags(Qt.FramelessWindowHint|Qt.WindowStaysOnTopHint|Qt.Tool)
+        flags = Qt.FramelessWindowHint | Qt.Tool
+        if self.config.get("always_on_top", True):
+            flags |= Qt.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
         self.setAttribute(Qt.WA_TranslucentBackground); self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_QuitOnClose,False); self.setAcceptDrops(True)
         self.setFixedSize(self._pet_w+40,self._pet_h+60); self.setMouseTracking(True)
@@ -206,7 +255,7 @@ class PetWindow(QWidget):
         try:
             painter=QPainter(self); painter.setRenderHint(QPainter.SmoothPixmapTransform); painter.setRenderHint(QPainter.Antialiasing)
             w,h=self.character.base_size(); sf,dx,dy,rot=self._current_transform()
-            t=QTransform(); t.translate(self.width()//2,20+h//2); t.rotate(rot); t.scale(sf,sf)
+            t=QTransform(); t.translate(self.width()//2+dx,20+h//2+dy); t.rotate(rot); t.scale(sf,sf)
             if self.character.mode=="single": img=self.character.get_single_frame()
             else: img=self.sprite_loader.get_frame(self._animation,self._frame)
             qimage=self._pil_to_qimage(img); pixmap=QPixmap.fromImage(qimage)
@@ -419,8 +468,26 @@ class PetWindow(QWidget):
         d=SettingsDialog(self.config,self)
         if d.exec_(): self._update_from_settings()
     def _update_from_settings(self):
-        self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手"); self.character.reload()
-        w,h=self.character.base_size(); self._pet_w,self._pet_h=w,h; self.setFixedSize(w+40,h+60)
+        self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手")
+        # apply always_on_top window flag
+        flags = Qt.FramelessWindowHint | Qt.Tool
+        if self.config.get("always_on_top", True):
+            flags |= Qt.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
+        # apply pet_scale + reload character (single image / sheet)
+        self.character.set_scale(float(self.config.get("pet_scale", 3)))
+        self.character.reload()
+        self._resize_to_character()
+
+    def _update_scale_preview(self, scale):
+        # live preview during settings dialog (no persist until OK)
+        self.character.set_scale(float(scale))
+        self._resize_to_character()
+
+    def _resize_to_character(self):
+        w, h = self.character.base_size()
+        self._pet_w, self._pet_h = w, h
+        self.setFixedSize(w + 40, h + 60)
     def _pil_to_qimage(self,pi):
         if pi.mode!="RGBA": pi=pi.convert("RGBA")
         data=pi.tobytes("raw","RGBA"); from PyQt5.QtGui import QImage

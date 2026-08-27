@@ -93,21 +93,28 @@ class CharacterController:
         return USER_ASSETS_DIR / DEFAULT_CHARACTER_NAME
 
     def _reload(self):
-        path = self._character_path()
+        mode = self.config.get("character_mode", "single")
         image = None
+        if mode == "sheet":
+            # Legacy sprite sheet mode: use pet_sprite loader.
+            self._mode = "sheet"
+            self._loaded_builtin = False
+            self._single_image = None
+            self._single_base_size = 0
+            return
+        # single mode
+        path = self._character_path()
         if self.config.get("character_image", "") and path.exists():
             try:
                 image = Image.open(path).convert("RGBA")
             except OSError:
                 image = None
         if image is None:
-            # built-in default buddy, shipped from programmatic drawing
             image = draw_default_buddy()
-            self._mode = "single"
             self._loaded_builtin = True
         else:
-            self._mode = "single"
             self._loaded_builtin = False
+        self._mode = "single"
         self._single_image = image
         self._single_base_size = max(image.size)
 
