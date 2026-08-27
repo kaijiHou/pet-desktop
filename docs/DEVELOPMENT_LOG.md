@@ -863,3 +863,9 @@ pytest tests -q --tb=short                       → 222 passed
 - 操作：运行 `scripts/build_release.ps1` 清理并重建，再运行 `scripts/verify_release.ps1` 从新 ZIP 解压副本启动。
 - 结果：构建 PASS；单进程、responsive、动画 catalog、user assets、日志生成、WebEngine/Chromium 文件数 0 均 PASS。ZIP SHA256 `498697aca1c14fc4d0b54012b8e7da8592b0e354b97ed75ed08bb4d74c78adf8`，48,298,928 bytes。
 - 真机限制：验证脚本只做启动/文件黑盒检查，不替代 Explorer 鼠标和视觉验收；`V3_REAL_ACCEPTANCE.md` 仍为 `NOT TESTED`。
+
+### 浮窗跟随补丁
+
+- 现象：今日收入窗口是新加入的顶层浮窗，若桌宠拖动或缩放，存在停留在旧位置的风险。
+- 修复：`TodayWageWindow` 增加 `move_near(..., live=True)`，纳入 PetWindow 的统一 move/resize reposition 路径；live 更新只改 geometry，不抢焦点。
+- 回归：V2.2 interaction、GUI smoke、工资 targeted 合计 **38 passed**；真实鼠标移动仍待用户手动验收。

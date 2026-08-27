@@ -1038,6 +1038,8 @@ class PetWindow(QWidget):
             self._quick_panel.move_near(geo, live=True)
         if reposition_pocket:
             self._pocket_window.move_near(geo, live=True)
+        if getattr(self, "_today_wage", None) is not None and self._today_wage.isVisible():
+            self._today_wage.move_near(self.visible_pet_global_rect(), screen=self.screen(), live=True)
 
     def _quit_app(self):
         if self._shell_watcher:

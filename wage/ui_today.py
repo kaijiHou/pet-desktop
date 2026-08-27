@@ -24,11 +24,16 @@ class TodayWageWindow(QWidget):
             self.amount.setText(f"¥{snap.total_earned:.2f}"); self.detail.setText(f"正常工资  ¥{snap.base_earned:.2f}\n加班      ¥{snap.overtime_pay:.2f}\n餐补      ¥{snap.confirmed_meal_allowance:.2f}"); self.progress.setText(f"进度 {snap.progress}%")
 
     def show_near(self, anchor, screen=None):
+        self.move_near(anchor, screen=screen, live=False)
+
+    def move_near(self, anchor, screen=None, live=False):
         from PyQt5.QtWidgets import QApplication
         scr = screen or QApplication.screenAt(anchor.center()) or QApplication.primaryScreen(); avail = scr.availableGeometry(); self.adjustSize(); w,h=self.sizeHint().width()+16,self.sizeHint().height()+16; x=anchor.right()+8; y=anchor.top()
         if x+w-1>avail.right(): x=anchor.left()-w-8
         if y+h-1>avail.bottom(): y=avail.bottom()-h+1
-        self.setGeometry(max(avail.left(), min(x,avail.right()-w+1)), max(avail.top(), min(y,avail.bottom()-h+1)), w,h); self.show(); self.raise_(); self._timer.start()
+        self.setGeometry(max(avail.left(), min(x,avail.right()-w+1)), max(avail.top(), min(y,avail.bottom()-h+1)), w,h)
+        if not live:
+            self.show(); self.raise_(); self._timer.start()
 
     def _clock_out(self):
         if self.pet is not None: self.pet._clock_out()
@@ -36,4 +41,3 @@ class TodayWageWindow(QWidget):
     def hideEvent(self, event): self._timer.stop(); super().hideEvent(event)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape: self.hide()
-
