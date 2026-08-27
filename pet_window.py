@@ -2,6 +2,7 @@
 Desktop Pet Window — V2.2: unified theme, single-image character, Chinese UI.
 """
 import math, random, sys, time
+import logging
 from datetime import datetime
 from pathlib import Path
 from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QSize, pyqtSignal, QThread, QUrl
@@ -20,6 +21,9 @@ from events import AnimationController, AppEvent, EventDispatcher
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
 import sounds, theme
+
+
+drop_log = logging.getLogger("pet.dnd")
 
 
 class SettingsDialog(QDialog):
@@ -542,30 +546,42 @@ class PetWindow(QWidget):
             self.set_state(self.STATE_IDLE)
 
     def dragEnterEvent(self, event):
-        import logging
-        log = logging.getLogger("pet.dnd")
         paths = self._local_drop_paths(event)
-        log.debug("dragEnter mime=%s urls=%s paths=%s proposed=%s",
-                          event.mimeData().formats() if event.mimeData() else [],
-                          event.mimeData().urls() if event.mimeData() else [],
-                          paths,
-                          getattr(event, "proposedAction", lambda: None)())
+        mime = event.mimeData()
+        drop_log.info("dragEnter formats=%s hasUrls=%s urls=%s paths=%s "
+                      "proposed=%s possible=%s accepted_before=%s",
+                      mime.formats() if mime else [],
+                      bool(mime and mime.hasUrls()),
+                      mime.urls() if mime and mime.hasUrls() else [],
+                      paths,
+                      getattr(event, "proposedAction", lambda: None)(),
+                      getattr(event, "possibleActions", lambda: None)(),
+                      getattr(event, "isAccepted", lambda: None)())
         if paths:
             self._drag_hover = True
             # Force CopyAction (Pocket stores references; never Move from Explorer)
             event.setDropAction(Qt.CopyAction)
             event.accept()
+            drop_log.info("dragEnter accepted action=%s accepted_after=%s",
+                          getattr(event, "dropAction", lambda: None)(),
+                          getattr(event, "isAccepted", lambda: None)())
             self.update()
         else:
             event.ignore()
+            drop_log.info("dragEnter rejected accepted_after=%s",
+                          getattr(event, "isAccepted", lambda: None)())
 
     def dragMoveEvent(self, event):
         # Keep accepting valid local files as CopyAction while dragging over.
-        if self._local_drop_paths(event):
+        paths = self._local_drop_paths(event)
+        if paths:
             event.setDropAction(Qt.CopyAction)
             event.accept()
+            drop_log.debug("dragMove accepted paths=%s action=%s",
+                           paths, getattr(event, "dropAction", lambda: None)())
         else:
             event.ignore()
+            drop_log.debug("dragMove rejected")
 
     def dragLeaveEvent(self, event):
         self._drag_hover = False
@@ -580,17 +596,22 @@ class PetWindow(QWidget):
             return
         added = 0
         duplicates = 0
+        failures = 0
         for p in paths:
             before = len(self.pocket.list_items())
             try:
-                self.pocket.add(p)
+                item = self.pocket.add(p)
                 if len(self.pocket.list_items()) == before:
                     duplicates += 1
                 else:
                     added += 1
                     if p.is_dir():
                         self.file_watch.watch(p)
-            except (OSError, ValueError):
+                drop_log.info("drop add path=%s result=%s duplicate=%s",
+                              p, item.id, len(self.pocket.list_items()) == before)
+            except (OSError, ValueError) as exc:
+                failures += 1
+                drop_log.warning("drop add failed path=%s error=%s", p, exc)
                 continue
         if added:
             self.events.dispatch(AppEvent("pocket", "receive", {"count": added}))
@@ -604,6 +625,11 @@ class PetWindow(QWidget):
             self.show_bubble("无法添加这些项目", 3500)
         event.setDropAction(Qt.CopyAction)
         event.accept()
+        drop_log.info("drop complete paths=%s added=%s duplicates=%s failures=%s "
+                      "action=%s accepted=%s",
+                      paths, added, duplicates, failures,
+                      getattr(event, "dropAction", lambda: None)(),
+                      getattr(event, "isAccepted", lambda: None)())
 
     @staticmethod
     def _local_drop_paths(event):
@@ -808,10 +834,18 @@ class PetWindow(QWidget):
 
     def _update_from_settings(self):
         self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手")
+        was_visible = self.isVisible()
+        old_pos = self.pos()
         flags = Qt.FramelessWindowHint | Qt.Tool
         if self.config.get("always_on_top", True):
             flags |= Qt.WindowStaysOnTopHint
         self.setWindowFlags(flags)
+        # setWindowFlags() hides a native top-level widget. Preserve the
+        # user's current visibility and position when applying settings.
+        self.move(old_pos)
+        if was_visible:
+            self.show()
+            self.raise_()
         self.character.set_scale(float(self.config.get("pet_scale", 3)))
         self.character.reload()
         self._resize_to_character()
@@ -845,20 +879,23 @@ class PetWindow(QWidget):
         self._reposition_attached_panels()
 
     def _reposition_attached_panels(self, reposition_quick=None, reposition_pocket=None):
-            if reposition_quick is None:
-                reposition_quick = self._quick_panel is not None and self._quick_panel.isVisible()
-            if reposition_pocket is None:
-                reposition_pocket = self._pocket_window is not None and self._pocket_window.isVisible()
-            # never dereference a panel that doesn't exist yet
-            reposition_quick = reposition_quick and self._quick_panel is not None
-            reposition_pocket = reposition_pocket and self._pocket_window is not None
-            if not reposition_quick and not reposition_pocket:
-                return
-            geo = self.geometry()
-            if reposition_quick:
-                self._quick_panel.move_near(geo, live=True)
-            if reposition_pocket:
-                self._pocket_window.move_near(geo, live=True)
+        if reposition_quick is None:
+            reposition_quick = (self._quick_panel is not None
+                                and self._quick_panel.isVisible())
+        if reposition_pocket is None:
+            reposition_pocket = (self._pocket_window is not None
+                                  and self._pocket_window.isVisible())
+        # Never dereference a panel that doesn't exist yet. `live=True` only
+        # updates geometry, so dragging cannot flash or steal panel focus.
+        reposition_quick = reposition_quick and self._quick_panel is not None
+        reposition_pocket = reposition_pocket and self._pocket_window is not None
+        if not reposition_quick and not reposition_pocket:
+            return
+        geo = self.geometry()
+        if reposition_quick:
+            self._quick_panel.move_near(geo, live=True)
+        if reposition_pocket:
+            self._pocket_window.move_near(geo, live=True)
 
     def _quit_app(self):
         if self._shell_watcher:

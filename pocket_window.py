@@ -124,12 +124,12 @@ class PocketWindow(QWidget):
         avail = scr.availableGeometry()
         x = anchor_rect.right() + 8
         y = anchor_rect.top()
-        if x + pw > avail.right():
+        if x + pw - 1 > avail.right():
             x = anchor_rect.left() - pw - 8
-        if y + ph > avail.bottom():
-            y = avail.bottom() - ph - 8
-        if y < avail.top():
-            y = avail.top()
+        if y + ph - 1 > avail.bottom():
+            y = avail.bottom() - ph + 1
+        x = max(avail.left(), min(x, avail.right() - pw + 1))
+        y = max(avail.top(), min(y, avail.bottom() - ph + 1))
         self.setGeometry(x, y, pw, ph)
         if not live:
             self.show()
@@ -426,15 +426,23 @@ class PocketWindow(QWidget):
 
     # ── Drag & drop ─────────────────────────────────────────────────────────
     def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
+        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
+        valid = []
+        for url in urls:
+            if url.isLocalFile():
+                path = Path(url.toLocalFile())
+                if path.exists():
+                    valid.append(path)
+        if valid:
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
         else:
             event.ignore()
 
     def dropEvent(self, event):
         added = 0
         for url in event.mimeData().urls():
-            if url.isLocalFile():
+            if url.isLocalFile() and Path(url.toLocalFile()).exists():
                 try:
                     self.service.add(Path(url.toLocalFile()))
                     added += 1
@@ -443,8 +451,16 @@ class PocketWindow(QWidget):
         if added:
             self._toast(f"已添加 {added} 个项目")
             self.refresh()
-        event.acceptProposedAction()
+        event.setDropAction(Qt.CopyAction)
+        event.accept()
 
     def closeEvent(self, event):
         self.hide()
         event.ignore()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            self.hide()
+            event.accept()
+            return
+        super().keyPressEvent(event)

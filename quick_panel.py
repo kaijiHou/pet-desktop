@@ -176,12 +176,12 @@ class QuickPanel(QWidget):
         ph = max(self.sizeHint().height() + 16, self.height())
         x = pet_rect.right() + 8
         y = pet_rect.top()
-        if x + pw > avail.right():
+        if x + pw - 1 > avail.right():
             x = pet_rect.left() - pw - 8
-        if y + ph > avail.bottom():
-            y = avail.bottom() - ph - 8
-        if y < avail.top():
-            y = avail.top()
+        if y + ph - 1 > avail.bottom():
+            y = avail.bottom() - ph + 1
+        x = max(avail.left(), min(x, avail.right() - pw + 1))
+        y = max(avail.top(), min(y, avail.bottom() - ph + 1))
         self.setGeometry(x, y, pw, ph)
         if not live:
             self.show()
