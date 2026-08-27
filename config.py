@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
 
     # Behavior (V2)
     "always_on_top": True,
-    "wheel_zoom_enabled": False,      # wheel zoom is accident-prone: off by default
+    "wheel_zoom_enabled": True,          # plain wheel zooms; Ctrl+wheel always zooms
     "idle_animations_enabled": False, # sheet-mode variety clips; single mode stays still
     "file_event_animations_enabled": True,
     "show_pet_name": False,           # permanent name label under the pet: off

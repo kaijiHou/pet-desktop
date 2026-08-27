@@ -28,7 +28,7 @@ EXPECTED_DEFAULTS = {
     # V2 behavior keys
     "character_mode": "single",
     "character_image": "",
-    "wheel_zoom_enabled": False,
+    "wheel_zoom_enabled": True,
     "show_pet_name": False,
     "show_welcome": True,
 }

@@ -14,11 +14,18 @@ from events import AppEvent
 
 class FakeDropEvent:
     def __init__(self, urls):
-        self._urls = urls; self.accepted = False; self.ignored = False
+        self._urls = urls
+        self.accepted = False
+        self.ignored = False
+        self._drop_action = None
     def mimeData(self): return self
     def hasUrls(self): return bool(self._urls)
     def urls(self): return self._urls
-    def acceptProposedAction(self): self.accepted = True
+    def formats(self): return ["text/uri-list"] if self._urls else []
+    def setDropAction(self, a): self._drop_action = a
+    def dropAction(self): return self._drop_action
+    def proposedAction(self): return None
+    def accept(self): self.accepted = True
     def ignore(self): self.ignored = True
 
 

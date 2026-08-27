@@ -112,7 +112,10 @@ class PocketWindow(QWidget):
             super().mouseReleaseEvent(event)
 
     def show_near(self, anchor_rect, screen=None):
-        """Open the pocket panel positioned beside the pet (or an anchor)."""
+        self.move_near(anchor_rect, live=False, screen=screen)
+
+    def move_near(self, anchor_rect, live=False, screen=None):
+        """Position beside the pet; live=True only updates geometry (follow)."""
         from PyQt5.QtCore import QRect
         self.adjustSize()
         pw = max(self.sizeHint().width(), self.minimumWidth())
@@ -128,8 +131,9 @@ class PocketWindow(QWidget):
         if y < avail.top():
             y = avail.top()
         self.setGeometry(x, y, pw, ph)
-        self.show()
-        self.raise_()
+        if not live:
+            self.show()
+            self.raise_()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
