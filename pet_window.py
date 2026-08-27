@@ -366,8 +366,16 @@ class PetWindow(QWidget):
     def _open_add_reminder(self):
         d=AddReminderDialog(self)
         if d.exec_(): c,dt=d.values(); self.reminder.add_reminder(c,dt); self._schedule_next_reminder(); self.show_bubble("提醒已保存",4000)
-    def _open_reminders(self): ReminderListDialog(self.reminder,self).exec_(); self._schedule_next_reminder()
-    def _open_pocket(self): PocketDialog(self.pocket,self,event_dispatcher=self.events).exec_()
+    def _open_reminders(self):
+        ReminderListDialog(self.reminder,self).exec_()
+        self._schedule_next_reminder()
+    def _open_pocket(self):
+        from pocket_window import PocketWindow
+        if not hasattr(self, "_pocket_window") or self._pocket_window is None:
+            self._pocket_window = PocketWindow(
+                self.pocket, event_dispatcher=self.events)
+        self._pocket_window.refresh()
+        self._pocket_window.show()
     def _tray_activated(self,reason):
         if reason==QSystemTrayIcon.DoubleClick: self.show(); self.raise_(); self.show_bubble("Hi! 👋",2500)
         elif reason==QSystemTrayIcon.ActivationReason.Trigger: self._toggle_visibility()
