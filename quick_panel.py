@@ -51,6 +51,18 @@ class QuickPanel(QWidget):
         card_layout.setContentsMargins(12, 10, 12, 10)
         card_layout.setSpacing(8)
 
+        # ── Top bar (title + close) ──
+        topbar = QHBoxLayout()
+        top_title = QLabel("快捷面板")
+        top_title.setObjectName("title")
+        self.panel_close_btn = QPushButton("✕")
+        self.panel_close_btn.setObjectName("flat")
+        self.panel_close_btn.setFixedSize(24, 24)
+        self.panel_close_btn.setToolTip("关闭")
+        self.panel_close_btn.clicked.connect(self.hide)
+        topbar.addWidget(top_title); topbar.addStretch(); topbar.addWidget(self.panel_close_btn)
+        card_layout.addLayout(topbar)
+
         # ── Pocket section ──
         hdr = QHBoxLayout()
         self.pocket_title = QLabel("文件口袋")

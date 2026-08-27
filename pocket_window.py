@@ -147,7 +147,13 @@ class PocketWindow(QWidget):
         self.title_label.setObjectName("title")
         self.count_label = QLabel("0 个项目")
         self.count_label.setStyleSheet(f"color: {theme.TEXT_MUTED};")
-        hdr.addWidget(self.title_label); hdr.addStretch(); hdr.addWidget(self.count_label)
+        # Close button (frameless window has no system X)
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setObjectName("flat")
+        self.close_btn.setFixedSize(24, 24)
+        self.close_btn.setToolTip("关闭")
+        self.close_btn.clicked.connect(self.hide)
+        hdr.addWidget(self.title_label); hdr.addStretch(); hdr.addWidget(self.count_label); hdr.addWidget(self.close_btn)
         cl.addLayout(hdr)
 
         # V2.1: dedicated list widget subclass so drag-out actually works.
