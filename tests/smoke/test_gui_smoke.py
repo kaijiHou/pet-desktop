@@ -217,8 +217,11 @@ class TestGuiConstruction:
     def test_reminder_list_shows_and_deletes_pending_item(self, pet_window):
         reminder = pet_window.reminder.add_reminder("GUI smoke", datetime.now() + timedelta(hours=1))
         dialog = ReminderListDialog(pet_window.reminder, pet_window)
-        assert dialog.reminder_list.count() == 1
-        assert "GUI smoke" in dialog.reminder_list.item(0).text()
+        # list has group header + 1 reminder = 2 items
+        assert dialog.reminder_list.count() == 2
+        assert "GUI smoke" in dialog.reminder_list.item(1).text()
+        # select the reminder item (index 1, not header at 0)
+        dialog.reminder_list.setCurrentRow(1)
         dialog.delete_selected()
         assert pet_window.reminder.list_reminders() == []
         dialog.close()
