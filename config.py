@@ -12,11 +12,31 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULT_CONFIG = {
     # Pet settings
     "pet_scale": 3.0,
-    "pet_x": -1,  # -1 = center
+    "pet_x": -1,  # -1 = default position
     "pet_y": -1,
 
-    # Character name
-    "pet_name": "Clippy",
+    # Character (V2): "single" = one transparent PNG (default buddy when unset),
+    # "sheet" = legacy sprite sheet mode.
+    "character_mode": "single",
+    "character_image": "",      # file name inside assets/, "" = built-in buddy
+
+    # Behavior (V2)
+    "always_on_top": True,
+    "wheel_zoom_enabled": False,      # wheel zoom is accident-prone: off by default
+    "idle_animations_enabled": False, # sheet-mode variety clips; single mode stays still
+    "file_event_animations_enabled": True,
+    "show_pet_name": False,           # permanent name label under the pet: off
+    "pocket_badge_enabled": True,
+
+    # Reminders (V2)
+    "reminder_sound_enabled": True,
+    "reminder_bubble_enabled": True,
+
+    # First-run onboarding (shown once, then cleared)
+    "show_welcome": True,
+
+    # Character name (tooltip / optional label)
+    "pet_name": "小助手",
 }
 
 
@@ -85,4 +105,4 @@ class Config:
 
     @property
     def pet_name(self) -> str:
-        return self.data.get("pet_name", "Mochi")
+        return self.data.get("pet_name", "小助手")

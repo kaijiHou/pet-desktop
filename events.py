@@ -22,22 +22,22 @@ class EventDispatcher(QObject):
 
 
 class AnimationController:
+    # Semantic animation names — mode-independent; PetWindow translates
+    # to concrete (sheet or single-image) names at playback time.
     MAPPING = {
-        ("reminder", "due"): "Alert",
-        ("pocket", "receive"): "Save",
-        ("file_operation", "copy"): "Print",
-        ("file_operation", "move"): "SendMail",
-        ("windows", "added"): "Show",
-        ("windows", "removed"): "EmptyTrash",
-        ("windows", "modified"): "Writing",
-        ("windows", "renamed_from"): "Searching",
-        ("windows", "renamed_to"): "Save",
+        ("reminder", "due"): "REMINDER",
+        ("pocket", "receive"): "RECEIVE_FILE",
+        ("pocket", "give"): "GIVE_FILE",
+        ("file_operation", "copy"): "COPY_FILE",
+        ("file_operation", "move"): "MOVE_FILE",
+        ("windows", "added"): "CREATE_FILE",
+        ("windows", "removed"): "DELETE_FILE",
+        ("windows", "renamed_to"): "RENAME_FILE",
     }
     GENERIC = {
-        "reminder": "Alert",
-        "pocket": "Save",
-        "file_operation": "Processing",
-        "windows": "GetAttention",
+        "reminder": "REMINDER",
+        "pocket": "RECEIVE_FILE",
+        "file_operation": "COPY_FILE",
     }
 
     def __init__(self, available_animations):

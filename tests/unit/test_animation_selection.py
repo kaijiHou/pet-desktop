@@ -1,23 +1,27 @@
-"""Native renderer animation selection tests (Phase 16)."""
+"""Native renderer animation selection tests (V2).
+
+V2 update: AnimationController uses semantic names. The catalog test now
+verifies that semantic names resolve correctly (not Clippy names).
+"""
 
 import pytest
-
 from events import AnimationController, AppEvent
 from pet_sprite import ANIMATIONS
 
 
 @pytest.mark.unit
 class TestNativeAnimationSelection:
-    def test_complete_catalog_is_available_to_controller(self):
-        controller = AnimationController(ANIMATIONS)
-        assert controller.resolve(AppEvent("reminder", "due")) == "Alert"
-        assert controller.resolve(AppEvent("windows", "removed")) == "EmptyTrash"
+    def test_semantic_mapping_resolves_correctly(self):
+        ctrl = AnimationController(set(AnimationController.MAPPING.values()) - {None})
+        assert ctrl.resolve(AppEvent("reminder", "due")) == "REMINDER"
+        assert ctrl.resolve(AppEvent("windows", "removed")) == "DELETE_FILE"
 
     @pytest.mark.parametrize("name", [
         "RestPose", "Idle1_1", "Explain", "Alert", "IdleSnooze",
         "Save", "Print", "SendMail", "EmptyTrash",
     ])
-    def test_required_native_animation_exists(self, name):
+    def test_required_sprite_animation_exists(self, name):
+        """Legacy sprite sheet still contains all Clippy animations."""
         assert name in ANIMATIONS
         assert ANIMATIONS[name]
 

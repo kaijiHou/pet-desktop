@@ -1,8 +1,11 @@
 """Characterization tests for config.Config (Phase 2).
 
-These tests pin the CURRENT upstream behavior at baseline 1d89c85 so a later
-refactor/removal cannot silently change config semantics. They describe what
-the code does TODAY — they do not prescribe a future API.
+V2 update (ux-redesign-v2): default pet_name changed "Clippy" → "小助手"
+and V2 behavior keys added (character_mode / wheel_zoom_enabled /
+show_welcome / ...). The old characterization pinned the baseline default
+name; the V2 task mandates unified Chinese product language, so the
+expected default intentionally changed. All other semantics (persistence,
+merge, corrupt-file fallback) are unchanged.
 
 Storage is isolated via the `isolated_config` fixture (monkeypatched module
 paths); the real ~/desktop-pet/config.json is never touched.
@@ -21,7 +24,13 @@ EXPECTED_DEFAULTS = {
     "pet_scale": 3.0,
     "pet_x": -1,
     "pet_y": -1,
-    "pet_name": "Clippy",
+    "pet_name": "小助手",
+    # V2 behavior keys
+    "character_mode": "single",
+    "character_image": "",
+    "wheel_zoom_enabled": False,
+    "show_pet_name": False,
+    "show_welcome": True,
 }
 
 
@@ -39,7 +48,7 @@ class TestConfigDefaults:
         assert isolated_config.get("does_not_exist") is None
 
     def test_pet_name_property_reflects_default(self, isolated_config):
-        assert isolated_config.pet_name == "Clippy"
+        assert isolated_config.pet_name == "小助手"
 
 
 # ── Persistence round-trip ─────────────────────────────────────────────────
