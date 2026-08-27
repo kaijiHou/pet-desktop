@@ -314,3 +314,7 @@ V2 新增/更新的测试：
 | 真实 EXE 缩放/面板 | release EXE + 鼠标 | **NOT TESTED** |
 
 ShellWatcher 定向集成测试使用真实 `SHChangeNotifyRegister`、非零注册 ID 和真实 `SHChangeNotify` 广播，验证 NewDelivery Lock 解包及 Qt signal；它不冒充普通 Explorer 鼠标删除验收。完整清单见 `docs/V22_REAL_ACCEPTANCE.md`。
+
+### V2.2 fresh release
+
+`scripts/build_release.ps1` 在文档提交后再次 clean 构建，随后 `scripts/verify_release.ps1` 从新 ZIP 副本启动：**PASS**（单进程、responsive、动画 catalog、user assets、日志均存在、WebEngine 文件 0）。ZIP 为 48,251,780 bytes，SHA-256 为 `e719a87009e6962e944e0073d594e8edab5570175e289565699a33ed75f2fd5b`，manifest 与文件一致。

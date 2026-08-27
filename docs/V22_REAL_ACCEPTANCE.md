@@ -10,7 +10,8 @@
 
 - 构建来源：`release/DesktopPet/DesktopPet.exe`
 - 构建方式：`scripts/build_release.ps1` clean build
-- ZIP SHA-256：待 fresh build 后填写
+- ZIP：`release/DesktopPet-windows-x64.zip`（48,251,780 bytes）
+- ZIP SHA-256：`e719a87009e6962e944e0073d594e8edab5570175e289565699a33ed75f2fd5b`
 
 ## Acceptance checklist
 
