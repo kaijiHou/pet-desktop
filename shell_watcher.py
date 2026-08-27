@@ -100,6 +100,7 @@ class ShellWatcher:
     def stop(self):
         """Stop watching."""
         self._stop_event.set()
+        self._callback = None
         if self._thread:
             self._thread.join(timeout=2)
 

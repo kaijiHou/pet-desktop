@@ -12,8 +12,8 @@ Features:
   - Explorer directory snapshot on open
 """
 from pathlib import Path
-from PyQt5.QtCore import Qt, QUrl, QTimer, QPoint
-from PyQt5.QtGui import QDesktopServices, QDrag, QMimeData, QIcon
+from PyQt5.QtCore import Qt, QUrl, QTimer, QPoint, QMimeData
+from PyQt5.QtGui import QDesktopServices, QIcon, QDrag
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
     QListWidgetItem, QMenu, QFileDialog, QFrame, QSizePolicy, QMessageBox,
