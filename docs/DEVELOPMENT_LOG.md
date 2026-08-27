@@ -725,3 +725,38 @@ Phase 0–18 全部完成。Pocket 跨窗口鼠标拖放仍保留 Phase 17 已�
 重新用 Windows Computer Use 尝试独立顶层 Pocket + 唯一 Explorer 目标。控件树可读，但 Qt 窗口仍不提供输入几何，且 drag API 只能在同一个目标窗口内定义起止坐标，不能安全伪造跨应用落点。新增 `scripts/manual_drag_acceptance.py`：自动准备隔离源/目标并在用户一次真实拖放后检查 copy 存在、source 保留，输出机器可读 PASS/FAIL。
 
 用户随后完成真实鼠标拖放；`.tmp/tests/phase17_drag_result.json` 返回 `PASS`，目标副本存在且源文件仍存在。Phase 17 最后一个人工验收项正式关闭，Phase 0–18 发布验收全部完成。
+
+---
+
+## 2026-08-27 - V2 重构：UX 全量重构（ux-redesign-v2 分支）
+
+### 目标
+
+把"功能都有但像工程 Demo、用户不知道怎么用"的版本，重构成普通用户双击 EXE 后不看 README 也会用的轻量 Windows 文件助手。**不重写底层服务，不堆新功能。**
+
+### 关键决策
+
+- Single Image Mode 成为首选角色方式（§5-8）：一张透明 PNG 即成桌宠；无图显示程序绘制的原创默认伙伴（无版权）。Sprite Sheet Mode 保留兼容。
+- 统一 theme.py 作为唯一视觉来源（§29-30）：Win11 浅色、微软雅黑、蓝 accent、圆角 8px。
+- 全局语言统一简体中文（§9）：Pocket→文件口袋，Reminder→提醒，Keluar→退出，全部去掉。
+- 点击/拖动阈值（§11）：`startDragDistance()` 区分单击与拖动；单击开快捷面板，拖动移动角色。
+- 快捷面板（§12）：点击角色弹出轻量浮层，显示口袋项+提醒+快捷入口。
+- Pocket 非模态（§23）：`PocketWindow` show/hide 替代 `PocketDialog` exec_；多选（§18）；"复制到当前文件夹/移动到当前文件夹"为主按钮（§15）；目的地选择器（§16）。
+- Explorer 主操作修复（§15，审计 D1 致命项）：打开 Pocket 时快照 Explorer 目录，避免"前台窗口是对话框自身→匹配不到"。
+- 文件拖入高亮+badge+toast（§19，20，22）：拖入蓝色光圈，drop 后 toast，口袋角标。
+- 提醒重做（§24，25）：快捷时间（10分钟后/1小时后/今天晚上/明天），按日期分组列表，编辑/稍后提醒/删除。
+- 设置真实化（§26）：角色/行为/提醒/数据四组，每个设置真实生效。
+- Shell 文件操作反馈（§36-38）：简化的 ShellWatcher + explorer 前台过滤 + debounce。
+- 图标（§33）：assets/app.ico 程序绘制的伙伴图标，替换旧橙色猫脸。
+- 低资源（§40）：单图模式静止时不重绘（idle 无高频 timer），动画事件结束停 timer。
+
+### 验证
+
+- `pytest tests -q` → **191 passed, 0 failed**
+- `scripts/perf_measure.py` → 60s idle：avg CPU 0.0%，avg RSS 102.5MB，单进程，WebEngine=0
+- Before/After 截图：docs/ui-before/ 与 docs/ui-after/（pet/settings/reminder-list/pocket-empty/pocket-with-files/add-reminder）
+- 审计文档：docs/UX_AUDIT.md（24 项问题，含致命 D1）
+
+### 状态
+
+V2 重构完成，可 fresh build。下一阶段如继续做产品化增强，见 ARCHITECTURE.md §16 原则。

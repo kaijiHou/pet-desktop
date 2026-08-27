@@ -264,3 +264,30 @@ GUI 测试覆盖列表显示、复制路径、移除引用不删原文件、miss
 | Artifact | one-folder / ZIP | **109.5 MB / 45,788,195 bytes** |
 
 ZIP SHA-256：`d9a00cd6f1095c25c618e19e724615a07dd8d52e5465bde89b8429b7ee119c06`。manifest 与实际 hash 一致。解压副本具备 `_internal/assets/animations.json`、EXE 同级用户 `assets/`、运行时 `logs/app.log`；没有依赖项目 `.venv`。
+
+## V2（ux-redesign-v2，2026-08-27）— UI/UX 全量重构
+
+**套件总结果：`pytest tests -q` → 191 passed, 0 failed**（V2 全量，新增 24 个测试）
+
+| 层 | 命令/方式 | 结果 |
+|---|---|---|
+| Full suite | `pytest tests -q` | **191 passed** |
+| Performance | `scripts/perf_measure.py <pid>`（60s idle） | avg CPU **0.0%**，peak CPU 0.0%，avg RSS **102.5 MB**，peak RSS 129.9 MB，单进程，**WebEngine=0** |
+
+V2 新增/更新的测试：
+- `tests/unit/test_character.py`（17）：单图模式、图片导入/校验/去重、无图 fallback、切换无需重启、动画语义完整性
+- `tests/unit/test_events.py`：语义动画名映射、噪声事件不映射到特定动画
+- `tests/unit/test_shell_watcher.py`（4）：dispatch/debounce/stop/动作映射
+- `tests/unit/test_config.py`：V2 默认值（pet_name=小助手、新行为键）
+- `tests/smoke/test_gui_smoke.py`：中文菜单/语义 dispatch/动画结束回 idle
+- `tests/smoke/test_ki11_wheel_zoom.py`：V2 滚轮默认关闭/启用行为
+
+**性能 Before/After**：
+
+| 指标 | Before（Phase 1 WebEngine） | After（V2 原生单图） |
+|---|---|---|
+| 60s idle avg CPU | ~1.35% | **0.0%** |
+| 60s idle avg RSS | ~311–402 MB（含 Chromium 子进程） | **102.5 MB** |
+| 进程数 | 1 主 + 2 Chromium | **1（WebEngine=0）** |
+
+> 说明：AVG RSS 略高于 100MB 目标，因单图渲染 + Qt 基座 + 快捷面板持留。峰值 129.9MB 出现在动画播放瞬间。CPU 指标大幅优于目标（≤2%）。无 WebEngine/Chromium。

@@ -160,3 +160,17 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - Windows x64 one-folder ZIP 已构建并从全新解压副本启动通过；WebEngine/Chromium 文件数为 0。
 - PyInstaller 报告的缺失项均为跨平台或可选模块；发行 EXE 黑盒启动与功能边界通过，未新增产品阻塞问题。
 - Phase 17 的真实跨窗口鼠标拖放已人工 PASS；至此 Phase 18 发布门槛全部通过。
+
+## V2 状态更新（ux-redesign-v2）
+
+- **KI-01/KI-10 关闭**：不再要求自制 124×93 43 槽位 sprite sheet。新增 Single Image Mode：一张透明 PNG 即时成为桌宠；无图时显示程序绘制的原创默认伙伴（无版权角色）。Sprite Sheet Mode 保留兼容。
+- **KI-12 确认消失**：Phase 16 删除 WebEngine 后，offscreen 平台不再 segfault，GUI 测试可安全用 offscreen。
+- **KI-11 保持**：滚轮缩放默认关闭（V2 设计），新测试 `test_ki11_wheel_zoom.py` 验证默认不缩放、启用后仍可能触发 setGeometry float TypeError（不修）。
+- **新增 KI-13（已接受）**：offscreen 平台不渲染 CJK 字体——widget.grab 截图中文空白。真实 GUI 用微软雅黑正常。仅影响离屏截图证据，不影响功能。
+- **新增 KI-14（Shell Watcher 简化实现）**：真正 SHChangeNotifyRegister 需要隐藏窗口消息循环；当前用轮询前台 explorer.exe + debounce 的简化版。外部文件事件语义受 §39 限制（无法可靠区分"新建"vs"复制产生的新文件"），已在 `docs/UX_AUDIT.md` §37-39 记录。
+
+## Phase 17/18 历史保留（V2 继续有效）
+
+- 配置/数据统一写 `data/`（D 盘项目旁），不再隐式写 C 盘。
+- 旧 `C:\Users\clara` 硬编码启动脚本已删。
+- 单进程、WebEngine=0、低资源基线在 V2 继续保持。

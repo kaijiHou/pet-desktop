@@ -375,3 +375,25 @@ Renderer 将逻辑 state 与具体 animation 分离：事件动画播放一轮�
 采用 PyInstaller 6.15 的 Windows x64 one-folder，不用 one-file 临时解压，也不需要安装器。`DesktopPet.exe` 与 `_internal/` 必须整体保留；只读 `animations.json` 进入 `_internal/assets`，用户自定义 `assets/clippy_sheet.png` 从 EXE 同级目录读取，运行 `data/`、`logs/` 也落在 EXE 同级目录。
 
 `scripts/build_release.ps1` 在项目根内验证 build/dist/release 清理边界，测试通过后 clean build，并输出 ZIP 与 SHA-256 manifest；PyInstaller config cache、TEMP、TMP 均固定到项目 D 盘。`scripts/verify_release.ps1` 解压到新的 `.tmp/tests` 目录，从 ZIP 副本启动 EXE，核验单进程、响应、动画目录、可替换素材目录、日志以及 WebEngine 文件为零。
+
+---
+
+## 17. V2 新增模块（ux-redesign-v2）
+
+```
+├── character.py        角色系统：Single Image / Sprite Sheet / 内置默认伙伴
+│                        + 语义动画步骤表（IDLE/RECEIVE_FILE/DELETE_FILE/...）
+│                        + import_character_image（校验+复制到 assets/）
+├── theme.py            统一视觉来源：字体/颜色/间距/QSS；apply(app) 一次
+├── quick_panel.py      快捷面板：单击角色弹出，显示口袋项+提醒+快捷入口
+├── pocket_window.py    Pocket 非模态浮窗：多选、Explorer 主操作、目的地选择器
+│                        QFileIconProvider 系统图标、toast、拖入拖出
+├── shell_watcher.py    Shell 变化监听：explorer 前台过滤 + debounce（SHCHANGE 简化版）
+└── assets/app.ico      V2 伙伴图标（16-256px 多尺寸）
+```
+
+**分层**：底层服务（PocketService/FileOperationService/ReminderService/DestinationService/FileWatchService/ExplorerService）V2 全部复用未重写；`pocket_ui.py`（旧 PocketDialog）保留以兼容既有测试，新 UI 走 `pocket_window.py`。
+
+**渲染**：单图模式下 PetWindow.paintEvent 用 QTransform（scale/rotate/translate）应用语义动画步骤；sheet 模式沿用逐帧链式 timer。单图静止时不启动任何 timer（§40）。
+
+**语义动画 → 实机动作**：EventDispatcher → AnimationController.resolve → 语义名 → PetWindow.play_semantic → sheet 名或单图 transform 步骤。动画结束 `_finish_semantic` 回到 idle 并停 timer。

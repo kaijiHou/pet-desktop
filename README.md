@@ -1,137 +1,53 @@
-# 📎 Clippy Desktop Pet
+# 桌面助手 Desktop Pet
 
-A Windows desktop pet application — a Clippy-style paperclip character with private, local reminders.
+一个常驻桌面的轻量 Windows 文件小助手。
 
-> **⚠️ Asset Notice**
-> This repository does **not** include any character sprites or artwork. You need to provide your own!
-> You can use:
-> - **Clippy** (Microsoft Office paperclip) — search for `clippy_sheet.png` or use the [clippyjs](https://www.npmjs.com/package/clippyjs) package
-> - **Any character you like** — create your own sprite sheet (124×93 px per frame)
->
-> Place your sprite sheet at `assets/clippy_sheet.png`.
+把文件拖给角色暂存，需要时再取出来；设置某天某时的本地提醒；在资源管理器删/建/改文件时角色给出动画反馈。
 
-## ✨ Features
+## 3 秒上手
 
-- 🖇️ **Desktop Pet** — always-on-top character that follows you around
-- ⏰ **Local Reminders** — choose a date, time, and message; nothing is sent online
-- 📥 **Drag to Pocket** — drop local files or folders on Clippy to save references without moving them
-- 📤 **Drag from Pocket** — drag referenced items back to Explorer or the desktop
-- 🎭 **43 Animations** — idle, talking, thinking, searching, waving, sleeping, and more
-- 🔊 **Sound Effects** — beeps for reminders and interactions
-- 🪟 **Windows 95 / Office 97 Styling** — retro dialog boxes and tooltips
+1. **拖文件到角色** → 临时寄存到文件口袋
+2. **单击角色** → 打开快捷面板 / 文件口袋
+3. **右键角色** → 提醒和设置
 
-## 🚀 Getting Started
+在目标文件夹里点「**复制/移动到当前文件夹**」即可把口袋里的文件放过去。
 
-### Prerequisites
+还支持本地定时提醒（喝口水、交周报），以及资源管理器里的文件操作动画反馈。
 
-- **Python 3.11+** (tested with 3.11.9)
-- **Windows 10/11**
+## 角色
 
-### Installation
+- **单图模式（默认）**：任何一张透明 PNG 直接成为桌宠——真人抠图、卡通角色都行。
+  在设置 → 角色 →「选择图片...」导入即可，无需重启。
+- **无图**：显示一个程序绘制的原创中性角色（无版权）。
+- **精灵图模式（高级）**：兼容旧版 124×93 sprite sheet 动画。
 
-```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/clippy-desktop-pet.git
-cd clippy-desktop-pet
+## 特性
 
-# Install dependencies
-pip install PyQt5 Pillow
+- 文件口袋：拖入暂存、多选、复制/移动到当前或任意文件夹、拖出到资源管理器
+- 本地提醒：10 分钟 / 1 小时 / 今晚 / 明天快捷设置，按日期分组查看
+- 角色动画：接收/送出/删除/复制/移动/提醒等语义反馈（单图模式位移缩放旋转，无 60FPS）
+- 资源管理器文件操作反馈（前台过滤 + 去抖）
+- 低资源：单进程、无 WebEngine/Chromium、静止时基本不重绘
 
-# Add your character sprite sheet
-# Place your 124×93 frame sprite sheet at: assets/clippy_sheet.png
-# (see Asset Notice above)
-
-# Run it!
-python main.py
-```
-
-Runtime settings and local indexes are stored in the project/executable's
-`data/` folder. Logs are stored beside it in `logs/`.
-
-### Windows release build
+## 从源码运行
 
 ```powershell
-# Install development/build dependencies once
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-
-# Full tests + clean one-folder build + ZIP + SHA-256 manifest
-powershell -ExecutionPolicy Bypass -File scripts\build_release.ps1
-
-# Extract the ZIP to a fresh temp directory and launch the packaged EXE
-powershell -ExecutionPolicy Bypass -File scripts\verify_release.ps1
+cd D:\pet-desktop
+.venv\Scripts\python.exe main.py
 ```
 
-The deliverable is `release/DesktopPet-windows-x64.zip`. Unzip the whole
-folder and run `DesktopPet/DesktopPet.exe`; do not move the EXE out of its
-`_internal` folder structure.
+## 测试
 
-## 🎮 Controls
-
-| Action | How |
-|--------|-----|
-| **Move** | Click & drag |
-| **Resize** | Scroll wheel |
-| **Greet** | Double-click Clippy |
-| **Add a reminder** | Right-click → Add Reminder |
-| **Manage reminders** | Right-click → My Reminders |
-| **Add to Pocket** | Drag a local file or folder onto Clippy |
-| **Open Pocket** | Right-click → Pocket |
-| **Drag from Pocket** | Drag an item from the Pocket list to Explorer/Desktop |
-| **Copy or move** | Pocket → select an item → Copy To… / Move To… |
-| **Favorite folders** | Pocket → Add Favorite… then reuse it for copy/move |
-| **Recent folders** | Successful copy/move destinations appear automatically in Pocket |
-| **Current Explorer** | Pocket → Copy/Move to Explorer uses the active folder |
-| **Settings** | Right-click → Settings |
-| **Sleep** | Right-click → Settings → "Suruh Clippy Bobo" |
-| **Quit** | Right-click → Keluar |
-
-## 🎨 Custom Characters
-
-Want to use your own character instead of Clippy?
-
-1. Create a sprite sheet as a **PNG** with frames arranged in a grid
-2. Each frame should be **124×93 pixels** (or update `SPRITE_W`/`SPRITE_H`)
-3. Save it as `assets/clippy_sheet.png`
-4. Create an `assets/animations.json` with frame positions and durations
-   (see existing format for reference — `{ "AnimationName": [[x, y, duration_ms], ...] }`)
-
-The character will automatically use your sprites with all 43 animation slots.
-
-## 📁 Project Structure
-
-```
-clippy-desktop-pet/
-├── main.py                   # Entry point
-├── pet_window.py             # Native Qt main window + dialogs
-├── pet_sprite.py             # Native Pillow sprite loader/cache
-├── config.py                 # Configuration handler
-├── reminder_service.py       # Persistent local reminder service
-├── reminder_ui.py            # Add/manage reminder dialogs
-├── pocket_service.py         # Reference-only file/folder Pocket data
-├── pocket_ui.py              # Pocket list and safe reference actions
-├── file_ops.py               # Non-overwriting copy/move operations
-├── destinations.py           # Favorite destination persistence
-├── explorer.py               # Foreground File Explorer directory query
-├── file_watch.py             # Event-driven Pocket directory watcher
-├── events.py                 # Typed events and animation fallback
-├── sounds.py                 # Sound effects
-├── pet-desktop.spec          # Reproducible PyInstaller one-folder build
-├── requirements-dev.txt      # Test/build-only dependencies
-├── scripts/
-│   ├── build_release.ps1     # Clean build, ZIP, and SHA-256 manifest
-│   └── verify_release.ps1    # Extracted-package black-box check
-├── assets/
-│   ├── clippy_sheet.png      # ⚠️ YOU PROVIDE THIS (neutral placeholder otherwise)
-│   └── animations.json       # Tracked 43-animation metadata catalog
-├── paths.py                  # Project/bundle-local runtime paths
-└── .gitignore
+```powershell
+.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-## 📝 Notes
+（191 passed，含单图角色、导入、shell watcher、GUI smoke、语义动画等）
 
-- **Clippy** is a trademark of Microsoft Corporation. This project is not affiliated with or endorsed by Microsoft.
-- Sound effects are simple `winsound.Beep()` calls — no external audio files needed.
+## 文档
 
-## 📄 License
-
-MIT — feel free to use, modify, and share!
+- 架构：`docs/ARCHITECTURE.md`
+- 已知问题：`docs/KNOWN_ISSUES.md`
+- 测试报告：`docs/TEST_REPORT.md`
+- 开发日志：`docs/DEVELOPMENT_LOG.md`
+- 用户体验审计：`docs/UX_AUDIT.md`
