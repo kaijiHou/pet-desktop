@@ -110,6 +110,10 @@ class PetWindow(QWidget):
         self.events.event_received.connect(self._handle_app_event)
         self.file_watch.on_change=lambda c:self.events.dispatch(AppEvent("windows",c.action,c))
         self.character=CharacterController(config,scale=config.get("pet_scale",3))
+        # Shell watcher (V2 Phase 5)
+        from shell_watcher import ShellWatcher
+        self._shell_watcher = ShellWatcher()
+        self._shell_watcher.start(self._on_shell_event)
         self._state=self.STATE_IDLE; self._animation="RestPose"; self._frame=0
         self._drag_pos=QPoint(); self._dragging=False; self._pressing=False
         self._press_pos=QPoint(); self._moved=False; self._drag_hover=False
@@ -363,6 +367,28 @@ class PetWindow(QWidget):
         anim=self.animation_controller.resolve(event)
         self._state=self.STATE_ALERT if event.category=="reminder" else self.STATE_TALKING
         if anim: self.play_semantic(anim)
+    def _on_shell_event(self, event):
+        """Handle global shell change events (V2 Phase 5)."""
+        if not self.config.get("file_event_animations_enabled", True):
+            return
+        # Only animate when explorer.exe is foreground (§37)
+        if not self._shell_watcher.is_explorer_foreground():
+            return
+        # Map shell actions to animation semantics
+        action_map = {
+            "created": "CREATE_FILE",
+            "deleted": "DELETE_FILE",
+            "renamed": "RENAME_FILE",
+            "dir_created": "CREATE_FILE",
+            "dir_removed": "DELETE_FILE",
+            "dir_renamed": "RENAME_FILE",
+        }
+        semantic = action_map.get(event.action)
+        if semantic:
+            self._state = self.STATE_TALKING
+            self.play_semantic(semantic)
+            self.show_bubble(f"检测到文件操作", 2000)
+            QTimer.singleShot(2500, lambda: self.set_state(self.STATE_IDLE))
     def _open_add_reminder(self):
         d=AddReminderDialog(self)
         if d.exec_(): c,dt=d.values(); self.reminder.add_reminder(c,dt); self._schedule_next_reminder(); self.show_bubble("提醒已保存",4000)
@@ -404,6 +430,7 @@ class PetWindow(QWidget):
         self.config.set("pet_scale",ns); self.character.set_scale(ns)
         w,h=self.character.base_size(); self._pet_w,self._pet_h=w,h; self.setFixedSize(w+40,h+60)
     def _quit_app(self):
+        self._shell_watcher.stop()
         self.file_watch.stop_all(); self._bubble_hide(); self.tray_icon.hide(); QApplication.quit()
 
 
