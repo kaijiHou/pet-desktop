@@ -864,6 +864,12 @@ pytest tests -q --tb=short                       → 222 passed
 - 结果：构建 PASS；单进程、responsive、动画 catalog、user assets、日志生成、WebEngine/Chromium 文件数 0 均 PASS。ZIP SHA256 `498697aca1c14fc4d0b54012b8e7da8592b0e354b97ed75ed08bb4d74c78adf8`，48,298,928 bytes。
 - 真机限制：验证脚本只做启动/文件黑盒检查，不替代 Explorer 鼠标和视觉验收；`V3_REAL_ACCEPTANCE.md` 仍为 `NOT TESTED`。
 
+### Final fresh release after anchor follow-up
+
+- `scripts/build_release.ps1` clean build：**PASS**，230 tests passed。
+- `scripts/verify_release.ps1` 新解压副本：**PASS**（running/responding、单进程、动画 catalog、user assets、日志、WebEngine 0）。
+- 最终 ZIP：48,300,152 bytes；SHA256 `78a052e07ec9c0fef7ee66c227bec16bd582de1596628a05cc7c2ebfd8b9fd1c`，`release/manifest.json` 一致。
+
 ### 浮窗跟随补丁
 
 - 现象：今日收入窗口是新加入的顶层浮窗，若桌宠拖动或缩放，存在停留在旧位置的风险。

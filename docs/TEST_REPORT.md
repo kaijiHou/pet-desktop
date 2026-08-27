@@ -339,3 +339,5 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 - ZIP：`release/DesktopPet-windows-x64.zip`，48,298,928 bytes。
 - SHA256：`498697aca1c14fc4d0b54012b8e7da8592b0e354b97ed75ed08bb4d74c78adf8`，manifest 一致。
 - Explorer/鼠标视觉/真实提醒：**NOT TESTED**（遵循本轮不使用电脑控制）。
+
+最终 anchor follow-up 后再次 clean build：230 passed；verify release 全部黑盒检查通过。最终 ZIP 48,300,152 bytes，SHA256 `78a052e07ec9c0fef7ee66c227bec16bd582de1596628a05cc7c2ebfd8b9fd1c`，manifest 一致。真实 Explorer/鼠标视觉/提醒仍 **NOT TESTED**。
