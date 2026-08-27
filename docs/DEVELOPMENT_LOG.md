@@ -820,3 +820,32 @@ pytest tests -q --tb=short                       → 222 passed
 ```
 
 自动化通过只代表代码路径与 Qt 集成边界通过；四项真实 Windows 门槛仍以 `docs/V22_REAL_ACCEPTANCE.md` 为准。
+
+---
+
+## 2026-08-27 - V3 工资、日历与可见像素锚点（进行中）
+
+### 基线与研究
+
+- V3 开始前执行 pull/status/rev-parse，实际 `BASELINE_HEAD` 为 `e1e8ade5993a702b77d56762197da1d56051d3cb`，工作区干净，目标仍是 `kaijiHou/pet-desktop` 的 `v2.2-interaction-fix`。
+- 研究 [kouwenhao/salary-timer](https://github.com/kouwenhao/salary-timer)、[anneheartrecord/salary-timer](https://github.com/anneheartrecord/salary-timer)、[Silent-Blue/cn-holiday-calendar](https://github.com/Silent-Blue/cn-holiday-calendar) 及 MIT 的 [holiday-cn](https://github.com/NateScarlet/holiday-cn) / [china-mainland-calendar](https://github.com/Lancetwang/china-mainland-calendar)，结论见 `WAGE_REFERENCE_RESEARCH.md`。
+
+### KI-19：气泡按透明矩形顶部定位
+
+- 现象：单图透明边缘随缩放增大，气泡与角色可见轮廓之间出现大空白，靠屏幕边缘也无法翻转。
+- 根因：旧实现把气泡画在 PetWindow 透明矩形顶部，未读取 RGBA alpha bounds。
+- 修改文件：`character.py`、`bubble_window.py`、`pet_window.py`。
+- 修复：CharacterController 缓存 `visible_alpha_bbox`；PetWindow 提供 `visible_pet_rect`/全局 rect；生产 Windows 使用不抢焦点的独立 BubbleWindow，按上/下/左右候选位置和 availableGeometry 放置，移动/缩放实时重定位。offscreen 测试后端不创建重复顶层合成以避免 Qt 平台崩溃。
+- 回归测试：新增 alpha bbox 单测；原 V2.2 面板/缩放回归继续通过。真实桌面视觉验收见 `V3_REAL_ACCEPTANCE.md`，当前 `NOT TESTED`。
+
+### Wage/Calendar 核心
+
+- 修改文件：`wage/model.py`、`wage/storage.py`、`wage/calendar_service.py`、`wage/calculator.py`、`wage/service.py`。
+- 设计：本地 JSON + temp/replace 原子写；Decimal 金额；固定 now provider；手工日期 override > 节假日数据 > 星期默认；17:30 加班、跨 25h 阈值拆分、20:00 确认餐补；日志不写工资金额。
+- 测试：`tests/unit/test_wage_calculator.py` 覆盖日薪、午休、17:30 封顶、加班两档、餐补、日历优先级、损坏存储回退。
+
+### 今日助手入口
+
+- 修改文件：`quick_panel.py`、`wage/ui_settings.py`、`wage/ui_today.py`、`wage/ui_calendar.py`、`pet_window.py`、`character.py`。
+- 核心改动：QuickPanel 显示今日状态/收入（隐私模式隐藏金额）、口袋最近 3 项、下个提醒、下班打卡/工时日历；托盘和右键菜单增加今日收入/工时日历；新增轻量 WAGE_PROGRESS/OVERTIME_START/CLOCK_OUT/MEAL_ALLOWANCE 语义动作。
+- 已知限制：历史漏打卡提示、修改下班时间的完整交互和月度详情仍在补齐；真实 Explorer/鼠标验收未执行。

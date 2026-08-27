@@ -73,6 +73,16 @@ def test_configured_image_is_loaded_in_single_mode(assets_dir, isolated_config):
 
 
 @pytest.mark.unit
+def test_visible_alpha_bbox_is_cached_from_rgba_pixels(assets_dir, isolated_config):
+    img = Image.new("RGBA", (100, 120), (0, 0, 0, 0))
+    img.paste((255, 0, 0, 255), (17, 23, 69, 91))
+    img.save(assets_dir / "padded.png")
+    isolated_config.set("character_image", "padded.png")
+    ctrl = CharacterController(isolated_config)
+    assert ctrl.visible_alpha_bbox == (17, 23, 69, 91)
+
+
+@pytest.mark.unit
 def test_character_switch_without_restart(assets_dir, isolated_config):
     _make_png(assets_dir / "a.png", color=(10, 200, 10, 255))
     _make_png(assets_dir / "b.png", color=(10, 10, 200, 255))

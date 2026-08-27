@@ -318,3 +318,14 @@ ShellWatcher 定向集成测试使用真实 `SHChangeNotifyRegister`、非零注
 ### V2.2 fresh release
 
 `scripts/build_release.ps1` 在文档提交后再次 clean 构建，随后 `scripts/verify_release.ps1` 从新 ZIP 副本启动：**PASS**（单进程、responsive、动画 catalog、user assets、日志均存在、WebEngine 文件 0）。ZIP 为 48,251,780 bytes，SHA-256 为 `e719a87009e6962e944e0073d594e8edab5570175e289565699a33ed75f2fd5b`，manifest 与文件一致。
+
+## V3 当前回归（2026-08-27）
+
+| 层 | 命令/方式 | 结果 |
+|---|---|---|
+| Wage/Calendar targeted | `.venv\\Scripts\\python.exe -m pytest tests/unit/test_wage_calculator.py tests/unit/test_character.py -q` | **26 passed** |
+| V2.2 interaction regression | `.venv\\Scripts\\python.exe -m pytest tests/smoke/test_v22_interactions.py -q` | **15 passed** |
+| GUI construction regression | `.venv\\Scripts\\python.exe -m pytest tests/smoke/test_gui_smoke.py -q` | **16 passed** |
+| 真实 Windows 视觉/Explorer | 手动 acceptance | **NOT TESTED**（本轮遵循不使用电脑控制） |
+
+V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加；在此之前不宣称 V3 完成。

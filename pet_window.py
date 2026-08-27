@@ -20,6 +20,9 @@ from file_watch import FileWatchService
 from events import AnimationController, AppEvent, EventDispatcher
 from reminder_service import ReminderService
 from reminder_ui import AddReminderDialog, ReminderListDialog
+from wage.service import WageService
+from wage.model import WORKDAY, ADJUSTED_WORKDAY, REST, LEAVE
+from bubble_window import BubbleWindow
 import sounds, theme
 
 
@@ -96,7 +99,9 @@ class SettingsDialog(QDialog):
         self.open_data_button.clicked.connect(self._open_data_dir)
         self.open_log_button = QPushButton("打开日志目录")
         self.open_log_button.clicked.connect(self._open_log_dir)
-        dl.addWidget(self.open_data_button); dl.addWidget(self.open_log_button); dl.addStretch()
+        self.wage_button = QPushButton("工资与工时")
+        self.wage_button.clicked.connect(lambda: self.parent()._open_wage_settings() if self.parent() else None)
+        dl.addWidget(self.open_data_button); dl.addWidget(self.open_log_button); dl.addWidget(self.wage_button); dl.addStretch()
         layout.addWidget(box4)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -207,6 +212,8 @@ class PetWindow(QWidget):
         super().__init__()
         self.config = config
         self.reminder = ReminderService()
+        self.wage = WageService()
+        self.wage.on_progress = self._on_wage_progress
         self.pocket = PocketService()
         self.file_watch = FileWatchService()
         self.events = EventDispatcher(self)
@@ -239,11 +246,18 @@ class PetWindow(QWidget):
         self._pet_w, self._pet_h = w, h
         self._quick_panel = None
         self._pocket_window = None
+        self._today_wage = None
         self._setup_window()
         self._setup_tray()
         self._setup_timers()
         self._setup_callbacks()
         self._setup_speech_bubble()
+        self._wage_last_overtime = False
+        if self.wage.configured:
+            missing = self.wage.missing_clockout_yesterday()
+            if missing:
+                self.show_bubble("昨天没有记录下班时间\n请在今日助手中补记", 9000)
+                self.wage.mark_missing_clockout_prompt(missing)
         self._load_position()
         QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
 
@@ -270,6 +284,9 @@ class PetWindow(QWidget):
         self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手")
         m = QMenu()
         m.addAction("显示/隐藏角色").triggered.connect(self._toggle_visibility)
+        m.addAction("今日收入").triggered.connect(self._open_today_wage)
+        m.addAction("工时日历").triggered.connect(self._open_calendar)
+        m.addSeparator()
         m.addAction("文件口袋").triggered.connect(self._open_pocket)
         m.addAction("新建提醒").triggered.connect(self._open_add_reminder)
         m.addAction("我的提醒").triggered.connect(self._open_reminders)
@@ -319,6 +336,10 @@ class PetWindow(QWidget):
         self._idle_timer.timeout.connect(self._check_idle)
         self._idle_timer.start(60000)
         self._last_activity = time.time()
+        self._wage_timer = QTimer(self)
+        self._wage_timer.setInterval(60000)
+        self._wage_timer.timeout.connect(self._check_wage_progress)
+        self._wage_timer.start()
 
     def _schedule_next_frame(self):
         dur = self.sprite_loader.get_duration(self._animation, self._frame)
@@ -339,6 +360,11 @@ class PetWindow(QWidget):
         self._bubble_dismiss = QTimer(self)
         self._bubble_dismiss.timeout.connect(self._bubble_hide)
         self._bubble_dismiss.setSingleShot(True)
+        # Qt's offscreen backend cannot safely composite repeated top-level
+        # translucent windows; production Windows uses the external window,
+        # tests retain the same state machine without creating native chrome.
+        self._use_external_bubble = QApplication.platformName() != "offscreen"
+        self._bubble_window = BubbleWindow(self)
 
     def _bubble_type(self):
         self._bubble_char = len(self._bubble_text)
@@ -350,7 +376,41 @@ class PetWindow(QWidget):
         self._bubble_visible = False
         self._bubble_timer.stop()
         self._bubble_dismiss.stop()
+        if self._use_external_bubble and self._bubble_window is not None:
+            self._bubble_window.hide()
         self.update()
+
+    def visible_pet_rect(self):
+        """Return the current visible character bounds in this widget."""
+        w, h = self.character.base_size()
+        sf, dx, dy, rot = self._current_transform()
+        cx = self.width() / 2 + dx
+        cy = 20 + h / 2 + dy
+        bbox = self.character.visible_alpha_bbox
+        if self.character.mode != "single" or not bbox:
+            return QRect(round(cx - w * sf / 2), round(cy - h * sf / 2),
+                         max(1, round(w * sf)), max(1, round(h * sf)))
+        image = self.character.get_single_frame()
+        iw, ih = image.size
+        left, top, right, bottom = bbox
+        x1 = cx + (left / iw - 0.5) * w * sf
+        x2 = cx + (right / iw - 0.5) * w * sf
+        y1 = cy + (top / ih - 0.5) * h * sf
+        y2 = cy + (bottom / ih - 0.5) * h * sf
+        # Rotations are small semantic tilts; use a conservative bounding box.
+        if rot:
+            pad = abs(math.sin(math.radians(rot))) * max(x2 - x1, y2 - y1) * 0.12
+            x1 -= pad; x2 += pad; y1 -= pad; y2 += pad
+        return QRect(round(x1), round(y1), max(1, round(x2 - x1)), max(1, round(y2 - y1)))
+
+    def visible_pet_global_rect(self):
+        local = self.visible_pet_rect()
+        return QRect(self.mapToGlobal(local.topLeft()), local.size())
+
+    def _position_bubble(self):
+        if self._bubble_visible and self._bubble_display and self._bubble_window is not None:
+            screen = QApplication.screenAt(self.visible_pet_global_rect().center()) or QApplication.primaryScreen()
+            self._bubble_window.place_near(self.visible_pet_global_rect(), screen)
 
     def show_bubble(self, text, auto_dismiss_ms=6000):
         self._bubble_text = text
@@ -360,6 +420,12 @@ class PetWindow(QWidget):
         self._bubble_dismiss_ms = auto_dismiss_ms
         if auto_dismiss_ms > 0:
             self._bubble_dismiss.start(auto_dismiss_ms)
+        if self._bubble_window is not None:
+            self._bubble_window.set_text(text)
+            self._position_bubble()
+            if self._use_external_bubble:
+                self._bubble_window.show()
+                self._bubble_window.raise_()
         self.update()
 
     def show_bubble_now(self, text, auto_dismiss_ms=5000):
@@ -371,11 +437,19 @@ class PetWindow(QWidget):
         self._bubble_dismiss.stop()
         if auto_dismiss_ms > 0:
             self._bubble_dismiss.start(auto_dismiss_ms)
+        if self._bubble_window is not None:
+            self._bubble_window.set_text(text)
+            self._position_bubble()
+            if self._use_external_bubble:
+                self._bubble_window.show()
+                self._bubble_window.raise_()
         self.update()
 
     def _draw_bubble(self, painter):
-        if not self._bubble_visible or not self._bubble_display:
-            return
+        # Kept as a compatibility hook for old tests/themes.  Bubbles now
+        # live in BubbleWindow so they can flip at screen edges and escape the
+        # transparent PetWindow rectangle.
+        return
         margin = 5; max_bw = self.width() - margin * 2; padding = 10; tail_size = 8
         font = QFont("Microsoft YaHei UI", 8)
         painter.setFont(font)
@@ -748,6 +822,37 @@ class PetWindow(QWidget):
             self.show_bubble(f"提醒：{reminder.content}", 10000)
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
 
+    def _check_wage_progress(self):
+        snapshot = self.wage.current_breakdown()
+        overtime = snapshot.overtime_minutes > 0
+        if overtime and not self._wage_last_overtime:
+            self.play_semantic("OVERTIME_START")
+            self.show_bubble("开始加班", 3500)
+        self._wage_last_overtime = overtime
+        self.wage.maybe_emit_progress()
+
+    def _on_wage_progress(self, snapshot):
+        self.play_semantic("WAGE_PROGRESS")
+        if self.wage.settings.privacy_mode:
+            self.show_bubble(f"今日进度 {snapshot.progress}%", 5000)
+        else:
+            self.show_bubble(f"今天已赚 ¥{snapshot.total_earned:.2f}\n进度 {snapshot.progress}%", 5000)
+
+    def _clock_out(self, actual_clock_out=None):
+        """Save today's actual clock-out; exposed for the assistant panel."""
+        if actual_clock_out is None:
+            actual_clock_out = self.wage._now()
+        record = self.wage.record_clock_out(actual_clock_out)
+        self.play_semantic("CLOCK_OUT")
+        if record.meal_allowance:
+            self.play_semantic("MEAL_ALLOWANCE")
+        if self.wage.settings.privacy_mode:
+            self.show_bubble(f"{record.actual_clock_out:%H:%M} 下班已记录", 4500)
+        else:
+            self.show_bubble(f"{record.actual_clock_out:%H:%M} 下班\n加班 {record.overtime_minutes // 60}h{record.overtime_minutes % 60:02d}m", 4500)
+        if self._today_wage is not None:
+            self._today_wage.refresh()
+
     def _handle_app_event(self, event):
         if not self.config.get("file_event_animations_enabled", True):
             return
@@ -802,6 +907,9 @@ class PetWindow(QWidget):
 
     def _show_context_menu(self, pos):
         m = QMenu(self)
+        wa = m.addAction("今日收入")
+        ca = m.addAction("工时日历")
+        m.addSeparator()
         pa = m.addAction("文件口袋")
         aa = m.addAction("新建提醒")
         ra = m.addAction("我的提醒")
@@ -810,7 +918,11 @@ class PetWindow(QWidget):
         m.addSeparator()
         qa = m.addAction("退出")
         act = m.exec_(pos)
-        if act == aa:
+        if act == wa:
+            self._open_today_wage()
+        elif act == ca:
+            self._open_calendar()
+        elif act == aa:
             self._open_add_reminder()
         elif act == ra:
             self._open_reminders()
@@ -825,6 +937,31 @@ class PetWindow(QWidget):
         d = SettingsDialog(self.config, self)
         if d.exec_():
             self._update_from_settings()
+
+    def _open_wage_settings(self):
+        from wage.ui_settings import WageSettingsDialog
+        d = WageSettingsDialog(self.wage, self)
+        if d.exec_():
+            if self._quick_panel is not None:
+                self._quick_panel.refresh()
+            if getattr(self, "_today_wage", None) is not None:
+                self._today_wage.refresh()
+
+    def _open_today_wage(self):
+        from wage.ui_today import TodayWageWindow
+        if not hasattr(self, "_today_wage") or self._today_wage is None:
+            self._today_wage = TodayWageWindow(self.wage, self)
+        self._today_wage.refresh()
+        self._today_wage.show_near(self.visible_pet_global_rect(), self.screen())
+        if self._quick_panel is not None:
+            self._quick_panel.hide()
+
+    def _open_calendar(self):
+        from wage.ui_calendar import WorkCalendarDialog
+        dialog = WorkCalendarDialog(self.wage, self)
+        dialog.exec_()
+        if self._quick_panel is not None:
+            self._quick_panel.refresh()
 
     def _reload_character_preview(self):
         # live character change during settings dialog
@@ -862,6 +999,7 @@ class PetWindow(QWidget):
         self._pet_w, self._pet_h = w, h
         self.setFixedSize(w + 40, h + 60)
         self._reposition_attached_panels(reposition_quick=True, reposition_pocket=True)
+        self._position_bubble()
 
     def _change_scale(self, delta):
         current = float(self.config.get("pet_scale", 3))
@@ -880,6 +1018,7 @@ class PetWindow(QWidget):
     def moveEvent(self, event):
         super().moveEvent(event)
         self._reposition_attached_panels()
+        self._position_bubble()
 
     def _reposition_attached_panels(self, reposition_quick=None, reposition_pocket=None):
         if reposition_quick is None:
@@ -907,8 +1046,12 @@ class PetWindow(QWidget):
             self._quick_panel.close()
         if self._pocket_window is not None:
             self._pocket_window.close()
+        if getattr(self, "_today_wage", None) is not None:
+            self._today_wage.close()
         self.file_watch.stop_all()
         self._bubble_hide()
+        if self._bubble_window is not None:
+            self._bubble_window.close()
         self.tray_icon.hide()
         QApplication.quit()
 

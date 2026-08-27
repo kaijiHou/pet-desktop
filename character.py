@@ -32,6 +32,10 @@ SINGLE_ANIMATIONS = {
     "REMINDER":     [("bounce", 1.12), ("bounce", 1.12), ("normal", 1.0)],
     "SUCCESS":      [("bounce", 1.08), ("normal", 1.0)],
     "ERROR":        [("shake", 0), ("shake", 0), ("shake", 0), ("normal", 1.0)],
+    "WAGE_PROGRESS": [("pop", 1.04), ("normal", 1.0)],
+    "OVERTIME_START": [("bounce", 1.06), ("tilt", -4), ("normal", 1.0)],
+    "CLOCK_OUT":    [("tilt", 5), ("pop", 1.06), ("normal", 1.0)],
+    "MEAL_ALLOWANCE": [("pop", 1.08), ("normal", 1.0)],
     "SLEEP":        [("bob", -1.5), ("bob", -1.5)],
     "WAKE":         [("bounce", 1.10), ("normal", 1.0)],
 }
@@ -83,6 +87,7 @@ class CharacterController:
         self._single_image = None      # PIL.Image or None
         self._single_base_size = 0
         self._mode = "sheet"
+        self._visible_alpha_bbox = None
         self._reload()
 
     # ── loading ──
@@ -101,6 +106,7 @@ class CharacterController:
             self._loaded_builtin = False
             self._single_image = None
             self._single_base_size = 0
+            self._visible_alpha_bbox = None
             return
         # single mode
         path = self._character_path()
@@ -117,6 +123,11 @@ class CharacterController:
         self._mode = "single"
         self._single_image = image
         self._single_base_size = max(image.size)
+        # Cache the true drawable bounds once.  Transparent padding is common
+        # in user-supplied sprites and must not influence panel/bubble anchors.
+        self._visible_alpha_bbox = image.getchannel("A").getbbox()
+        if self._visible_alpha_bbox is None:
+            self._visible_alpha_bbox = (0, 0, image.width, image.height)
 
     def reload(self):
         self._reload()
@@ -137,6 +148,11 @@ class CharacterController:
     @property
     def scale(self):
         return self._scale
+
+    @property
+    def visible_alpha_bbox(self):
+        """Visible RGBA bounds in source-image pixels (cached)."""
+        return self._visible_alpha_bbox
 
     def base_size(self):
         """(w, h) the character occupies at current scale."""

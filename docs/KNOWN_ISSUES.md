@@ -183,3 +183,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - **KI-18**：wheel/Ctrl+wheel 与 50%~300% 设置 slider 均实时同步 Character、geometry、hitbox、badge、bubble anchor；Cancel 回滚、OK 持久化及上下限自动化通过；源码/EXE 肉眼缩放验收状态 `NOT TESTED`。
 
 在 `V22_REAL_ACCEPTANCE.md` 的真实 Windows 清单完成前，不宣称 V2.2 四项交互门槛全部 PASS。
+
+## V3 状态更新（2026-08-27）
+
+- **KI-19（代码已修复，真机待验）**：气泡已由 visible alpha bbox 锚定并支持屏幕边缘翻转；独立 BubbleWindow 的真实桌面间距仍需用户手动确认。
+- **KI-20（进行中）**：工资服务、工时日历、今日助手和隐私显示已接入；漏打卡一次性提示、修改下班时间和月度详情交互仍需补齐。
+- **KI-21（待验）**：ShellWatcher/Explorer 的真实 create/delete/mkdir/rmdir 反馈不能由 offscreen 单测代替，V3 清单当前 `NOT TESTED`。

@@ -415,3 +415,9 @@ PetWindow 与 PocketWindow 都只接受实际存在的本地 file URL。drag ent
 ### Attached panels
 
 PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面板通过 `move_near(anchor, live=True)` 更新 geometry，不调用 show/activate；定位使用桌宠当前屏幕的 availableGeometry，右侧空间不足翻到左侧，底部不足向上 clamp。X、Esc 和再次点击只隐藏面板，不退出主窗口，之后再次打开复用实例。
+
+## 32. V3 Wage/Calendar 与 Anchor 边界
+
+工资层位于 `wage/` 包：model 定义可序列化设置/日记录/拆分结果，calendar_service 解析本地假日和手工 override，calculator 是无副作用 Decimal 纯算法，service 负责 JSON 生命周期和进度提示，ui_* 只负责 PyQt5 展示。记录和设置分别写 `data/wage_settings.json`、`data/work_calendar.json`、`data/wage_records.json`，均使用临时文件替换。
+
+角色的可见边界来自 RGBA alpha `getbbox()`，PetWindow 将源图 bbox 映射到当前 scale、transform 和多屏全局坐标。BubbleWindow 是 Qt.Tool/无焦点/透明顶层窗口，候选锚点按上、下、右、左检查 availableGeometry；QuickPanel/Pocket/TodayWage 继续用同一 visible rect 的相邻 geometry。offscreen 后端只验证状态和 geometry，不创建重复的顶层透明合成窗口。
