@@ -66,11 +66,15 @@ class WageService:
 
     def status_for(self, day=None):
         day = day or self._now().date()
+        if isinstance(day, datetime):
+            day = day.date()
         record = self.records.get(day.isoformat())
         return record.workday_status if record else self.calendar.status_for(day)
 
     def record_for(self, day=None):
         day = day or self._now().date()
+        if isinstance(day, datetime):
+            day = day.date()
         return self.records.get(day.isoformat())
 
     def current_breakdown(self, when=None):
@@ -80,6 +84,7 @@ class WageService:
         return self.calculator().breakdown(when, self.record_for(when.date()), prior)
 
     snapshot = current_breakdown
+    get_today_breakdown = current_breakdown
 
     def record_clock_out(self, actual_clock_out: datetime, day=None, note="") -> WorkDayRecord:
         if not isinstance(actual_clock_out, datetime):
@@ -107,6 +112,9 @@ class WageService:
         elif not isinstance(day, date):
             day = date.fromisoformat(str(day))
         return self.record_clock_out(actual_clock_out, day)
+
+    update_clock_out = edit_clock_out
+    save_clock_out = record_clock_out
 
     def mark_no_overtime(self, day=None):
         day = day or self._now().date()

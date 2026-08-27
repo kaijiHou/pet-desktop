@@ -75,6 +75,9 @@ class WageCalculator:
     calculate_regular_income = base_earned
 
     def overtime_minutes(self, when: datetime, record: Optional[WorkDayRecord] = None) -> int:
+        status = record.workday_status if record else (self.calendar.status_for(when.date()) if self.calendar else WORKDAY)
+        if status not in {WORKDAY, ADJUSTED_WORKDAY}:
+            return 0
         if record and record.actual_clock_out:
             end = record.actual_clock_out
         else:
@@ -96,12 +99,15 @@ class WageCalculator:
         return money(amount)
 
     calculate_overtime_pay = overtime_pay
+    calculate_overtime = overtime_pay
 
     def meal_allowance(self, clock_out: Optional[datetime], confirmed: bool = False) -> Decimal:
         if not confirmed or not clock_out:
             return Decimal("0.00")
         threshold = datetime.combine(clock_out.date(), self.settings.meal_allowance_time)
         return self.MEAL_ALLOWANCE if clock_out >= threshold else Decimal("0.00")
+
+    calculate_meal_allowance = meal_allowance
 
     def expected_meal_allowance(self, when: datetime, clock_out: Optional[datetime] = None) -> Decimal:
         point = clock_out or when
@@ -125,4 +131,3 @@ class WageCalculator:
         return WageBreakdown(day, status, configured, daily, regular, paid, base,
                              overtime, overtime_value, confirmed_meal, expected,
                              max(0, min(100, progress)))
-

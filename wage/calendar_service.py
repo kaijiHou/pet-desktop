@@ -76,15 +76,22 @@ class WorkCalendarService:
     get_status = status_for
     status = status_for
 
+    def is_workday(self, day) -> bool:
+        return self.status_for(day) in {WORKDAY, ADJUSTED_WORKDAY}
+
     def set_override(self, day, status: str) -> None:
         if status not in VALID_STATUSES:
             raise ValueError(f"unknown workday status: {status}")
         self.manual_overrides[self._key(day)] = status
         self.save()
 
+    set_manual_override = set_override
+
     def restore_auto(self, day) -> None:
         self.manual_overrides.pop(self._key(day), None)
         self.save()
+
+    restore_automatic = restore_auto
 
     def clear_override(self, day) -> None:
         self.restore_auto(day)
@@ -118,4 +125,3 @@ class WorkCalendarService:
 
 # Short name is useful to consumers and keeps the suggested module API.
 WorkCalendar = WorkCalendarService
-

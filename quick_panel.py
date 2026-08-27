@@ -62,11 +62,11 @@ class QuickPanel(QWidget):
             self.wage_status.setText("工资统计未配置"); self.wage_amount.setText("未配置"); self.wage_detail.setText("首次使用请在设置中填写工资和上班时间"); self.wage_setup_btn.show(); self.clock_out_btn.setEnabled(False); return
         self.wage_setup_btn.hide(); snap = wage.current_breakdown(); rec = wage.record_for()
         self.clock_out_btn.setEnabled(snap.overtime_minutes > 0 and rec is None)
-        self.wage_status.setText({"workday": "工作中", "adjusted_workday": "调休上班", "rest": "休息日", "leave": "请假"}.get(snap.status, snap.status))
+        self.wage_status.setText(f"{rec.actual_clock_out:%H:%M} 下班" if rec and rec.actual_clock_out else {"workday": "工作中", "adjusted_workday": "调休上班", "rest": "休息日", "leave": "请假"}.get(snap.status, snap.status))
         if wage.settings.privacy_mode:
             self.wage_amount.setText(f"今日进度 {snap.progress}%"); self.wage_detail.setText("金额已隐藏 · " + (f"已加班 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m" if snap.overtime_minutes else "正常工作时间进行中"))
         else:
-            self.wage_amount.setText(f"今日已赚 ¥{snap.total_earned:.2f}"); self.wage_detail.setText(f"正常工资 ¥{snap.base_earned:.2f}  ·  加班 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m  ·  餐补 ¥{snap.confirmed_meal_allowance:.2f}")
+            self.wage_amount.setText(f"今日已赚 ¥{snap.total_earned:.2f}"); self.wage_detail.setText(f"正常工资 ¥{snap.base_earned:.2f}  ·  加班 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m  ·  加班费 ¥{snap.overtime_pay:.2f}  ·  餐补 ¥{snap.confirmed_meal_allowance:.2f}")
 
     def _refresh(self):
         self._refresh_wage(); items = self.pet.pocket.list_items(); self.pocket_count.setText(str(len(items))); self.empty_label.setVisible(not items); self._clear(self.pocket_items_layout)
