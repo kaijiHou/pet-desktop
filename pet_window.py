@@ -259,9 +259,16 @@ class PetWindow(QWidget):
     def mouseDoubleClickEvent(self,event):
         if event.button()==Qt.LeftButton: event.accept()
     def _on_single_click(self):
+        """Single click on pet — toggle quick panel."""
         if self._state==self.STATE_SLEEP: self.set_state(self.STATE_IDLE)
-        self.show_bubble("Hi! 👋",2000); self.set_state(self.STATE_TALKING)
-        QTimer.singleShot(2500,lambda:self.set_state(self.STATE_IDLE))
+        if not hasattr(self, "_quick_panel"):
+            from quick_panel import QuickPanel
+            self._quick_panel = QuickPanel(self)
+        if self._quick_panel.isVisible():
+            self._quick_panel.hide()
+        else:
+            self._quick_panel.refresh()
+            self._quick_panel.showNear(self)
     def wheelEvent(self,event):
         if not self.config.get("wheel_zoom_enabled",False): event.ignore(); return
         if event.angleDelta().y()>0: self._change_scale(0.1)
