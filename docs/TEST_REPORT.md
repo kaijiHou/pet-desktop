@@ -329,3 +329,13 @@ ShellWatcher 定向集成测试使用真实 `SHChangeNotifyRegister`、非零注
 | 真实 Windows 视觉/Explorer | 手动 acceptance | **NOT TESTED**（本轮遵循不使用电脑控制） |
 
 V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加；在此之前不宣称 V3 完成。
+
+打卡修改和月历明细补齐后复跑：完整套件 **230 passed in 8.27s**；`wage/ui_settings.py`、`wage/ui_today.py`、`wage/ui_calendar.py` 离屏构造通过。真实 Windows 视觉/Explorer 仍为 **NOT TESTED**。
+
+## V3 fresh release
+
+- `scripts/build_release.ps1`：clean build **PASS**，测试阶段 **230 passed**。
+- `scripts/verify_release.ps1`：全新解压副本启动 **PASS**；单进程、响应、动画目录、可替换素材目录、日志均存在，WebEngine/Chromium 文件 **0**。
+- ZIP：`release/DesktopPet-windows-x64.zip`，48,298,928 bytes。
+- SHA256：`498697aca1c14fc4d0b54012b8e7da8592b0e354b97ed75ed08bb4d74c78adf8`，manifest 一致。
+- Explorer/鼠标视觉/真实提醒：**NOT TESTED**（遵循本轮不使用电脑控制）。

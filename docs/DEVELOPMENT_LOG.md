@@ -849,3 +849,17 @@ pytest tests -q --tb=short                       → 222 passed
 - 修改文件：`quick_panel.py`、`wage/ui_settings.py`、`wage/ui_today.py`、`wage/ui_calendar.py`、`pet_window.py`、`character.py`。
 - 核心改动：QuickPanel 显示今日状态/收入（隐私模式隐藏金额）、口袋最近 3 项、下个提醒、下班打卡/工时日历；托盘和右键菜单增加今日收入/工时日历；新增轻量 WAGE_PROGRESS/OVERTIME_START/CLOCK_OUT/MEAL_ALLOWANCE 语义动作。
 - 已知限制：历史漏打卡提示、修改下班时间的完整交互和月度详情仍在补齐；真实 Explorer/鼠标验收未执行。
+
+### V3 后续补齐：打卡修改与月历明细
+
+- 修改文件：`wage/service.py`、`wage/ui_calendar.py`、`wage/calculator.py`、`wage/calendar_service.py`、`quick_panel.py`。
+- 目标：让下班打卡不是一次性黑盒动作，日历可查看日期明细并修改下班时间，服务层暴露稳定的兼容别名供 UI/测试调用。
+- 核心改动：`edit_clock_out/update_clock_out` 重新计算加班和餐补；月历展示状态、下班、加班、餐补和备注；休息日不产生加班；今日助手在已打卡后显示下班时间及加班费。
+- 测试：全套 `230 passed`，UI 模块离屏构造通过；真实桌面验收仍 `NOT TESTED`。
+
+### Fresh release 黑盒
+
+- 修改前状态：代码回归通过但尚未验证全新 EXE 是否包含动态工资 UI。
+- 操作：运行 `scripts/build_release.ps1` 清理并重建，再运行 `scripts/verify_release.ps1` 从新 ZIP 解压副本启动。
+- 结果：构建 PASS；单进程、responsive、动画 catalog、user assets、日志生成、WebEngine/Chromium 文件数 0 均 PASS。ZIP SHA256 `498697aca1c14fc4d0b54012b8e7da8592b0e354b97ed75ed08bb4d74c78adf8`，48,298,928 bytes。
+- 真机限制：验证脚本只做启动/文件黑盒检查，不替代 Explorer 鼠标和视觉验收；`V3_REAL_ACCEPTANCE.md` 仍为 `NOT TESTED`。
