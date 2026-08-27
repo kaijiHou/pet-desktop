@@ -291,3 +291,11 @@ V2 新增/更新的测试：
 | 进程数 | 1 主 + 2 Chromium | **1（WebEngine=0）** |
 
 > 说明：AVG RSS 略高于 100MB 目标，因单图渲染 + Qt 基座 + 快捷面板持留。峰值 129.9MB 出现在动画播放瞬间。CPU 指标大幅优于目标（≤2%）。无 WebEngine/Chromium。
+
+## V2 Release（fresh build，2026-08-27）
+
+- Build：`scripts/build_release.ps1`（clean，非复用旧 EXE）→ **PASS**
+- EXE 启动：单进程、46 MB RSS、日志生成、WebEngine/Chromium 扫描 **0 files**
+- ZIP：`release/DesktopPet-windows-x64.zip`，45,831,050 bytes
+- SHA256：`449b04f88357bd38a80f8139e7031637bd65db965027a90a5d7ae805000b9979`
+- manifest.json 与实际 hash 一致；解压副本不含项目 `.venv`
