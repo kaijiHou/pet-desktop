@@ -16,6 +16,7 @@ from PyQt5.QtGui import QDesktopServices, QIcon, QDrag
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
     QListWidgetItem, QMenu, QFileDialog, QFrame, QAbstractItemView,
+    QApplication,
 )
 import theme
 from file_ops import FileOperationService
@@ -81,9 +82,54 @@ class PocketWindow(QWidget):
         self._toast_timer.setSingleShot(True)
         self._toast_timer.timeout.connect(self._toast_hide)
 
+        # frameless-window drag support
+        self._drag_offset = None
+
         self._build_ui()
         self.setAcceptDrops(True)
         self.refresh()
+
+    # ── frameless window drag (so the panel can be moved, not stuck) ────────
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._drag_offset = event.globalPos() - self.frameGeometry().topLeft()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._drag_offset is not None and event.buttons() & Qt.LeftButton:
+            self.move(event.globalPos() - self._drag_offset)
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self._drag_offset is not None:
+            self._drag_offset = None
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def show_near(self, anchor_rect, screen=None):
+        """Open the pocket panel positioned beside the pet (or an anchor)."""
+        from PyQt5.QtCore import QRect
+        self.adjustSize()
+        pw = max(self.sizeHint().width(), self.minimumWidth())
+        ph = max(self.sizeHint().height(), self.minimumHeight())
+        scr = screen or QApplication.screenAt(anchor_rect.center()) or QApplication.primaryScreen()
+        avail = scr.availableGeometry()
+        x = anchor_rect.right() + 8
+        y = anchor_rect.top()
+        if x + pw > avail.right():
+            x = anchor_rect.left() - pw - 8
+        if y + ph > avail.bottom():
+            y = avail.bottom() - ph - 8
+        if y < avail.top():
+            y = avail.top()
+        self.setGeometry(x, y, pw, ph)
+        self.show()
+        self.raise_()
 
     def _build_ui(self):
         root = QVBoxLayout(self)

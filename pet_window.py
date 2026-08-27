@@ -450,7 +450,7 @@ class PetWindow(QWidget):
             self._pocket_window = PocketWindow(
                 self.pocket, event_dispatcher=self.events)
         self._pocket_window.refresh()
-        self._pocket_window.show()
+        self._pocket_window.show_near(self.geometry())
     def _tray_activated(self,reason):
         if reason==QSystemTrayIcon.DoubleClick: self.show(); self.raise_(); self.show_bubble("Hi! 👋",2500)
         elif reason==QSystemTrayIcon.ActivationReason.Trigger: self._toggle_visibility()

@@ -125,3 +125,15 @@ class TestPocketWindowGui:
         # empty_label should be shown (not hidden) in empty state
         assert not pw.empty_label.isHidden()
         pw.close()
+
+
+@pytest.mark.smoke
+def test_pocket_opens_near_pet(pet_window, qapp):
+    from pocket_window import PocketWindow
+    pw = PocketWindow(pet_window.pocket)
+    pet_rect = pet_window.geometry()
+    pw.show_near(pet_rect)
+    # panel should be positioned to the side of the pet, within screen bounds
+    assert pw.x() != pet_rect.x() or pw.y() != pet_rect.y()
+    assert pw.isVisible()
+    pw.close()
