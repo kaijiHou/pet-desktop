@@ -893,7 +893,7 @@ class PetWindow(QWidget):
         if self._pocket_window is None:
             self._pocket_window = PocketWindow(self.pocket, event_dispatcher=self.events)
         self._pocket_window.refresh()
-        self._pocket_window.show_near(self.geometry())
+        self._pocket_window.show_near(self.visible_pet_global_rect())
         if self._quick_panel is not None:
             self._quick_panel.hide()
 
@@ -1033,7 +1033,9 @@ class PetWindow(QWidget):
         reposition_pocket = reposition_pocket and self._pocket_window is not None
         if not reposition_quick and not reposition_pocket:
             return
-        geo = self.geometry()
+        # Anchor panels to the VISIBLE character pixels, not the transparent
+        # PetWindow rectangle, so the 8px gap is measured from the sprite edge.
+        geo = self.visible_pet_global_rect()
         if reposition_quick:
             self._quick_panel.move_near(geo, live=True)
         if reposition_pocket:

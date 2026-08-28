@@ -272,7 +272,7 @@ def test_visible_quick_panel_repositions_when_pet_moves(pet_window):
         pet_window.move(pet_window.pos() + QPoint(140, 35))
         assert panel.isVisible()
         assert panel.pos() != old_panel_pos
-        anchor = pet_window.geometry()
+        anchor = pet_window.visible_pet_global_rect()
         expected_right = anchor.right() + 8
         expected_left = anchor.left() - panel.width() - 8
         assert panel.x() in (expected_right, expected_left)
@@ -300,7 +300,7 @@ def test_visible_pocket_repositions_when_pet_moves(pet_window):
         old_panel_pos = panel.pos()
         pet_window.move(pet_window.pos() + QPoint(60, 30))
         assert panel.isVisible() and panel.pos() != old_panel_pos
-        anchor = pet_window.geometry()
+        anchor = pet_window.visible_pet_global_rect()
         expected_right = anchor.right() + 8
         expected_left = anchor.left() - panel.width() - 8
         assert panel.x() in (expected_right, expected_left)

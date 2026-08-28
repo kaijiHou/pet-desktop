@@ -89,7 +89,10 @@ class QuickPanel(QWidget):
     def _open_calendar(self): self.pet._open_calendar(); self._refresh()
     def _open_wage_settings(self): self.pet._open_wage_settings(); self._refresh()
     def _clock_out(self): self.pet._clock_out(); self._refresh()
-    def showNear(self, pet_window): self.move_near(pet_window.geometry(), live=False, screen=pet_window.screen())
+    def showNear(self, pet_window):
+        rect = (pet_window.visible_pet_global_rect()
+                if hasattr(pet_window, "visible_pet_global_rect") else pet_window.geometry())
+        self.move_near(rect, live=False, screen=pet_window.screen())
 
     def move_near(self, anchor_rect, live=False, screen=None):
         from PyQt5.QtWidgets import QApplication
