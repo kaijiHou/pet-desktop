@@ -25,8 +25,9 @@ class WageService:
         self.calendar = WorkCalendarService(storage_path=self.data_dir / "work_calendar.json",
                                              holiday_data_path=self.data_dir / "holidays.json")
         self.records = self._load_records()
-        raw_prompts = load_json(self.prompt_path, {})
-        self._missing_prompt_days = set(raw_prompts.get("missing_clockout", [])) if isinstance(raw_prompts, dict) else set()
+        # "稍后" dismissals are session-scoped on purpose: the prompt must
+        # come back on the next launch until the day is truly resolved.
+        self._missing_prompt_days = set()
         self._last_progress_slot = None
         self.on_progress = None
 
@@ -79,12 +80,44 @@ class WageService:
 
     def current_breakdown(self, when=None):
         when = when or self._now()
-        prior = sum(r.overtime_minutes for key, r in self.records.items()
-                    if key[:7] == when.date().isoformat()[:7] and key != when.date().isoformat())
+        prior = self.prior_overtime_minutes_before(when.date())
         return self.calculator().breakdown(when, self.record_for(when.date()), prior)
 
     snapshot = current_breakdown
     get_today_breakdown = current_breakdown
+
+    def prior_overtime_minutes_before(self, day) -> int:
+        """Month-to-date overtime strictly BEFORE *day* (historical backfills
+        must never count later dates as prior — that shifted the 15/25 tier)."""
+        if isinstance(day, datetime):
+            day = day.date()
+        key = day.isoformat()
+        month_key = key[:7]
+        return sum(r.overtime_minutes for k, r in self.records.items()
+                   if k[:7] == month_key and k < key)
+
+    def recalculate_month_records(self, year=None, month=None):
+        """Recompute overtime minutes/pay and meal allowance for every record
+        of the month in date order, so editing an early day re-tier the
+        15/25 元 rates of all later days deterministically."""
+        now = self._now()
+        year, month = year or now.year, month or now.month
+        month_key = f"{year:04d}-{month:02d}"
+        calc = self.calculator()
+        prior = 0
+        touched = 0
+        for key in sorted(k for k in self.records if k.startswith(month_key)):
+            rec = self.records[key]
+            overtime = calc.overtime_minutes(rec.actual_clock_out, rec) if rec.actual_clock_out else 0
+            rec.overtime_minutes = overtime
+            rec.overtime_pay = calc.overtime_pay(overtime, prior)
+            rec.meal_allowance = calc.meal_allowance(rec.actual_clock_out, confirmed=True)
+            prior += overtime
+            touched += 1
+        if touched:
+            self._save_records()
+            LOGGER.info("daily work record updated")
+        return touched
 
     def record_clock_out(self, actual_clock_out: datetime, day=None, note="") -> WorkDayRecord:
         if not isinstance(actual_clock_out, datetime):
@@ -94,15 +127,14 @@ class WageService:
             day = day.date()
         status = self.status_for(day)
         calc = self.calculator()
-        prior = sum(r.overtime_minutes for key, r in self.records.items()
-                    if key[:7] == day.isoformat()[:7] and key != day.isoformat())
+        prior = self.prior_overtime_minutes_before(day)
         overtime = calc.overtime_minutes(actual_clock_out)
         rec = WorkDayRecord(day, status, actual_clock_out, overtime,
                             calc.overtime_pay(overtime, prior),
                             calc.meal_allowance(actual_clock_out, confirmed=True), note,
                             day.isoformat() in self.calendar.manual_overrides)
         self.records[day.isoformat()] = rec
-        self._save_records()
+        self.recalculate_month_records(day.year, day.month)
         LOGGER.info("daily work record updated date=%s", day.isoformat())
         return rec
 
@@ -117,33 +149,51 @@ class WageService:
     save_clock_out = record_clock_out
 
     def mark_no_overtime(self, day=None):
+        """User explicitly said this day had no overtime (resolves the
+        missing-clock-out prompt permanently for that day)."""
         day = day or self._now().date()
         rec = self.records.get(day.isoformat()) or WorkDayRecord(day, self.status_for(day))
         rec.actual_clock_out = None
         rec.overtime_minutes = 0
         rec.overtime_pay = rec.meal_allowance = rec.meal_allowance * 0
+        rec.resolved_no_overtime = True
         self.records[day.isoformat()] = rec
-        self._save_records()
+        self.recalculate_month_records(day.year, day.month)
         LOGGER.info("daily work record updated date=%s", day.isoformat())
         return rec
 
     def missing_clockout_yesterday(self, when=None):
-        """Return yesterday's date once when a workday was never closed out."""
+        """Yesterday's date when a workday was never closed out.
+
+        Prompts on the FIRST launch after midnight — the old 17:30 gate made
+        morning users miss the reminder for the whole day. Rest-day
+        yesterday and already-resolved days never prompt.
+        """
         when = when or self._now()
         yesterday = when.date().fromordinal(when.date().toordinal() - 1)
         key = yesterday.isoformat()
-        if key in self._missing_prompt_days or key in self.records:
+        if when.date() <= yesterday:
+            return None
+        if key in self._missing_prompt_days:
             return None
         if self.calendar.status_for(yesterday) not in {WORKDAY, ADJUSTED_WORKDAY}:
             return None
-        if when < datetime.combine(when.date(), self.settings.overtime_start):
+        rec = self.records.get(key)
+        if rec is not None and (rec.actual_clock_out or rec.resolved_no_overtime):
             return None
         return yesterday
 
     def mark_missing_clockout_prompt(self, day):
+        """Dismiss the prompt for this session only — a restart may ask
+        again until the day is actually resolved (clock-out saved or
+        explicit no-overtime)."""
         key = day.isoformat() if isinstance(day, date) else str(day)
         self._missing_prompt_days.add(key)
-        save_json_atomic(self.prompt_path, {"missing_clockout": sorted(self._missing_prompt_days)})
+
+    def is_missing_clockout_resolved(self, day) -> bool:
+        key = day.isoformat() if isinstance(day, date) else str(day)
+        rec = self.records.get(key)
+        return rec is not None and bool(rec.actual_clock_out or rec.resolved_no_overtime)
 
     def month_summary(self, year=None, month=None):
         now = self._now()

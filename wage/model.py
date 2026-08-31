@@ -104,6 +104,7 @@ class WorkDayRecord:
     meal_allowance: Decimal = Decimal("0.00")
     note: str = ""
     manual_override: bool = False
+    resolved_no_overtime: bool = False
 
     def __post_init__(self):
         if isinstance(self.date, str):
@@ -126,6 +127,7 @@ class WorkDayRecord:
             "meal_allowance": str(self.meal_allowance),
             "note": self.note,
             "manual_override": self.manual_override,
+            "resolved_no_overtime": self.resolved_no_overtime,
         }
 
     @classmethod
@@ -139,6 +141,7 @@ class WorkDayRecord:
             meal_allowance=raw.get("meal_allowance", "0"),
             note=str(raw.get("note", "")),
             manual_override=bool(raw.get("manual_override", False)),
+            resolved_no_overtime=bool(raw.get("resolved_no_overtime", False)),
         )
 
 

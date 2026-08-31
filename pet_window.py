@@ -256,8 +256,8 @@ class PetWindow(QWidget):
         if self.wage.configured:
             missing = self.wage.missing_clockout_yesterday()
             if missing:
-                self.show_bubble("昨天没有记录下班时间\n请在今日助手中补记", 9000)
-                self.wage.mark_missing_clockout_prompt(missing)
+                self.show_bubble("昨天没有记录下班时间", 5000)
+                QTimer.singleShot(1200, lambda: self._prompt_missing_clockout(missing))
         self._load_position()
         QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
 
@@ -835,6 +835,20 @@ class PetWindow(QWidget):
             self.show_bubble("开始加班", 3500)
         self._wage_last_overtime = overtime
         self.wage.maybe_emit_progress()
+
+    def _prompt_missing_clockout(self, day):
+        """Three-action prompt for yesterday's missing clock-out (non-modal)."""
+        from wage.ui_missing import MissingClockoutDialog
+        dlg = MissingClockoutDialog(self.wage, day, self)
+        dlg.accepted.connect(self._on_clockout_record_changed)
+        dlg.show()
+        dlg.raise_()
+
+    def _on_clockout_record_changed(self):
+        if self._quick_panel is not None:
+            self._quick_panel.refresh()
+        if getattr(self, "_today_wage", None) is not None:
+            self._today_wage.refresh()
 
     def _on_wage_progress(self, snapshot):
         self.play_semantic("WAGE_PROGRESS")
