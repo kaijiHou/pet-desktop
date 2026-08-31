@@ -176,9 +176,9 @@ class WorkCalendarDialog(QDialog):
         day = self._selected_day
         value = self.status.currentData()
         if value == "auto":
-            self.service.calendar.restore_auto(day)
+            self.service.restore_day_status_auto(day)
         else:
-            self.service.calendar.set_override(day, value)
+            self.service.set_day_status(day, value)
         self._refresh()
 
     def _edit_clock_out(self):

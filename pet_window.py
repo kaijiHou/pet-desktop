@@ -56,10 +56,10 @@ class SettingsDialog(QDialog):
         col_btn.addStretch(); row_img.addLayout(col_btn); row_img.addStretch()
         form.addLayout(row_img)
         row_scale = QHBoxLayout(); row_scale.addWidget(QLabel("大小"))
-        # slider 50%..300% (pet_scale 1.0..6.0 expressed as %) — no internal value exposed
+        # slider 50%..200% (100% = default scale 3.0)
         self.scale_slider = QSlider(Qt.Horizontal)
-        self.scale_slider.setRange(50, 300)
-        self.scale_slider.setValue(int(self._original_scale / 6.0 * 300))
+        self.scale_slider.setRange(50, 200)
+        self.scale_slider.setValue(int(self._original_scale / 3.0 * 100))
         self.scale_slider.setTickPosition(QSlider.TicksBelow)
         self.scale_slider.valueChanged.connect(self._on_scale_changed)
         row_scale.addWidget(self.scale_slider, 1)
@@ -112,7 +112,7 @@ class SettingsDialog(QDialog):
         self._refresh_preview()
 
     def _slider_to_scale(self, pct):
-        return max(1.0, min(6.0, pct / 50.0))
+        return max(1.5, min(6.0, pct / 100.0 * 3.0))
 
     def _on_scale_changed(self, value):
         self.scale_pct_label.setText(f"{value}%")
@@ -1102,11 +1102,12 @@ class PetWindow(QWidget):
         if reposition_pocket is None:
             reposition_pocket = (self._pocket_window is not None
                                   and self._pocket_window.isVisible())
-        # Never dereference a panel that doesn't exist yet. `live=True` only
-        # updates geometry, so dragging cannot flash or steal panel focus.
+        reposition_today = (getattr(self, '_today_wage', None) is not None
+                            and self._today_wage.isVisible())
+        # Never dereference a panel that doesn't exist yet.
         reposition_quick = reposition_quick and self._quick_panel is not None
         reposition_pocket = reposition_pocket and self._pocket_window is not None
-        if not reposition_quick and not reposition_pocket:
+        if not reposition_quick and not reposition_pocket and not reposition_today:
             return
         # Anchor panels to the VISIBLE character pixels, not the transparent
         # PetWindow rectangle, so the 8px gap is measured from the sprite edge.
@@ -1115,7 +1116,7 @@ class PetWindow(QWidget):
             self._quick_panel.move_near(geo, live=True)
         if reposition_pocket:
             self._pocket_window.move_near(geo, live=True)
-        if getattr(self, "_today_wage", None) is not None and self._today_wage.isVisible():
+        if reposition_today:
             self._today_wage.move_near(self.visible_pet_global_rect(), screen=self.screen(), live=True)
 
     def _quit_app(self):

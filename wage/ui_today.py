@@ -46,16 +46,16 @@ class TodayWageWindow(QWidget):
         self.refresh()
 
     # ── text builders ──
-    def _tier_state(self, snap):
+    def _tier_state(self, snap, hide=False):
         """(current rate label, eta datetime or None, remaining minutes)."""
         prior = self.service.prior_overtime_minutes_before(snap.date)
         month_minutes = prior + snap.overtime_minutes
         tier1 = self.service.calculator().OVERTIME_TIER_1_MINUTES
         if month_minutes >= tier1:
-            return "25元/h", None, 0
+            return ("第二档" if hide else "25元/h"), None, 0
         remaining = tier1 - month_minutes
-        eta = datetime.combine(snap.date, self.service.settings.overtime_start) + timedelta(minutes=remaining)
-        return "15元/h", eta, remaining
+        eta = self.service._now() + timedelta(minutes=remaining)
+        return ("第一档" if hide else "15元/h"), eta, remaining
 
     def refresh(self):
         svc = self.service
@@ -88,15 +88,15 @@ class TodayWageWindow(QWidget):
                 f"今日已赚 {amt(snap.total_earned)}")
             self.progress.setText("下班打卡已记录")
         elif snap.overtime_minutes > 0:
-            tier, eta, remaining = self._tier_state(snap)
+            tier, eta, remaining = self._tier_state(snap, hide=hide)
             lines = [f"已加班 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m · "
                      f"本月累计 {month_minutes // 60}h{month_minutes % 60:02d}m · 当前 {tier}"]
             self.amount.setText("加班中" if hide else amt(snap.total_earned))
             if eta is not None:
                 if remaining <= 6 * 60:   # reachable in one overtime evening
-                    lines.append(f"将在 {eta:%H:%M} 后进入 25元/h 档")
+                    lines.append(f"将在 {eta:%H:%M} 后进入 第二档" if hide else f"将在 {eta:%H:%M} 后进入 25元/h 档")
                 else:
-                    lines.append(f"距 25元/h 档还差 {remaining // 60}h{remaining % 60:02d}m 加班")
+                    lines.append(f"距第二档还差 {remaining // 60}h{remaining % 60:02d}m 加班" if hide else f"距 25元/h 档还差 {remaining // 60}h{remaining % 60:02d}m 加班")
             if snap.expected_meal_allowance > 0:
                 lines.append("餐补预计 +¥30" if not hide else "餐补预计 +（已隐藏）")
             self.detail.setText("\n".join(lines))

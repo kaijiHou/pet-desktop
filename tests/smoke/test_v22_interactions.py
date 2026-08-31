@@ -109,7 +109,7 @@ def test_scale_ok_persists(pet_window):
     dialog = SettingsDialog(pet_window.config, pet_window)
     target = 200 if dialog.scale_slider.value() != 200 else 250
     dialog.scale_slider.setValue(target)
-    expected = target / 50.0
+    expected = target / 100.0 * 3.0
     dialog._save()
     try:
         assert pet_window.config.get("pet_scale") == expected

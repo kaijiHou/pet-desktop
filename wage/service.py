@@ -119,6 +119,36 @@ class WageService:
             LOGGER.info("daily work record updated")
         return touched
 
+    def set_day_status(self, day, status):
+        """Update calendar override AND sync any existing WorkDayRecord."""
+        if isinstance(day, datetime):
+            day = day.date()
+        self.calendar.set_override(day, status)
+        rec = self.records.get(day.isoformat())
+        if rec is not None:
+            rec.workday_status = status
+            rec.manual_override = True
+            if status in ("rest", "leave", "sick"):
+                rec.overtime_minutes = 0
+                rec.overtime_pay = 0
+                rec.meal_allowance = 0
+            self.recalculate_month_records(day.year, day.month)
+            self._save_records()
+            LOGGER.info("day status override synced to record date=%s status=%s", day.isoformat(), status)
+
+    def restore_day_status_auto(self, day):
+        """Remove manual override and restore calendar auto + record sync."""
+        if isinstance(day, datetime):
+            day = day.date()
+        self.calendar.restore_auto(day)
+        rec = self.records.get(day.isoformat())
+        if rec is not None:
+            rec.workday_status = self.calendar.status_for(day)
+            rec.manual_override = False
+            self.recalculate_month_records(day.year, day.month)
+            self._save_records()
+            LOGGER.info("day status restored to auto date=%s", day.isoformat())
+
     def record_clock_out(self, actual_clock_out: datetime, day=None, note="") -> WorkDayRecord:
         if not isinstance(actual_clock_out, datetime):
             raise TypeError("actual_clock_out must be a datetime")
@@ -213,7 +243,16 @@ class WageService:
                            if r.workday_status in {WORKDAY, ADJUSTED_WORKDAY}
                            and (r.actual_clock_out or r.resolved_no_overtime)),
                           start=calc.MEAL_ALLOWANCE * 0)
-        worked_value = worked_base + confirmed_overtime + confirmed_meal
+        # Bug5: if querying current month, add today's real-time base/meal
+        # (avoid double-counting if today already has a record)
+        today_key = now.date().isoformat()
+        today_rec = self.records.get(today_key)
+        if now.year == year and now.month == month and today_rec is None:
+            today_snap = self.current_breakdown(now)
+            worked_base += today_snap.base_earned
+            worked_value = worked_base + confirmed_overtime + confirmed_meal
+        else:
+            worked_value = worked_base + confirmed_overtime + confirmed_meal
         return {
             "workday_count": self.calendar.workday_count(year, month),
             "recorded_workdays": sum(1 for r in rows
@@ -235,6 +274,15 @@ class WageService:
         when = when or self._now()
         interval = self.settings.income_interval_minutes
         if not self.configured or not interval or not self.on_progress:
+            return False
+        # Gate: only emit on workdays, during work hours, before clock-out
+        status = self.status_for(when.date())
+        if status not in (WORKDAY, ADJUSTED_WORKDAY):
+            return False
+        if hasattr(when, 'time') and when.time() < self.settings.work_start:
+            return False
+        rec = self.record_for(when.date())
+        if rec and rec.actual_clock_out and when > rec.actual_clock_out:
             return False
         slot = int(when.timestamp() // (interval * 60))
         if slot == self._last_progress_slot:

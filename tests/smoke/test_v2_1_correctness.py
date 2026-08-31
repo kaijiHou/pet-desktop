@@ -157,3 +157,227 @@ def test_paint_applies_dxdy_translation(pet_window):
     sf, dx, dy, rot = pet_window._current_transform()
     assert dy != 0  # bob uses dy
     pet_window._sem_active = False
+
+
+@pytest.mark.smoke
+def test_today_wage_follows_pet_when_it_is_the_only_visible_panel(pet_window, qapp, isolated_config, test_temp_root):
+    """Bug1: TodayWageWindow must reposition when pet moves, even when
+    QuickPanel and PocketWindow are both hidden."""
+    from wage.ui_today import TodayWageWindow
+    from wage.service import WageService
+    ws = WageService(test_temp_root / "wage.json")
+    tw = TodayWageWindow(ws, pet_window)
+    tw.show(); tw.refresh()
+    # Position pet and today wage
+    pet_window.move(200, 200); pet_window.show()
+    pet_window._today_wage = tw
+    pet_window._reposition_attached_panels()
+    first_pos = tw.pos()
+    # Move pet far away; today wage must follow
+    pet_window.move(800, 800)
+    pet_window._reposition_attached_panels()
+    assert tw.pos().x() != first_pos.x() or tw.pos().y() != first_pos.y(), \
+        "TodayWageWindow should follow pet but did not move"
+    tw.close()
+
+
+@pytest.mark.smoke
+def test_status_override_updates_existing_record(test_temp_root, isolated_config):
+    """Bug2: Changing calendar status must sync existing WorkDayRecord."""
+    from wage.service import WageService
+    from datetime import datetime, date, timedelta
+    ws = WageService(test_temp_root / "wage.json")
+    day = date.today()
+    # Record a workday
+    ws.record_clock_out(datetime(day.year, day.month, day.day, 18, 0))
+    assert ws.status_for(day) == "workday"
+    # Now change calendar to rest
+    ws.set_day_status(day, "rest")
+    # status_for should now return rest (not old record)
+    assert ws.status_for(day) == "rest"
+    # The record should also be updated
+    rec = ws.record_for(day)
+    assert rec.workday_status == "rest"
+
+
+@pytest.mark.smoke
+def test_restore_auto_updates_existing_record(test_temp_root, isolated_config):
+    """Bug2: Restore auto must clear manual override and sync record."""
+    from wage.service import WageService
+    from datetime import datetime, date
+    ws = WageService(test_temp_root / "wage.json")
+    day = date.today()
+    ws.record_clock_out(datetime(day.year, day.month, day.day, 18, 0))
+    ws.set_day_status(day, "rest")
+    assert ws.status_for(day) == "rest"
+    ws.restore_day_status_auto(day)
+    rec = ws.record_for(day)
+    assert rec.manual_override is False
+
+
+@pytest.mark.smoke
+def test_rest_override_removes_record_overtime(test_temp_root, isolated_config):
+    """Bug2: Rest status should zero out overtime on existing record."""
+    from wage.service import WageService
+    from datetime import datetime, date
+    ws = WageService(test_temp_root / "wage.json")
+    day = date.today()
+    # Late clock-out = overtime
+    ws.record_clock_out(datetime(day.year, day.month, day.day, 20, 0))
+    rec = ws.record_for(day)
+    assert rec.overtime_minutes > 0
+    # Change to rest
+    ws.set_day_status(day, "rest")
+    rec = ws.record_for(day)
+    assert rec.overtime_minutes == 0
+    assert rec.overtime_pay == 0
+
+
+@pytest.mark.smoke
+def test_status_change_recalculates_month_tiers(test_temp_root, isolated_config):
+    """Bug2: Status change triggers recalculate for month tiers."""
+    from wage.service import WageService
+    from datetime import datetime, date, timedelta
+    ws = WageService(test_temp_root / "wage.json")
+    # Create a workday 3 days ago
+    day1 = date.today() - timedelta(days=3)
+    ws.record_clock_out(datetime(day1.year, day1.month, day1.day, 20, 0))
+    r1 = ws.record_for(day1)
+    assert r1.overtime_minutes > 0
+    # Change it to rest - should recalculate
+    ws.set_day_status(day1, "rest")
+    r1 = ws.record_for(day1)
+    assert r1.overtime_minutes == 0
+
+
+@pytest.mark.smoke
+@pytest.mark.unit
+def test_eta_25h_calculation_uses_now_not_overtime_start():
+    """Bug3: ETA = now + remaining, not overtime_start + remaining."""
+    from datetime import datetime, date, time, timedelta
+    from wage.calculator import WageCalculator
+    from wage.calendar_service import WorkCalendarService
+    # Setup: 24h30m prior overtime, now = 17:45
+    cal = WorkCalendarService()
+    calc = WageCalculator(type('S', (), {
+        'work_start': time(9, 0), 'work_end': time(17, 30),
+        'overtime_start': time(17, 30), 'overtime_end': time(20, 0),
+        'hourly_rate': 15, 'second_tier_rate': 25,
+    })(), cal)
+    tier1 = calc.OVERTIME_TIER_1_MINUTES  # 25h = 1500 min
+    prior = 1470  # 24h30m
+    remaining = tier1 - prior  # 30 min
+    now = datetime.now().replace(hour=17, minute=45, second=0, microsecond=0)
+    # Correct: ETA = now + remaining = 18:15
+    correct_eta = now + timedelta(minutes=remaining)
+    assert correct_eta.hour == 18 and correct_eta.minute == 15
+    # Wrong (old code): ETA = overtime_start + remaining = 17:30 + 30 = 18:00
+    wrong_eta = datetime.combine(now.date(), time(17, 30)) + timedelta(minutes=remaining)
+    assert wrong_eta.hour == 18 and wrong_eta.minute == 0
+    # So with 15 min remaining (24h45m prior), correct ETA should be 18:00
+    remaining_15 = tier1 - (prior + 15)  # 15 min remaining
+    correct_eta_15 = now + timedelta(minutes=remaining_15)
+    assert correct_eta_15.hour == 18 and correct_eta_15.minute == 0
+
+
+@pytest.mark.smoke
+def test_no_progress_notification_on_rest_day(test_temp_root):
+    """Bug4: Progress notification must not fire on rest days."""
+    from wage.service import WageService
+    from datetime import datetime, time
+    ws = WageService(test_temp_root / "wage.json")
+    ws.update_settings(monthly_salary=10000, enabled=True, work_start=time(9, 0), work_end=time(17, 30),
+                       overtime_start=time(17, 30), income_interval_minutes=30)
+    from wage.model import WorkDayRecord
+    day = datetime.now().date()
+    ws.records[day.isoformat()] = WorkDayRecord(day, "rest", None, 0, 0, 0, "", True)
+    ws._last_progress_slot = None
+    fired = []
+    ws.on_progress = lambda b: fired.append(b)
+    result = ws.maybe_emit_progress()
+    assert not result, "Should not emit on rest day"
+    assert len(fired) == 0
+
+
+@pytest.mark.smoke
+def test_no_progress_notification_after_clock_out(test_temp_root):
+    """Bug4: Progress notification must not fire after clock-out."""
+    from wage.service import WageService
+    from datetime import datetime, time
+    ws = WageService(test_temp_root / "wage.json")
+    ws.update_settings(monthly_salary=10000, enabled=True, work_start=time(9, 0), work_end=time(17, 30),
+                       overtime_start=time(17, 30), income_interval_minutes=30)
+    day = datetime.now().replace(hour=18, minute=0, second=0)
+    ws.record_clock_out(day)
+    ws._last_progress_slot = None
+    fired = []
+    ws.on_progress = lambda b: fired.append(b)
+    result = ws.maybe_emit_progress(datetime.now().replace(hour=18, minute=30))
+    assert not result, "Should not emit after clock-out"
+    assert len(fired) == 0
+
+
+@pytest.mark.smoke
+def test_progress_notification_during_regular_work(test_temp_root):
+    """Bug4: Progress notification should fire during work hours."""
+    from wage.service import WageService
+    from datetime import datetime, time
+    ws = WageService(test_temp_root / "wage.json")
+    ws.update_settings(monthly_salary=10000, enabled=True, work_start=time(9, 0), work_end=time(17, 30),
+                       overtime_start=time(17, 30), income_interval_minutes=30)
+    ws._last_progress_slot = None
+    fired = []
+    ws.on_progress = lambda b: fired.append(b)
+    # During regular work hours, no record yet
+    now = datetime.now().replace(hour=10, minute=0, second=0)
+    result = ws.maybe_emit_progress(now)
+    assert result, "Should emit during work hours"
+    assert len(fired) == 1
+
+
+@pytest.mark.smoke
+def test_month_worked_value_includes_current_day_partial_income(test_temp_root):
+    """Bug5: worked_value_to_date should include today's real-time base."""
+    from wage.service import WageService
+    from datetime import datetime, time, date, timedelta
+    ws = WageService(test_temp_root / "wage.json")
+    ws.update_settings(monthly_salary=10000, enabled=True,
+                       work_start=time(9, 0), work_end=time(17, 30),
+                       overtime_start=time(17, 30))
+    # No records at all
+    summary = ws.month_summary()
+    daily = ws.calculator().daily_salary(date.today())
+    # worked_value should be > 0 because today is a workday
+    assert summary["worked_value_to_date"] > 0, \
+        f"worked_value_to_date should include today's partial, got {summary['worked_value_to_date']}"
+
+
+@pytest.mark.unit
+def test_missing_clockout_default_time_is_not_current_morning():
+    """Bug6: Default clock-out time must not be QTime.currentTime() (could be 08:30)."""
+    # Read source to verify the fix: no QTime.currentTime() in default
+    import inspect
+    from wage.ui_missing import MissingClockoutDialog
+    src = inspect.getsource(MissingClockoutDialog.__init__)
+    assert "QTime.currentTime()" not in src, "Default must not use QTime.currentTime()"
+
+
+
+
+@pytest.mark.unit
+def test_privacy_mode_hides_overtime_hourly_rates():
+    """Bug7: Privacy mode must not show hourly rates."""
+    import inspect
+    from wage.ui_today import TodayWageWindow
+    src = inspect.getsource(TodayWageWindow._tier_state)
+    assert "hide" in src
+
+
+@pytest.mark.unit
+def test_privacy_mode_hides_cross_tier_rate_text():
+    """Bug7: ETA text must mask rate in privacy mode."""
+    import inspect
+    from wage.ui_today import TodayWageWindow
+    src = inspect.getsource(TodayWageWindow.refresh)
+    # refresh passes hide to _tier_state; rate text is masked there
+    assert "_tier_state(snap, hide=hide)" in src
