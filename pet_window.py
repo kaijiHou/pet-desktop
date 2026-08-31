@@ -3,7 +3,7 @@ Desktop Pet Window — V2.2: unified theme, single-image character, Chinese UI.
 """
 import math, random, sys, time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QSize, pyqtSignal, QThread, QUrl
 from PyQt5.QtGui import (QPainter, QPixmap, QImage, QFont, QColor, QPen, QBrush,
@@ -337,9 +337,9 @@ class PetWindow(QWidget):
         self._idle_timer.start(60000)
         self._last_activity = time.time()
         self._wage_timer = QTimer(self)
-        self._wage_timer.setInterval(60000)
-        self._wage_timer.timeout.connect(self._check_wage_progress)
-        self._wage_timer.start()
+        self._wage_timer.setSingleShot(True)
+        self._wage_timer.timeout.connect(self._on_wage_wake)
+        self._schedule_next_wage_wake()
 
     def _schedule_next_frame(self):
         dur = self.sprite_loader.get_duration(self._animation, self._frame)
@@ -827,6 +827,46 @@ class PetWindow(QWidget):
             self.show_bubble(f"提醒：{reminder.content}", 10000)
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
 
+    def _schedule_next_wage_wake(self):
+        """Schedule exactly one wake at the next key wage moment.
+
+        Replaces the old permanent 60s poll: the app now sleeps until one of
+        work_start / lunch boundaries / 17:30 / 20:00 / the next income
+        notification slot (or at most 1h, to pick up settings changes), then
+        reschedules. TodayWageWindow keeps its own 1s refresh timer but only
+        while it is visible.
+        """
+        svc = self.wage
+        now = svc._now()
+        candidates = []
+        if svc.configured:
+            day = now.date()
+            for _ in range(2):
+                for name in ("work_start", "lunch_start", "lunch_end",
+                             "overtime_start", "meal_allowance_time"):
+                    t = getattr(svc.settings, name)
+                    moment = datetime.combine(day, t)
+                    if moment > now:
+                        candidates.append(moment)
+                day = day.fromordinal(day.toordinal() + 1)
+            interval = svc.settings.income_interval_minutes
+            if interval:
+                slot_secs = interval * 60
+                next_slot = (int(now.timestamp()) // slot_secs + 1) * slot_secs
+                candidates.append(datetime.fromtimestamp(next_slot))
+        if not candidates:
+            # Unconfigured or nothing scheduled: check again in an hour.
+            candidates.append(now + timedelta(hours=1))
+        next_moment = min(candidates)
+        delay_ms = max(1000, int((next_moment - now).total_seconds() * 1000))
+        self._wage_timer.start(min(delay_ms, 3600 * 1000))
+
+    def _on_wage_wake(self):
+        try:
+            self._check_wage_progress()
+        finally:
+            self._schedule_next_wage_wake()
+
     def _check_wage_progress(self):
         snapshot = self.wage.current_breakdown()
         overtime = snapshot.overtime_minutes > 0
@@ -961,6 +1001,7 @@ class PetWindow(QWidget):
         from wage.ui_settings import WageSettingsDialog
         d = WageSettingsDialog(self.wage, self)
         if d.exec_():
+            self._schedule_next_wage_wake()
             if self._quick_panel is not None:
                 self._quick_panel.refresh()
             if getattr(self, "_today_wage", None) is not None:

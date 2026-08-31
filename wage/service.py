@@ -199,20 +199,36 @@ class WageService:
         now = self._now()
         year, month = year or now.year, month or now.month
         month_key = f"{year:04d}-{month:02d}"
-        rows = [r for key, r in self.records.items() if key.startswith(month_key)]
+        rows = [r for key, r in sorted(self.records.items()) if key.startswith(month_key)]
         calc = self.calculator()
-        first_tier_minutes = min(sum(r.overtime_minutes for r in rows), 25 * 60)
         total_minutes = sum(r.overtime_minutes for r in rows)
+        first_tier_minutes = min(total_minutes, 25 * 60)
         first_pay = calc.overtime_pay(first_tier_minutes, 0)
         second_pay = calc.overtime_pay(max(0, total_minutes - first_tier_minutes), first_tier_minutes)
+        meal_total = sum((r.meal_allowance for r in rows), start=calc.MEAL_ALLOWANCE * 0)
+        confirmed_overtime = sum((r.overtime_pay for r in rows), start=calc.MEAL_ALLOWANCE * 0)
+        confirmed_meal = meal_total
+        daily = calc.daily_salary(date(year, month, 1)) if self.settings.configured else calc.MEAL_ALLOWANCE * 0
+        worked_base = sum((daily for r in rows
+                           if r.workday_status in {WORKDAY, ADJUSTED_WORKDAY}
+                           and (r.actual_clock_out or r.resolved_no_overtime)),
+                          start=calc.MEAL_ALLOWANCE * 0)
+        worked_value = worked_base + confirmed_overtime + confirmed_meal
         return {
             "workday_count": self.calendar.workday_count(year, month),
+            "recorded_workdays": sum(1 for r in rows
+                                     if r.workday_status in {WORKDAY, ADJUSTED_WORKDAY}
+                                     and (r.actual_clock_out or r.resolved_no_overtime)),
             "monthly_salary": self.settings.monthly_salary,
             "overtime_minutes": total_minutes,
             "first_25h_pay": first_pay,
             "over_25h_pay": second_pay,
-            "meal_allowance": sum((r.meal_allowance for r in rows), start=calc.MEAL_ALLOWANCE * 0),
-            "estimated_total": self.settings.monthly_salary + first_pay + second_pay + sum((r.meal_allowance for r in rows), start=calc.MEAL_ALLOWANCE * 0),
+            "meal_count": sum(1 for r in rows if r.meal_allowance > 0),
+            "meal_allowance": meal_total,
+            "confirmed_overtime_pay": confirmed_overtime,
+            "confirmed_meal_allowance": confirmed_meal,
+            "worked_value_to_date": worked_value,
+            "estimated_total": self.settings.monthly_salary + first_pay + second_pay + meal_total,
         }
 
     def maybe_emit_progress(self, when=None):

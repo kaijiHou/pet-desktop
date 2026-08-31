@@ -10,7 +10,10 @@ a = Analysis(
     [str(ROOT / "main.py")],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[(str(ROOT / "assets" / "animations.json"), "assets")],
+    datas=[
+        (str(ROOT / "assets" / "animations.json"), "assets"),
+        (str(ROOT / "assets" / "holiday_cn"), "assets/holiday_cn"),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

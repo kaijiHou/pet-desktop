@@ -5,13 +5,23 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from paths import DATA_DIR
+from paths import BUNDLE_ROOT, DATA_DIR
 from .model import WORKDAY, REST, ADJUSTED_WORKDAY, LEAVE, VALID_STATUSES
 from .storage import load_json, save_json_atomic
 
 
+def bundled_holiday_dir() -> Path:
+    """Directory of offline holiday-cn data shipped with the app.
+
+    holiday-cn (NateScarlet, MIT) is generated from State Council papers and
+    covers statutory holidays + 调休补班 per year; files ship in
+    assets/holiday_cn/ so the wage calendar never needs the network.
+    """
+    return BUNDLE_ROOT / "assets" / "holiday_cn"
+
+
 class WorkCalendarService:
-    """Resolve a date as work/rest using manual > holiday data > weekday rules."""
+    """Resolve a date as work/rest using manual > bundled/user holiday data > weekday rules."""
 
     def __init__(self, storage_path: Optional[Path] = None, holiday_data_path: Optional[Path] = None):
         self.storage_path = Path(storage_path) if storage_path else DATA_DIR / "work_calendar.json"
@@ -29,21 +39,36 @@ class WorkCalendarService:
             count = raw.get("manual_workday_count")
             self._manual_workday_count = int(count) if count not in (None, "") else None
         holiday_raw = load_json(self.holiday_data_path, {})
-        if isinstance(holiday_raw, dict):
-            # Accept {"2026-10-01": "rest"}, {date: {"status": ...}},
-            # and the common {"holidays": [...]} export shape.
-            source = holiday_raw.get("holidays", holiday_raw)
-            if isinstance(source, dict):
-                for key, value in source.items():
-                    status = self._status_from_holiday(value)
+        self._merge_holiday_payload(holiday_raw)
+        # Bundled offline statutory data (holiday-cn). Manual overrides and
+        # the user's own data/holidays.json keep precedence because they are
+        # merged first — later merges never overwrite existing keys.
+        bundle_dir = bundled_holiday_dir()
+        if bundle_dir.is_dir():
+            for path in sorted(bundle_dir.glob("*.json")):
+                self._merge_holiday_payload(load_json(path, {}))
+
+    def _merge_holiday_payload(self, holiday_raw):
+        if not isinstance(holiday_raw, dict):
+            return
+        # Accept {"2026-10-01": "rest"}, {date: {"status": ...}}, the
+        # holiday-cn export shape {year, days: [{name, date, isOffDay}]},
+        # and the common {"holidays": [...]} export shape.
+        source = holiday_raw.get("holidays", holiday_raw.get("days", holiday_raw))
+        if isinstance(source, dict):
+            for key, value in source.items():
+                if isinstance(value, list):
+                    self._merge_holiday_payload({"days": value})
+                    continue
+                status = self._status_from_holiday(value)
+                if status:
+                    self.holidays.setdefault(str(key), status)
+        elif isinstance(source, list):
+            for item in source:
+                if isinstance(item, dict) and item.get("date"):
+                    status = self._status_from_holiday(item)
                     if status:
-                        self.holidays[str(key)] = status
-            elif isinstance(source, list):
-                for item in source:
-                    if isinstance(item, dict) and item.get("date"):
-                        status = self._status_from_holiday(item)
-                        if status:
-                            self.holidays[str(item["date"])] = status
+                        self.holidays.setdefault(str(item["date"]), status)
 
     @staticmethod
     def _status_from_holiday(value):
@@ -58,6 +83,9 @@ class WorkCalendarService:
                 return ADJUSTED_WORKDAY
             if value.get("isOffDay") is True or value.get("holiday") is True or value.get("isHoliday") is True:
                 return REST
+            # holiday-cn lists 调休补班 days explicitly as isOffDay=false.
+            if value.get("isOffDay") is False and value.get("date"):
+                return ADJUSTED_WORKDAY
         return None
 
     def _key(self, day) -> str:
