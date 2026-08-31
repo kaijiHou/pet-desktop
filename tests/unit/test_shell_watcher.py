@@ -223,3 +223,92 @@ def test_real_shell_delete_broadcast(qapp, test_temp_root):
     qapp.exec_()
     assert any(e[0] == "deleted" for e in result.get("got", [])), \
         "real SHCNE_DELETE must reach callback"
+
+
+@pytest.mark.integration
+def test_real_shell_mkdir_broadcast(qapp, test_temp_root):
+    """Real SHCNE_MKDIR broadcast must reach callback."""
+    import sys, ctypes, os, time
+    if not sys.platform.startswith("win"):
+        pytest.skip("Windows-only")
+    from shell_watcher import SHCNE_MKDIR
+    shell32 = ctypes.windll.shell32
+    for attempt in range(3):
+        w = ShellWatcher(debounce_ms=0)
+        got = []
+        w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
+        if w.registered:
+            break
+        w.stop()
+        time.sleep(0.2)
+    assert w.registered, "Failed to register after 3 attempts"
+    # Create a directory to get a PIDL
+    d = test_temp_root / "shell_mkdir_test"
+    d.mkdir()
+    pidl = ctypes.c_void_p()
+    attr = ctypes.c_ulong()
+    shell32.SHParseDisplayName.restype = ctypes.c_long
+    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p),
+                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+    shell32.SHParseDisplayName(str(d), None, ctypes.byref(pidl), 0, ctypes.byref(attr))
+    shell32.SHChangeNotify.restype = None
+    shell32.SHChangeNotify.argtypes = [ctypes.c_ulong, ctypes.c_uint,
+                                       ctypes.c_void_p, ctypes.c_void_p]
+    shell32.SHChangeNotify(SHCNE_MKDIR, 0, pidl, None)
+    result = {}
+    def check():
+        w._poll_events()
+        result["got"] = list(got)
+        w.stop()
+        d.rmdir()
+        qapp.exit()
+    from PyQt5.QtCore import QTimer
+    QTimer.singleShot(1500, check)
+    qapp.exec_()
+    assert any(e[0] == "dir_created" for e in result.get("got", [])), \
+        "real SHCNE_MKDIR must reach callback as dir_created"
+
+
+@pytest.mark.integration
+def test_real_shell_rmdir_broadcast(qapp, test_temp_root):
+    """Real SHCNE_RMDIR broadcast must reach callback."""
+    import sys, ctypes, os, time
+    if not sys.platform.startswith("win"):
+        pytest.skip("Windows-only")
+    from shell_watcher import SHCNE_RMDIR
+    shell32 = ctypes.windll.shell32
+    for attempt in range(3):
+        w = ShellWatcher(debounce_ms=0)
+        got = []
+        w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
+        if w.registered:
+            break
+        w.stop()
+        time.sleep(0.2)
+    assert w.registered, "Failed to register after 3 attempts"
+    # Create and then remove a directory
+    d = test_temp_root / "shell_rmdir_test"
+    d.mkdir()
+    pidl = ctypes.c_void_p()
+    attr = ctypes.c_ulong()
+    shell32.SHParseDisplayName.restype = ctypes.c_long
+    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p),
+                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+    shell32.SHParseDisplayName(str(d), None, ctypes.byref(pidl), 0, ctypes.byref(attr))
+    shell32.SHChangeNotify.restype = None
+    shell32.SHChangeNotify.argtypes = [ctypes.c_ulong, ctypes.c_uint,
+                                       ctypes.c_void_p, ctypes.c_void_p]
+    shell32.SHChangeNotify(SHCNE_RMDIR, 0, pidl, None)
+    result = {}
+    def check():
+        w._poll_events()
+        result["got"] = list(got)
+        w.stop()
+        qapp.exit()
+    from PyQt5.QtCore import QTimer
+    QTimer.singleShot(1500, check)
+    qapp.exec_()
+    assert any(e[0] == "dir_removed" for e in result.get("got", [])), \
+        "real SHCNE_RMDIR must reach callback as dir_removed"
