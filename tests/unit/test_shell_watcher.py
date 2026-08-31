@@ -110,3 +110,43 @@ def test_real_shell_broadcast_reaches_callback(qapp, test_temp_root):
     qapp.exec_()
     assert any(e[0] == "created" for e in result.get("got", [])), \
         "real shell create event must reach callback"
+
+@pytest.mark.unit
+def test_shell_delete_dispatches_even_when_pidl_path_decode_fails():
+    """P0: Shell event must dispatch action even if PIDL path decode fails."""
+    events = []
+    w = ShellWatcher(debounce_ms=0)
+    w.start(lambda e: events.append(e))
+    # Simulate: action decoded but path unknown (pidl decode failed)
+    w.dispatch(ShellEvent(action="deleted", path=None))
+    w._poll_events()
+    w.stop()
+    assert len(events) == 1
+    assert events[0].action == "deleted"
+    assert events[0].path is None
+
+
+@pytest.mark.unit
+def test_shell_create_dispatches_even_when_path_unknown():
+    events = []
+    w = ShellWatcher(debounce_ms=0)
+    w.start(lambda e: events.append(e))
+    w.dispatch(ShellEvent(action="created", path=None))
+    w._poll_events()
+    w.stop()
+    assert len(events) == 1
+    assert events[0].action == "created"
+
+
+@pytest.mark.unit
+def test_debounce_aggregates_unknown_path_events():
+    """Multiple delete events with path=None should be debounced."""
+    events = []
+    w = ShellWatcher(debounce_ms=500)
+    w.start(lambda e: events.append(e))
+    w.dispatch(ShellEvent(action="deleted", path=None))
+    w.dispatch(ShellEvent(action="deleted", path=None))  # suppressed
+    w.dispatch(ShellEvent(action="deleted", path=None))  # suppressed
+    w._poll_events()
+    w.stop()
+    assert len(events) == 1  # only one delivered due to debounce

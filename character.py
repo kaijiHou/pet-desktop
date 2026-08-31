@@ -155,11 +155,18 @@ class CharacterController:
         return self._visible_alpha_bbox
 
     def base_size(self):
-        """(w, h) the character occupies at current scale."""
+        """(w, h) the character occupies at current scale.
+
+        Uses longest-side normalization: the output's longest dimension
+        equals BASE_CHARACTER_SIZE * scale, regardless of aspect ratio.
+        This prevents portrait images (e.g. 512x1024) from becoming huge.
+        """
         if self._mode == "single":
-            ratio = self._single_image.height / self._single_image.width
-            w = int(self._single_base_size * self._scale)
-            return w, int(w * ratio)
+            src_w, src_h = self._single_image.size
+            target_long = 192 * self._scale  # 192 = default buddy size
+            long_side = max(src_w, src_h)
+            ratio = target_long / long_side
+            return round(src_w * ratio), round(src_h * ratio)
         from pet_sprite import SPRITE_W, SPRITE_H
         return int(SPRITE_W * self._scale), int(SPRITE_H * self._scale)
 
@@ -189,8 +196,8 @@ def import_character_image(src: Path, assets_dir: Path = None) -> Path:
     src = Path(src)
     if not src.exists():
         raise FileNotFoundError(src)
-    if src.suffix.lower() not in {".png", ".webp"}:
-        raise ValueError("仅支持 PNG / WebP 图片")
+    if src.suffix.lower() not in {".png", ".webp", ".jpg", ".jpeg"}:
+        raise ValueError("仅支持 PNG / WebP / JPG / JPEG 图片")
     try:
         img = Image.open(src)
         img.verify()
@@ -205,9 +212,8 @@ def import_character_image(src: Path, assets_dir: Path = None) -> Path:
     assets_dir = Path(assets_dir) if assets_dir else USER_ASSETS_DIR
     assets_dir.mkdir(parents=True, exist_ok=True)
     # keep original file name when sane; de-collide with prefix
-    name = src.name
-    if not name.lower().endswith((".png", ".webp")):
-        name += ".png"
+    # Always save as PNG for uniform RGBA handling
+    name = src.stem + ".png"
     target = assets_dir / name
     i = 1
     while target.exists() and src.resolve() != target.resolve():

@@ -96,8 +96,8 @@ _SHELL_TO_ACTION = {
 
 @dataclass(frozen=True)
 class ShellEvent:
-    path: Path
     action: str
+    path: Path = None  # optional — PIDL decode may fail but action is still valid
     timestamp: float = field(default_factory=time.time)
 
 
@@ -208,28 +208,18 @@ class ShellWatcher(QObject):
             if not action:
                 log.debug("Shell notification ignored event_id=0x%x", raw_event_id)
                 return
-            if not ppidl.value:
-                return
-            # The lock API writes a pointer to the PIDL into *ppidl.  ctypes
-            # therefore gives us the address of that pointer; dereference it
-            # once before passing the PIDL to SHGetPathFromIDListW.
-            pidl_ref = ctypes.cast(ppidl.value, ctypes.POINTER(ctypes.c_void_p))
-            pidl = pidl_ref[0]
-            if not pidl:
-                return
-            buf = ctypes.create_unicode_buffer(260)
-            ok = SHGetPathFromIDList(pidl, buf)
-            if ok:
-                path = Path(buf.value)
-                log.info("Shell notification event_id=0x%x action=%s path=%s exists=%s",
-                         raw_event_id, action, path, path.exists())
-                if path.exists() or action in ("deleted", "dir_removed"):
-                    self._dispatch(ShellEvent(path=path, action=action))
-                else:
-                    log.info("Shell event skipped (path gone and not delete): %s", path)
-            else:
-                log.warning("SHGetPathFromIDList failed for event_id=0x%x action=%s pidl=%s",
-                           raw_event_id, action, pidl)
+            # path decode is best-effort; action is already valid
+            # Try to decode path, but ALWAYS dispatch if action is valid.
+            path = None
+            if ppidl.value:
+                buf = ctypes.create_unicode_buffer(260)
+                pidl_ref = ctypes.cast(ppidl.value, ctypes.POINTER(ctypes.c_void_p))
+                pidl_val = pidl_ref[0] if pidl_ref else None
+                if pidl_val and SHGetPathFromIDList(pidl_val, buf) and buf.value:
+                    path = Path(buf.value)
+            log.info("Shell event delivered: action=%s path=%s path_known=%s",
+                     action, path, path is not None)
+            self._dispatch(ShellEvent(action=action, path=path))
         finally:
             SHChangeNotification_Unlock(lock)
 
@@ -393,7 +383,7 @@ class ShellWatcher(QObject):
     def _dispatch(self, event: ShellEvent):
         if self._stop_event.is_set():
             return  # stopped — don't deliver (reviewer test #11)
-        key = f"{event.action}:{event.path}"
+        key = f"{event.action}:{event.path or '<unknown>'}"
         now = time.time()
         last = self._recent_actions.get(key, 0)
         if now - last < self._debounce_ms / 1000.0:

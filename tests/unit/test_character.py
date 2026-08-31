@@ -219,3 +219,67 @@ def test_semantic_duration_is_bounded():
     for name, steps in SINGLE_ANIMATIONS.items():
         dur = len(steps) * STEP_MS
         assert dur <= 1000, f"{name} runs {dur}ms — too long for event feedback"
+
+
+@pytest.mark.unit
+def test_import_jpg_converted_to_png(test_temp_root, assets_dir):
+    """JPG import should save as PNG (RGBA uniform)."""
+    from character import import_character_image
+    from PIL import Image
+    # Create a test JPG
+    jpg_path = test_temp_root / "test.jpg"
+    img = Image.new("RGB", (100, 100), (255, 0, 0))
+    img.save(jpg_path, "JPEG")
+    name = import_character_image(jpg_path, assets_dir)
+    assert name.endswith(".png"), f"Should save as PNG, got {name}"
+    saved = assets_dir / name
+    assert saved.exists()
+    # Verify it's valid RGBA PNG
+    loaded = Image.open(saved)
+    assert loaded.mode == "RGBA"
+
+
+@pytest.mark.unit
+def test_import_jpeg_converted_to_png(test_temp_root, assets_dir):
+    """JPEG extension should also work."""
+    from character import import_character_image
+    from PIL import Image
+    jpg_path = test_temp_root / "test.jpeg"
+    img = Image.new("RGB", (100, 100), (0, 255, 0))
+    img.save(jpg_path, "JPEG")
+    name = import_character_image(jpg_path, assets_dir)
+    assert name.endswith(".png")
+
+
+@pytest.mark.unit
+def test_portrait_character_size_normalized():
+    """Portrait image (512x1024) should not become huge."""
+    from character import CharacterController
+    from PIL import Image
+    portrait = Image.new("RGBA", (512, 1024), (255, 0, 0, 255))
+    # Create a minimal controller by directly setting the image
+    ctrl = CharacterController.__new__(CharacterController)
+    ctrl._scale = 3.0
+    ctrl._mode = "single"
+    ctrl._single_image = portrait
+    ctrl._visible_alpha_bbox = (0, 0, 512, 1024)
+    w, h = ctrl.base_size()
+    # Long side should be ~192*3 = 576, not 1024*3 = 3072
+    assert max(w, h) <= 600, f"Long side {max(w,h)} should be ~576, not huge"
+    assert w < h, "Portrait should be taller than wide"
+
+
+@pytest.mark.unit
+def test_landscape_character_size_normalized():
+    """Landscape image (1024x512) should also normalize."""
+    from character import CharacterController
+    from PIL import Image
+    landscape = Image.new("RGBA", (1024, 512), (0, 0, 255, 255))
+    ctrl = CharacterController.__new__(CharacterController)
+    ctrl._scale = 3.0
+    ctrl._mode = "single"
+    ctrl._single_image = landscape
+    ctrl._visible_alpha_bbox = (0, 0, 1024, 512)
+    w, h = ctrl.base_size()
+    assert max(w, h) <= 600, f"Long side {max(w,h)} should be ~576"
+    assert w > h, "Landscape should be wider than tall"

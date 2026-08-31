@@ -144,7 +144,7 @@ class SettingsDialog(QDialog):
         from character import import_character_image
         from paths import PROJECT_ROOT
         from PyQt5.QtWidgets import QFileDialog
-        path, _ = QFileDialog.getOpenFileName(self, "选择角色图片", "", "图片 (*.png *.webp)")
+        path, _ = QFileDialog.getOpenFileName(self, "选择角色图片", "", "图片 (*.png *.webp *.jpg *.jpeg)")
         if not path:
             return
         try:
