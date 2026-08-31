@@ -923,8 +923,8 @@ class PetWindow(QWidget):
     def _on_shell_event(self, event):
         if not self.config.get("file_event_animations_enabled", True):
             return
-        if not self._shell_watcher.is_explorer_foreground():
-            return
+        # V3.2: removed is_explorer_foreground() gate — it was too strict
+        # and blocked legitimate Explorer delete/create events.
         action_map = {"created": "CREATE_FILE", "deleted": "DELETE_FILE",
                       "renamed": "RENAME_FILE", "dir_created": "CREATE_FILE",
                       "dir_removed": "DELETE_FILE", "dir_renamed": "RENAME_FILE"}
