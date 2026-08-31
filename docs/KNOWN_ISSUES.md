@@ -189,3 +189,31 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - **KI-19（代码已修复，真机待验）**：气泡已由 visible alpha bbox 锚定并支持屏幕边缘翻转；独立 BubbleWindow 的真实桌面间距仍需用户手动确认。
 - **KI-20（进行中）**：工资服务、工时日历、今日助手和隐私显示已接入；漏打卡一次性提示、修改下班时间和月度详情交互仍需补齐。
 - **KI-21（待验）**：ShellWatcher/Explorer 的真实 create/delete/mkdir/rmdir 反馈不能由 offscreen 单测代替，V3 清单当前 `NOT TESTED`。
+
+## V3.1 状态更新（2026-08-31）
+
+### KI-22 ✅ V3 缩放回归（本轮已修复）
+- **用户现象**：普通滚轮无法缩放（"以前可以"）。
+- **复现/根因 1**：`data/config.json` 遗留 `wheel_zoom_enabled: false`（V2 时代设置对话框的默认值被保存过），V2.2 虽把默认改为 true 但不迁移既有文件。真机探针实测：`A1_plain_wheel_stored_cfg` 完全不动，`cfg.set(true)` 后全链路（config→character.scale→base_size→窗口→visible_pet_rect）同步。
+- **根因 2（伴随崩溃）**：V3 引入的独立 BubbleWindow 在真实 Windows + 搜狗 IME 环境下，进程内任何半透明新顶层窗口首帧绘制可被 msctf/IME 消息重入，Qt5Core fail-fast（0xC0000409，见 %LOCALAPPDATA%/CrashDumps/python.exe.18192.dmp，栈含 sip→python311→QtCore.pyd）。该崩溃与系统 IME 状态相关、随时间翻转（同一脚本分批全崩/全活），但跨批次唯一稳定信号：**含 Python paintEvent 的变体会崩、纯 QLabel/C++ 绘制变体从未崩**。
+- **修改文件**：`config.py`（v31_wheel_migration_done 一次性迁移）、`bubble_window.py`（纯 QLabel + QImage 预渲染，无 Python paintEvent，WindowTransparentForInput）、`pet_window.py`（滚轮步长 0.2/0.1，PET_SCALE_DEBUG 埋点）、`quick_panel.py`。
+- **failing test → PASS**：`tests/smoke/test_v31_scale_and_panel.py` 11 项；真机 `realapp_soak.py` 46s/37 气泡存活 + 三路径缩放指标全链路同步。
+- **已知限制**：崩溃属 Qt5/Windows IME 交互，无法在本机彻底证伪所有状态；已按最安全架构（无 Python paintEvent）+ 长时间真机 soak 缓解。
+
+### KI-23 ✅ 历史补录加班阶梯顺序错误（本轮已修复）
+- **现象**：补录月初记录时，`record_clock_out` 把"同月除当天外所有记录"（含未来日期）当作 prior，15/25 元档位错位；修改早期日期后后续日期不重算。
+- **修改文件**：`wage/service.py`（prior_overtime_minutes_before、recalculate_month_records）、`wage/model.py`。
+- **测试**：`tests/unit/test_wage_v31_fixes.py` 4 项（只用早于当日、编辑早期→后续重档、按日期序重算、月汇总稳定）。
+
+### KI-24 ✅ 漏打卡错误依赖今天 17:30（本轮已修复）
+- **现象**：`missing_clockout_yesterday` 要求当前时间 ≥ 今天 17:30 才提示，早上启动永远看不到。
+- **修复**：午夜后首次启动即提示；"稍后"仅会话级；"昨天未加班"写入 `resolved_no_overtime` 永久解决；新增三按钮 `wage/ui_missing.py` 非阻塞对话框。
+- **测试**：`test_wage_v31_fixes.py` 5 项。
+
+### KI-25 ✅ 工时"日历"实为列表 + 节假日接口无数据（本轮已修复）
+- **现象**：ui_calendar 是 QListWidget 逐行列日期；WorkCalendarService 有 holidays.json 接口但软件不带任何数据，国庆/春节/调休全靠手改。
+- **修复**：QCalendarWidget 真月历 + 捆绑 holiday-cn（MIT，国务院文件口径）2025/2026 数据（assets/holiday_cn/，随 EXE 打包）；优先级 manual override > 用户 holidays.json > 捆绑数据 > 周一~五。
+- **测试**：`tests/unit/test_statutory_calendar.py` 9 项（国庆/春节/调休/周末/工作日/override 覆盖）。
+
+### KI-26 🟡 IME 环境下半透明顶层窗口的系统性崩溃风险（接受并缓解）
+- 系统处于某种 IME/CTF 状态时，本机任何进程创建半透明 frameless 窗口都可能触发 Qt5Core fail-fast（含纯 QLabel 变体在坏状态批次的 6/6 崩溃）。应用侧已采用最安全架构（气泡无 Python paintEvent + 输入穿透），真实应用 46s/37 气泡 soak 未复现；若用户报告"气泡一弹就闪退"，优先怀疑系统 IME 状态而非应用回归。

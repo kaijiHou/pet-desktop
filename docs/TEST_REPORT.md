@@ -341,3 +341,18 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 - Explorer/鼠标视觉/真实提醒：**NOT TESTED**（遵循本轮不使用电脑控制）。
 
 最终 anchor follow-up 后再次 clean build：230 passed；verify release 全部黑盒检查通过。最终 ZIP 48,300,152 bytes，SHA256 `78a052e07ec9c0fef7ee66c227bec16bd582de1596628a05cc7c2ebfd8b9fd1c`，manifest 一致。真实 Explorer/鼠标视觉/提醒仍 **NOT TESTED**。
+
+---
+
+## 2026-08-31 V3.1
+
+| 套件 | 结果 |
+|---|---|
+| `pytest tests -q` | **299 passed**（基线 264 → +35） |
+| 新增 `tests/smoke/test_v31_scale_and_panel.py` | 11 passed（迁移/三路径缩放/气泡无 paintEvent/输入穿透/气泡间距/点空白关闭） |
+| 新增 `tests/unit/test_wage_v31_fixes.py` | 9 passed（prior 只算早于当日/编辑重档/按日序重算/月汇总稳定/漏打卡 5 态） |
+| 新增 `tests/unit/test_statutory_calendar.py` | 9 passed（国庆/春节/调休/周末/工作日/override/用户数据优先/离线） |
+| 新增 `tests/smoke/test_v31_wage_ui.py` | 7 passed（月历网格/月度统计/隐私/档位预告/餐补预计/打卡汇总/single-shot 调度） |
+| 真机 `realapp_soak.py` | SOAK SURVIVED 46s/37 气泡；A/B/C 缩放全链路指标同步（见 DEVELOPMENT_LOG） |
+
+结论：金额逻辑（Decimal、固定时钟）与真实窗口交互（Qt offscreen）全部通过；IME 相关原生崩溃按 KI-22/KI-26 以架构规避 + 真机 soak 缓解。

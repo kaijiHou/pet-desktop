@@ -875,3 +875,65 @@ pytest tests -q --tb=short                       → 222 passed
 - 现象：今日收入窗口是新加入的顶层浮窗，若桌宠拖动或缩放，存在停留在旧位置的风险。
 - 修复：`TodayWageWindow` 增加 `move_near(..., live=True)`，纳入 PetWindow 的统一 move/resize reposition 路径；live 更新只改 geometry，不抢焦点。
 - 回归：V2.2 interaction、GUI smoke、工资 targeted 合计 **38 passed**；真实鼠标移动仍待用户手动验收。
+
+---
+
+## 2026-08-31 - V3.1 缩放回归修复 + 工资/日历收尾
+
+### 基线
+
+- `git fetch` 后 `BASELINE_HEAD = 0b68abb196b9d79fa6c324922d90f783367deb74`（v2.2-interaction-fix，与 origin 同步），工作区干净。
+
+### P0 KI-22：缩放回归（先复现，后修复）
+
+- **方法**：`PET_SCALE_DEBUG=1` 埋点（wheel/scale 路径输出 scale source、angleDelta、modifiers、新旧 config/character scale/base_size/窗口尺寸/visible_rect）+ `.tmp/v31-probe/realapp_soak.py` 真机探针（完整 PetWindow 栈、真实 windows 平台、A/B/C 三路径前后指标）。
+- **实测结论（探针输出）**：
+  - A1 存量配置 `wheel_zoom_enabled=false`：普通滚轮完全无效（cfg/char/base/win/vrect 全部不变）→ 用户可见回归的根因；
+  - A2 启用后：3.0→3.1→3.2，base 576→614，win 616→654，visible 387→413 —— 全链路同步；
+  - B Ctrl+滚轮：+0.1 生效；C slider 300%：char 6.0/base 1152 即时预览，Cancel 恢复。
+- **修复**：①config 一次性迁移 `v31_wheel_migration_done`（存量 false→true，之后尊重设置项）；②普通滚轮步长 0.1→0.2（每格肉眼明显）；③BubbleWindow 重写（见下）兼修"气泡吃滚轮"（Case 1）。
+- **回归测试**：`test_v31_scale_and_panel.py` 11 项。
+
+### P0 伴随发现：气泡首帧绘制致整进程 fail-fast（并入 KI-22/KI-26）
+
+- 现象：任何气泡触发即整进程消失；offscreen pytest 全绿（KI-13 型盲区）。
+- 定性过程：二分 flags/QPainter 操作均被"批次级翻转"欺骗（同脚本分批全崩/全活）；minidump 解析 `%LOCALAPPDATA%/CrashDumps/python.exe.18192.dmp` → RIP 在 Qt5Core.dll+0x204e8，栈含 qwindows→msctf/textinputframework/SogouPY.ime → sip→python311 重入。批内对照证明与代码路径无关、与"Python paintEvent 存在"强相关。
+- 修复：BubbleWindow 改为纯 QLabel + QImage 预渲染位图（无 Python paintEvent），WindowTransparentForInput + 禁 IME。真机验收：完整应用栈 46s 弹 37 气泡存活、20s 再验 16 个存活。
+
+### P1 QuickPanel 点击空白关闭（用户直接反馈）
+
+- 旧 `focusOutEvent` 用 PetWindow 透明外框做相交测试，面板与外框重叠导致永远不关。
+- 修复：QApplication 级 eventFilter（点击面板外且非桌宠可见区→隐藏；桌宠自身单击仍由 PetWindow 切换）+ focusOut 改为纯"失焦即关"。测试 2 项。
+
+### P1 历史补录阶梯 + P1 漏打卡（KI-23/24，详见 KNOWN_ISSUES）
+
+- `prior_overtime_minutes_before`（严格早于当日）、`recalculate_month_records`（按日期序重算当月加班/餐补，编辑早期日期后自动重档）、`current_breakdown` 同语义；
+- 漏打卡：去掉 17:30 门、次日晨即提示、`resolved_no_overtime` 永久解决、稍后会话级、三按钮对话框 `wage/ui_missing.py`；
+- 测试 `test_wage_v31_fixes.py` 9 项（跨档编辑实测 37.50→22.50 重档）。
+
+### P2 统一锚点 anchor.py
+
+- `place_panel`（QuickPanel/Pocket/TodayWage 共用）与 `place_bubble`（气泡 4 候选）收敛单实现；既有 v22/v31 锚点测试全程锁定，284 passed 不变。
+
+### P2 工时日历真月历 + 法定节假日 + 月度统计（KI-25）
+
+- 捆绑 holiday-cn（MIT，国务院文件）2025/2026 于 `assets/holiday_cn/` 并随 EXE 打包；合并顺序 manual override > 用户 holidays.json > 捆绑 > 周一~五；`isOffDay=false` 映射调休上班；
+- ui_calendar 重写为 QCalendarWidget 真月历（翻页/今天/状态配色/悬浮提示/日明细/改下班/改状态/恢复自动/备注/手工工作日数）；
+- `month_summary` 补全 12 项统计（应出勤/已记录工作日/累计加班/前25h/超25h/餐补次数金额/合同基础工资/截至今日工作价值/已确认加班费/已确认餐补/预计总收入），隐私模式脱敏。
+
+### P2 TodayWage 补全 + 后台调度
+
+- 打卡后标题=实际下班时间，明细含今日/本月累计加班、加班费、餐补、已赚合计；加班中显示当前档位（15/25元/h）与跨档预告（≤6h 给出具体时刻，否则给出累计差值）；20:00 未打卡显示"餐补预计 +¥30"；
+- 60s 常驻轮询改为 single-shot 关键时刻调度（work_start/lunch/17:30/20:00/下一个收入提示槽，上限 1h），设置变更后重排；TodayWage 1s 刷新仅在窗口可见期间运行（hideEvent 停表，已有）。
+
+### 自动化结果
+
+```text
+pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixes 9 + statutory calendar 9 + wage UI 7 - 去重）
+真机探针：realapp_soak.py A/B/C 指标全链路同步、46s/37 气泡 SOAK SURVIVED
+```
+
+### 已知限制
+
+- IME 坏状态可致任何半透明顶层进程崩溃（KI-26），应用侧无法根除，已用最安全架构 + 真机 soak 缓解；
+- 源码级真机验收见 `V31_REAL_ACCEPTANCE.md`；fresh EXE 逐项验收在同文件持续更新。

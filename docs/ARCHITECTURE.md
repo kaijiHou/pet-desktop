@@ -421,3 +421,27 @@ PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面�
 工资层位于 `wage/` 包：model 定义可序列化设置/日记录/拆分结果，calendar_service 解析本地假日和手工 override，calculator 是无副作用 Decimal 纯算法，service 负责 JSON 生命周期和进度提示，ui_* 只负责 PyQt5 展示。记录和设置分别写 `data/wage_settings.json`、`data/work_calendar.json`、`data/wage_records.json`，均使用临时文件替换。
 
 角色的可见边界来自 RGBA alpha `getbbox()`，PetWindow 将源图 bbox 映射到当前 scale、transform 和多屏全局坐标。BubbleWindow 是 Qt.Tool/无焦点/透明顶层窗口，候选锚点按上、下、右、左检查 availableGeometry；QuickPanel/Pocket/TodayWage 继续用同一 visible rect 的相邻 geometry。offscreen 后端只验证状态和 geometry，不创建重复的顶层透明合成窗口。
+
+---
+
+## V3.1 追加（2026-08-31）
+
+### anchor.py — 统一窗口锚点
+- `place_panel(window, anchor_rect, screen, gap=8)`：QuickPanel / PocketWindow / TodayWageWindow 共用；右侧 8px、越界左翻、availableGeometry clamp。
+- `place_bubble(window, anchor_rect, screen, gap=7, tail_len=8)`：BubbleWindow 四候选（上/下/左/右）选择。
+- 调用方必须传 `PetWindow.visible_pet_global_rect()`（可见像素边界），禁止传透明外框。
+
+### bubble_window.py — 渲染模型
+- 纯 QLabel 子类：气泡体（圆角矩形+尾巴+描边+换行文本）用 QPainter 一次性画进 QImage → setPixmap；**无 Python paintEvent**。
+- 原因：真实 Windows + 搜狗 IME 下，Python 级 paintEvent 可被 msctf/IME 消息重入并触发 Qt5Core fail-fast（0xC0000409）杀死整个进程（KI-22/KI-26）。QImage 光栅渲染与 C++ 绘制不受影响。
+- 窗口标志：Frameless + Tool + StaysOnTop + **WindowTransparentForInput** + WA_TransparentForMouseEvents + 禁 IME —— 气泡永不吞角色输入。
+
+### config.py — 交互默认值迁移
+- `v31_wheel_migration_done`：一次性把存量 `wheel_zoom_enabled=false` 迁回 true（V2 时代设置对话框保存过 false，导致老用户普通滚轮失效）。迁移后以设置项为准。
+
+### wage/ — 计算与调度语义（V3.1 增量）
+- `prior_overtime_minutes_before(day)`：当月 prior **严格早于目标日**，补录历史不会把未来日期算成已累计。
+- `recalculate_month_records(year, month)`：任何打卡新增/修改后按日期序重算当月每条记录的 overtime_minutes/pay 与 meal_allowance —— 修改早期日期自动重排后续日期的 15/25 元档。
+- `WorkDayRecord.resolved_no_overtime`：显式"未加班"永久解决漏打卡；"稍后"仅会话内存（wage_prompts.json 不再参与判定）。
+- `WorkCalendarService` 数据优先级：manual override > 用户 data/holidays.json > 捆绑 assets/holiday_cn/*.json（holiday-cn，MIT）> 周一~五；`isOffDay=false` 条目=调休上班。
+- PetWindow 后台工资唤醒：single-shot 定时到下一关键时点（work_start/lunch/17:30/20:00/下一个收入提示槽，≤1h 上限），设置变更后重排；无常驻轮询。
