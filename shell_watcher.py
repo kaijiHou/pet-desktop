@@ -20,6 +20,7 @@ import ctypes
 from ctypes import wintypes, WINFUNCTYPE
 import logging
 import threading
+import queue
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -155,13 +156,18 @@ class ShellWatcher(QObject):
         self._inited = threading.Event()
         self._startup_error = None
         self._callback = None
+        self._event_queue = queue.Queue()
 
     # ── ctypes WndProc ─────────────────────────────────────────────────────
     def _make_wnd_proc(self):
         @WNDPROC
         def wnd_proc(hwnd, msg, wparam, lparam):
             if msg == WM_SHChangeNotify:
-                self._on_shell_notify(wparam, lparam)
+                log.debug("WndProc WM_SHChangeNotify wparam=%s lparam=%s", wparam, lparam)
+                try:
+                    self._on_shell_notify(wparam, lparam)
+                except Exception:
+                    log.exception("WndProc _on_shell_notify failed")
                 return 0
             if msg == 0x0002:  # WM_DESTROY
                 user32.PostQuitMessage(0)
@@ -170,12 +176,8 @@ class ShellWatcher(QObject):
         return wnd_proc
 
     def _on_shell_notify(self, wparam, lparam):
-        """Decode a WM_SHChangeNotify message under SHCNRF_NewDelivery.
-
-        Microsoft Learn: with NewDelivery, wParam = hChange (notification
-        handle), lParam = dwProcessID. event id comes back from Lock as the
-        4th argument, NOT from wParam.
-        """
+        """Decode a WM_SHChangeNotify message under SHCNRF_NewDelivery."""
+        log.info("_on_shell_notify called wparam=%s lparam=%s", wparam, lparam)
         SHChangeNotification_Lock = shell32.SHChangeNotification_Lock
         SHChangeNotification_Lock.restype = ctypes.c_void_p
         SHChangeNotification_Lock.argtypes = [
@@ -197,9 +199,11 @@ class ShellWatcher(QObject):
         lock = SHChangeNotification_Lock(
             h_change, dw_proc_id, ctypes.byref(ppidl), ctypes.byref(event_id))
         if not lock:
+            log.warning("SHChangeNotification_Lock returned NULL for h=%s pid=%s", h_change, dw_proc_id)
             return
         try:
             raw_event_id = int(event_id.value)
+            log.info("Shell event decoded: event_id=0x%x raw=0x%x", event_id.value, raw_event_id)
             action = _SHELL_TO_ACTION.get(raw_event_id & WATCH_EVENTS)
             if not action:
                 log.debug("Shell notification ignored event_id=0x%x", raw_event_id)
@@ -214,23 +218,32 @@ class ShellWatcher(QObject):
             if not pidl:
                 return
             buf = ctypes.create_unicode_buffer(260)
-            if SHGetPathFromIDList(pidl, buf):
+            ok = SHGetPathFromIDList(pidl, buf)
+            if ok:
                 path = Path(buf.value)
+                log.info("Shell notification event_id=0x%x action=%s path=%s exists=%s",
+                         raw_event_id, action, path, path.exists())
                 if path.exists() or action in ("deleted", "dir_removed"):
-                    log.info("Shell notification event_id=0x%x action=%s path=%s",
-                             raw_event_id, action, path)
                     self._dispatch(ShellEvent(path=path, action=action))
+                else:
+                    log.info("Shell event skipped (path gone and not delete): %s", path)
+            else:
+                log.warning("SHGetPathFromIDList failed for event_id=0x%x action=%s pidl=%s",
+                           raw_event_id, action, pidl)
         finally:
             SHChangeNotification_Unlock(lock)
 
     # ── lifecycle ──────────────────────────────────────────────────────────
     def start(self, callback=None):
-        """Start the watcher. If callback given, connect it to `event`."""
+        """Start the watcher. If callback given, poll queue from main thread."""
         if self._thread and self._thread.is_alive():
             return
         if callback is not None:
             self._callback = callback
-            self.event.connect(callback)
+            from PyQt5.QtCore import QTimer
+            self._poll_timer = QTimer()
+            self._poll_timer.timeout.connect(self._poll_events)
+            self._poll_timer.start(50)
         self._stop_event.clear()
         self._inited.clear()
         self._startup_error = None
@@ -240,7 +253,9 @@ class ShellWatcher(QObject):
 
     def stop(self):
         self._stop_event.set()
-        self._inited.set()  # unblock if thread never got going
+        self._inited.set()
+        if hasattr(self, '_poll_timer') and self._poll_timer is not None:
+            self._poll_timer.stop()
         if self._hwnd:
             user32.PostMessageW(self._hwnd, 0x0010, 0, 0)  # WM_CLOSE
         if self._thread:
@@ -384,7 +399,7 @@ class ShellWatcher(QObject):
         if now - last < self._debounce_ms / 1000.0:
             return
         self._recent_actions[key] = now
-        self.event.emit(event)
+        self._event_queue.put(event)
 
     def dispatch(self, event: ShellEvent):
         """Manual dispatch (for tests / app-triggered events)."""
@@ -392,6 +407,18 @@ class ShellWatcher(QObject):
 
     def is_explorer_foreground(self) -> bool:
         return _is_explorer_foreground()
+
+    def _poll_events(self):
+        while not self._event_queue.empty():
+            try:
+                event = self._event_queue.get_nowait()
+                if self._callback is not None:
+                    self._callback(event)
+            except queue.Empty:
+                break
+            except Exception:
+                import logging
+                logging.getLogger("pet.shell_watcher").exception("callback failed")
 
     @property
     def registered(self) -> bool:

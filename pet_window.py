@@ -921,6 +921,9 @@ class PetWindow(QWidget):
             self.play_semantic(anim)
 
     def _on_shell_event(self, event):
+        import logging
+        _log = logging.getLogger("pet.shell_callback")
+        _log.info("_on_shell_event RECEIVED action=%s path=%s", event.action, event.path)
         if not self.config.get("file_event_animations_enabled", True):
             return
         # V3.2: removed is_explorer_foreground() gate — it was too strict
