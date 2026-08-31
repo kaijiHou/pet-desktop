@@ -1,7 +1,7 @@
 """Today's assistant panel: wage snapshot first, pocket and reminders below."""
 
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
+from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QApplication
 import theme
 
 
@@ -95,14 +95,41 @@ class QuickPanel(QWidget):
         self.move_near(rect, live=False, screen=pet_window.screen())
 
     def move_near(self, anchor_rect, live=False, screen=None):
-        from PyQt5.QtWidgets import QApplication
         scr = screen or QApplication.screenAt(anchor_rect.center()) or QApplication.primaryScreen(); avail = scr.availableGeometry(); self.adjustSize(); pw = self.width(); ph = max(self.sizeHint().height() + 16, self.height()); x, y = anchor_rect.right() + 8, anchor_rect.top()
         if x + pw - 1 > avail.right(): x = anchor_rect.left() - pw - 8
         if y + ph - 1 > avail.bottom(): y = avail.bottom() - ph + 1
         x = max(avail.left(), min(x, avail.right() - pw + 1)); y = max(avail.top(), min(y, avail.bottom() - ph + 1)); self.setGeometry(x, y, pw, ph)
-        if not live: self.show(); self.raise_(); self.activateWindow()
+        if not live:
+            self.show(); self.raise_(); self.activateWindow()
+            QApplication.instance().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        """Click-anywhere-outside closes the assistant panel.
+
+        Clicks on the pet itself are skipped: PetWindow toggles the panel in
+        its own mouse handler. Clicks on other applications' windows never
+        reach Qt — those are covered by focusOutEvent below.
+        """
+        if event.type() == QEvent.MouseButtonPress and self.isVisible():
+            gpos = event.globalPos()
+            inside_panel = self.geometry().contains(gpos)
+            pet = self.pet
+            pet_rect = (pet.visible_pet_global_rect()
+                        if hasattr(pet, "visible_pet_global_rect") else pet.geometry())
+            inside_pet = pet.isVisible() and pet_rect.contains(gpos)
+            if not inside_panel and not inside_pet:
+                self.hide()
+        return super().eventFilter(obj, event)
+
+    def hideEvent(self, event):
+        QApplication.instance().removeEventFilter(self)
+        super().hideEvent(event)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape: self.hide()
-    def focusOutEvent(self, event): QTimer.singleShot(150, self._check_focus_close)
-    def _check_focus_close(self):
-        if not self.isActiveWindow() and not self.pet.geometry().intersects(self.geometry()): self.hide()
+    def focusOutEvent(self, event):
+        # Focus went to another application window (in-app clicks are handled
+        # by eventFilter). Hide like any popup — no geometry heuristics.
+        QTimer.singleShot(0, self._close_if_inactive)
+    def _close_if_inactive(self):
+        if self.isVisible() and not self.isActiveWindow():
+            self.hide()

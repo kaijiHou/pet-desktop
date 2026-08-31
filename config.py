@@ -61,6 +61,22 @@ class Config:
     def __init__(self):
         self.data = dict(DEFAULT_CONFIG)
         self._load()
+        self._migrate_v31_scale_defaults()
+
+    def _migrate_v31_scale_defaults(self):
+        """One-shot: re-enable plain-wheel zoom on V2-era machines.
+
+        V2 builds saved ``wheel_zoom_enabled: false`` (the default of that
+        era's settings dialog), which silently disabled plain-wheel zoom on
+        every machine that ever opened Settings. V3.1 restores wheel zoom as
+        the default interaction; the marker below guarantees this migration
+        runs exactly once, afterwards the Settings checkbox governs.
+        """
+        if self.data.get("v31_wheel_migration_done"):
+            return
+        self.data["wheel_zoom_enabled"] = True
+        self.data["v31_wheel_migration_done"] = True
+        self.save()
 
     def _load(self):
         if CONFIG_FILE.exists():

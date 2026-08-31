@@ -607,11 +607,16 @@ class PetWindow(QWidget):
     def wheelEvent(self, event):
         # Plain wheel zooms when enabled; Ctrl+wheel ALWAYS zooms (reliable resizing).
         ctrl = event.modifiers() & Qt.ControlModifier
+        delta = event.angleDelta().y()
         if not ctrl and not self.config.get("wheel_zoom_enabled", True):
+            self._scale_debug("wheel_ignored", ctrl=bool(ctrl), angleDelta=delta,
+                              reason="wheel_zoom_enabled=false")
             event.ignore()
             return
-        factor = 0.15 if ctrl else 0.1
-        if event.angleDelta().y() > 0:
+        # 0.2 per plain notch is clearly visible at every scale (5–20% jump);
+        # Ctrl+wheel stays at 0.1 for fine adjustment.
+        factor = 0.1 if ctrl else 0.2
+        if delta > 0:
             self._change_scale(factor)
         else:
             self._change_scale(-factor)
@@ -991,8 +996,22 @@ class PetWindow(QWidget):
         self._resize_to_character()
 
     def _update_scale_preview(self, scale):
+        self._scale_debug("settings_preview", old=float(self.config.get("pet_scale", 3)), new=float(scale))
         self.character.set_scale(float(scale))
         self._resize_to_character()
+
+    def _scale_debug(self, source, **fields):
+        """Optional scaling diagnostics (PET_SCALE_DEBUG=1). Never logs wages."""
+        import os
+        if os.environ.get("PET_SCALE_DEBUG") != "1":
+            return
+        w, h = self.character.base_size()
+        vpr = self.visible_pet_rect()
+        logging.getLogger("pet.scale.debug").info(
+            "source=%s cfg_scale=%s char_scale=%s base_size=%dx%d win=%dx%d visible_rect=%dx%d %s",
+            source, self.config.get("pet_scale"), self.character.scale,
+            w, h, self.width(), self.height(), vpr.width(), vpr.height(),
+            " ".join(f"{k}={v}" for k, v in fields.items()))
 
     def _resize_to_character(self):
         w, h = self.character.base_size()
@@ -1007,6 +1026,7 @@ class PetWindow(QWidget):
         self.config.set("pet_scale", ns)
         self.character.set_scale(ns)
         self._resize_to_character()
+        self._scale_debug("wheel_change", delta=delta, old=current, new=ns)
 
     def _pil_to_qimage(self, pi):
         if pi.mode != "RGBA":
