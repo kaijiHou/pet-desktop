@@ -144,6 +144,7 @@ class SettingsDialog(QDialog):
         from character import import_character_image
         from paths import PROJECT_ROOT
         from PyQt5.QtWidgets import QFileDialog
+        from PIL import Image
         path, _ = QFileDialog.getOpenFileName(self, "选择角色图片", "", "图片 (*.png *.webp *.jpg *.jpeg)")
         if not path:
             return
@@ -155,8 +156,13 @@ class SettingsDialog(QDialog):
         self._work["character_image"] = name
         self._work["character_mode"] = "single"
         self._refresh_preview()
+        # Load actual image for live preview on the pet
+        try:
+            img = Image.open(PROJECT_ROOT / "assets" / name).convert("RGBA")
+        except OSError:
+            img = None
         if self.parent() and hasattr(self.parent(), "_reload_character_preview"):
-            self.parent()._reload_character_preview()
+            self.parent()._reload_character_preview(preview_pil_image=img)
 
     def _reset_image(self):
         self._work["character_image"] = ""
@@ -176,10 +182,10 @@ class SettingsDialog(QDialog):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR)))
 
     def _reject(self):
-        # restore the pet's size as it was before the dialog opened
+        # restore the pet's size and character as they were before the dialog
         if self.parent() and hasattr(self.parent(), "_update_scale_preview"):
             self.parent()._update_scale_preview(self._original_scale)
-            self.parent().character.reload()
+            self.parent().character.clear_preview()
         self.reject()
 
     def _save(self):
@@ -195,6 +201,9 @@ class SettingsDialog(QDialog):
         if "character_image" in self._work:
             c.set("character_image", self._work["character_image"])
             c.set("character_mode", self._work.get("character_mode", "single"))
+        # Clear preview and reload from (now updated) Config
+        if self.parent() and hasattr(self.parent(), "character"):
+            self.parent().character.clear_preview()
         self.accept()
 
 
@@ -1029,10 +1038,16 @@ class PetWindow(QWidget):
         if self._quick_panel is not None:
             self._quick_panel.refresh()
 
-    def _reload_character_preview(self):
-        # live character change during settings dialog
+    def _reload_character_preview(self, preview_pil_image=None):
+        """Live character change during settings dialog.
+        If preview_pil_image is given, use it temporarily (no Config write).
+        Otherwise reload from Config.
+        """
         try:
-            self.character.reload()
+            if preview_pil_image is not None:
+                self.character.preview_image(preview_pil_image)
+            else:
+                self.character.reload()
             self._resize_to_character()
             self.update()
         except Exception:

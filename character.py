@@ -88,6 +88,7 @@ class CharacterController:
         self._single_base_size = 0
         self._mode = "sheet"
         self._visible_alpha_bbox = None
+        self._preview_image = None
         self._reload()
 
     # ── loading ──
@@ -130,6 +131,23 @@ class CharacterController:
             self._visible_alpha_bbox = (0, 0, image.width, image.height)
 
     def reload(self):
+        self._reload()
+
+    def preview_image(self, image):
+        """Temporarily use a PIL image for live preview (no Config write)."""
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+        self._preview_image = image
+        self._mode = "single"
+        self._single_image = image
+        self._single_base_size = max(image.size)
+        self._visible_alpha_bbox = image.getchannel("A").getbbox()
+        if self._visible_alpha_bbox is None:
+            self._visible_alpha_bbox = (0, 0, image.width, image.height)
+
+    def clear_preview(self):
+        """Discard preview and reload from Config."""
+        self._preview_image = None
         self._reload()
 
     # ── properties ──
