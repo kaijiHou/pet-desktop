@@ -269,7 +269,7 @@ def test_default_pet_generation(tmp_path):
     assert (pack_dir / "spritesheet.webp").exists()
     # Verify atlas dimensions
     img = Image.open(pack_dir / "spritesheet.webp")
-    assert img.size == (1536, 1248)  # 8×6 cells
+    assert img.size == (1536, 1872)  # 8×9 V1 cells
     # Verify manifest
     with open(pack_dir / "pet.json") as f:
         m = json.load(f)

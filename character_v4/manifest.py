@@ -110,9 +110,16 @@ class CodexPetManifest:
         # Check required fields
         if not self.id:
             result.errors.append("Missing 'id' field")
+        elif not all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for c in self.id):
+            result.errors.append(f"Invalid id characters: {self.id}")
+        elif len(self.id) > 64:
+            result.errors.append(f"id too long: {len(self.id)} (max 64)")
 
-        # Check spritesheet exists
-        sheet_path = pack_root / self.spritesheet_path
+        # Check spritesheet path safety
+        sheet_path = (pack_root / self.spritesheet_path).resolve()
+        if not str(sheet_path).startswith(str(pack_root.resolve())):
+            result.errors.append(f"Spritesheet path escapes pack root: {self.spritesheet_path}")
+            return result
         if not sheet_path.exists():
             result.errors.append(f"Spritesheet not found: {self.spritesheet_path}")
             return result

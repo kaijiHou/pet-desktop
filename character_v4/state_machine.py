@@ -110,10 +110,16 @@ class PetStateMachine:
         cur_st = self._states.get(self._current_state)
         if new_st is None:
             return False
-        # Can only interrupt if current state is interruptible or has lower priority
+        # Can only interrupt if current state is interruptible
         if cur_st and not cur_st.interruptible:
             return False
-        if cur_st and new_st.priority <= cur_st.priority:
+        # Allow same-priority directional switching (drag L↔R, look U↔D)
+        same_dir_pair = {
+            ("DRAG_LEFT", "DRAG_RIGHT"), ("DRAG_RIGHT", "DRAG_LEFT"),
+            ("LOOK_UP", "LOOK_DOWN"), ("LOOK_DOWN", "LOOK_UP"),
+        }
+        is_same_dir = (self._current_state, target) in same_dir_pair
+        if cur_st and not is_same_dir and new_st.priority <= cur_st.priority:
             return False
         self._enter_state(target)
         return True
@@ -128,13 +134,18 @@ class PetStateMachine:
             "drag_left": "DRAG_LEFT",
             "drag_right": "DRAG_RIGHT",
             "receive_file": "RECEIVE_FILE",
+            "give_file": "RECEIVE_FILE",
             "create_file": "CREATE_FILE",
             "delete_file": "DELETE_FILE",
             "rename_file": "RENAME_FILE",
+            "copy_file": "CREATE_FILE",
+            "move_file": "RECEIVE_FILE",
             "reminder": "REMINDER",
             "wage_progress": "WAGE_PROGRESS",
             "overtime": "OVERTIME",
             "clock_out": "CLOCK_OUT",
+            "meal_allowance": "RECEIVE_FILE",
+            "success": "CLICK",
             "error": "ERROR",
             "sleep": "SLEEP",
             "look_up": "LOOK_UP",
