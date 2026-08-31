@@ -530,19 +530,19 @@ class PetWindow(QWidget):
             return 1.0, 0, 0, 0
         nm, pm = self._sem_steps[self._sem_idx]
         if nm == "bob":
-            return 1.0, 0, -abs(pm) * 3, 0
+            return 1.0, 0, -abs(pm) * 6, 0        # breathing: doubled
         if nm == "squash":
-            return pm, 0, 4, 0
+            return pm, 0, 8, 0                      # squash landing: doubled
         if nm == "bounce":
-            return pm, 0, -8 * (pm - 1), 0
+            return pm, 0, -16 * (pm - 1), 0         # bounce height: doubled
         if nm == "tilt":
-            return 1.0, 0, 0, pm
+            return 1.0, 0, 0, pm * 2                # tilt angle: doubled
         if nm == "shake":
-            return 1.0, 8 if self._sem_idx % 2 else -8, 0, 0
+            return 1.0, 16 if self._sem_idx % 2 else -16, 0, 0  # shake: doubled
         if nm == "pop":
             return pm, 0, 0, 0
         if nm == "slide":
-            return 1.0, pm, 0, 0
+            return 1.0, pm * 2, 0, 0                # slide distance: doubled
         return 1.0, 0, 0, 0
 
     def _draw_badge(self, painter, count):

@@ -152,7 +152,7 @@ def test_paint_applies_dxdy_translation(pet_window):
     pet_window._sem_active = True
     sf, dx, dy, rot = pet_window._current_transform()
     assert sf == 1.0
-    assert dx == 10  # slide uses dx
+    assert dx == 20  # slide uses dx (doubled)
     pet_window._sem_steps = [("bob", 1.5)]
     sf, dx, dy, rot = pet_window._current_transform()
     assert dy != 0  # bob uses dy

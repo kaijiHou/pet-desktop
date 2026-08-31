@@ -24,12 +24,12 @@ SINGLE_ANIMATIONS = {
     "IDLE":         [("bob", 0.0), ("bob", 1.5)],          # gentle breathing
     "RECEIVE_FILE": [("squash", 0.88), ("bounce", 1.10), ("normal", 1.0)],
     "GIVE_FILE":    [("tilt", 6), ("normal", 1.0)],
-    "DELETE_FILE":  [("shake", 0), ("shake", 0), ("normal", 1.0)],
-    "CREATE_FILE":  [("bounce", 1.06), ("normal", 1.0)],
-    "RENAME_FILE":  [("tilt", -6), ("tilt", 6), ("normal", 1.0)],
-    "COPY_FILE":    [("pop", 1.08), ("pop", 1.08), ("normal", 1.0)],
-    "MOVE_FILE":    [("slide", 10), ("slide", -10), ("normal", 1.0)],
-    "REMINDER":     [("bounce", 1.12), ("bounce", 1.12), ("normal", 1.0)],
+    "DELETE_FILE":  [("shake", 0), ("shake", 0), ("shake", 0), ("normal", 1.0)],  # 3 shakes
+    "CREATE_FILE":  [("bounce", 1.08), ("bounce", 1.06), ("normal", 1.0)],        # double bounce
+    "RENAME_FILE":  [("tilt", -8), ("tilt", 8), ("tilt", -4), ("normal", 1.0)],   # extra tilt
+    "COPY_FILE":    [("pop", 1.10), ("pop", 1.10), ("pop", 1.08), ("normal", 1.0)],  # triple pop
+    "MOVE_FILE":    [("slide", 15), ("slide", -15), ("slide", 8), ("normal", 1.0)],  # triple slide
+    "REMINDER":     [("bounce", 1.14), ("bounce", 1.14), ("bounce", 1.10), ("normal", 1.0)],
     "SUCCESS":      [("bounce", 1.08), ("normal", 1.0)],
     "ERROR":        [("shake", 0), ("shake", 0), ("shake", 0), ("normal", 1.0)],
     "WAGE_PROGRESS": [("pop", 1.04), ("normal", 1.0)],
