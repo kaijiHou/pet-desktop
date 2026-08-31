@@ -270,6 +270,20 @@ class PetWindow(QWidget):
         self._load_position()
         QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
 
+    def _load_dynamic_renderer(self):
+        from character_v4.renderer import DynamicPackRenderer
+        from paths import PROJECT_ROOT
+        pack_id = self.config.get("selected_character_id", "")
+        if not pack_id:
+            return
+        pack_dir = PROJECT_ROOT / "data" / "characters" / pack_id
+        if not pack_dir.exists():
+            return
+        renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3))
+        if renderer.load():
+            self.dynamic_renderer = renderer
+            renderer.frame_changed.connect(self.update)
+
     def _setup_window(self):
         flags = Qt.FramelessWindowHint | Qt.Tool
         if self.config.get("always_on_top", True):
@@ -502,14 +516,23 @@ class PetWindow(QWidget):
             t.translate(self.width() // 2 + dx, 20 + h // 2 + dy)
             t.rotate(rot)
             t.scale(sf, sf)
-            if self.character.mode == "single":
+            if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+                cw, ch = self.dynamic_renderer.size()
+                painter.setTransform(t)
+                self.dynamic_renderer.paint(painter, -cw // 2, -ch // 2, cw, ch)
+                w, h = cw, ch
+            elif self.character.mode == "single":
                 img = self.character.get_single_frame()
+                qimage = self._pil_to_qimage(img)
+                pixmap = QPixmap.fromImage(qimage)
+                painter.setTransform(t)
+                painter.drawPixmap(-w // 2, -h // 2, w, h, pixmap)
             else:
                 img = self.sprite_loader.get_frame(self._animation, self._frame)
-            qimage = self._pil_to_qimage(img)
-            pixmap = QPixmap.fromImage(qimage)
-            painter.setTransform(t)
-            painter.drawPixmap(-w // 2, -h // 2, w, h, pixmap)
+                qimage = self._pil_to_qimage(img)
+                pixmap = QPixmap.fromImage(qimage)
+                painter.setTransform(t)
+                painter.drawPixmap(-w // 2, -h // 2, w, h, pixmap)
             painter.resetTransform()
             if self._drag_hover:
                 painter.setPen(QPen(QColor(53, 116, 240, 120), 3))
@@ -739,6 +762,16 @@ class PetWindow(QWidget):
         return out
 
     def play_semantic(self, semantic):
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            event_map = {
+                "CREATE_FILE": "create_file", "DELETE_FILE": "delete_file",
+                "RENAME_FILE": "rename_file", "RECEIVE_FILE": "receive_file",
+                "REMINDER": "reminder", "WAGE_PROGRESS": "wage_progress",
+                "OVERTIME_START": "overtime", "CLOCK_OUT": "clock_out",
+                "ERROR": "error", "SUCCESS": "success",
+            }
+            self.dynamic_renderer.play_semantic(event_map.get(semantic, "idle"))
+            return
         if self.character.mode == "sheet":
             self.play_animation(self._SHEET_MAP.get(semantic, "RestPose"))
             return
