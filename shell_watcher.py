@@ -68,16 +68,21 @@ class WNDCLASSW(Structure):
 class SHChangeNotifyEntry(Structure):
     _fields_ = [("pidl", c_void_p), ("fRecursive", wintypes.BOOL)]
 
-# ── Shell notification event codes ─────────────────────────────────────────
-SHCNE_RENAMEITEM = 0x00000001
-SHCNE_RENAMEFOLDER = 0x00000002
-SHCNE_MKDIR = 0x00000004
-SHCNE_CREATE = 0x00000100
-SHCNE_DELETE = 0x00000200
-SHCNE_RMDIR = 0x00000008
+# ── Shell notification event codes (Windows SDK contract) ────────────────
+# Source: Microsoft Learn "SHChangeNotify" / "SHCNE" constants
+SHCNE_RENAMEITEM   = 0x00000001
+SHCNE_CREATE       = 0x00000002
+SHCNE_DELETE       = 0x00000004
+SHCNE_MKDIR        = 0x00000008
+SHCNE_RMDIR        = 0x00000010
+SHCNE_RENAMEFOLDER = 0x00020000
+SHCNE_INTERRUPT    = 0x80000000
 
-# Combined mask for the single-PIDL events we subscribe to.
-WATCH_EVENTS = SHCNE_CREATE | SHCNE_DELETE | SHCNE_MKDIR | SHCNE_RMDIR
+# Combined mask for the events we subscribe to.
+WATCH_EVENTS = (
+    SHCNE_CREATE | SHCNE_DELETE | SHCNE_MKDIR | SHCNE_RMDIR
+    | SHCNE_RENAMEITEM | SHCNE_RENAMEFOLDER
+)
 
 SHCNF_IDLIST = 0x0000
 WM_SHChangeNotify = 0x0401

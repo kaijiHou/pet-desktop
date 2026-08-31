@@ -931,12 +931,15 @@ class PetWindow(QWidget):
         action_map = {"created": "CREATE_FILE", "deleted": "DELETE_FILE",
                       "renamed": "RENAME_FILE", "dir_created": "CREATE_FILE",
                       "dir_removed": "DELETE_FILE", "dir_renamed": "RENAME_FILE"}
+        bubble_map = {"created": "检测到新建文件", "deleted": "检测到删除文件",
+                      "dir_created": "检测到新建文件夹", "dir_removed": "检测到删除文件夹",
+                      "renamed": "检测到文件重命名", "dir_renamed": "检测到文件夹重命名"}
         semantic = action_map.get(event.action)
         if semantic:
             self._state = self.STATE_TALKING
             self.play_semantic(semantic)
-            self.show_bubble("检测到文件操作", 2000)
-            QTimer.singleShot(2500, lambda: self.set_state(self.STATE_IDLE))
+            self.show_bubble(bubble_map.get(event.action, "检测到文件操作"), 2500)
+            QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
 
     def _open_add_reminder(self):
         d = AddReminderDialog(self)

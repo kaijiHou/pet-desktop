@@ -1,21 +1,54 @@
-"""Shell watcher tests (V3.2 — queue-based cross-thread delivery).
+"""Shell watcher tests (V3.5 — Windows SDK contract-correct constants).
 
-Two layers:
-  1. unit: debounce / stop / action mapping
-  2. integration: registration + real shell broadcast reaches callback
+CRITICAL: Tests assert against Windows SDK values, NOT against production
+code constants. This prevents "wrong code + wrong test = false PASS".
+
+Source: Microsoft Learn "SHChangeNotify" / "SHCNE" constants
 """
 import time
 import pytest
 from shell_watcher import ShellWatcher, ShellEvent, _SHELL_TO_ACTION
 
 
+# ── Windows SDK contract tests ──────────────────────────────────────────────
+# These must match the Microsoft documentation exactly.
+
+def test_shell_constants_match_windows_sdk():
+    """SHCNE values MUST match Windows SDK. Do NOT import from production code."""
+    from shell_watcher import (
+        SHCNE_RENAMEITEM, SHCNE_CREATE, SHCNE_DELETE,
+        SHCNE_MKDIR, SHCNE_RMDIR, SHCNE_RENAMEFOLDER,
+    )
+    assert SHCNE_RENAMEITEM   == 0x00000001  # Microsoft Learn
+    assert SHCNE_CREATE       == 0x00000002  # Microsoft Learn
+    assert SHCNE_DELETE       == 0x00000004  # Microsoft Learn
+    assert SHCNE_MKDIR        == 0x00000008  # Microsoft Learn
+    assert SHCNE_RMDIR        == 0x00000010  # Microsoft Learn
+    assert SHCNE_RENAMEFOLDER == 0x00020000  # Microsoft Learn
+
+
+def test_shell_action_mapping_matches_sdk():
+    """Action mapping must use correct SDK values."""
+    from shell_watcher import (
+        SHCNE_CREATE, SHCNE_DELETE, SHCNE_MKDIR,
+        SHCNE_RMDIR, SHCNE_RENAMEITEM, SHCNE_RENAMEFOLDER,
+    )
+    assert _SHELL_TO_ACTION[SHCNE_CREATE] == "created"
+    assert _SHELL_TO_ACTION[SHCNE_DELETE] == "deleted"
+    assert _SHELL_TO_ACTION[SHCNE_MKDIR] == "dir_created"
+    assert _SHELL_TO_ACTION[SHCNE_RMDIR] == "dir_removed"
+    assert _SHELL_TO_ACTION[SHCNE_RENAMEITEM] == "renamed"
+    assert _SHELL_TO_ACTION[SHCNE_RENAMEFOLDER] == "dir_renamed"
+
+
+# ── unit tests ──────────────────────────────────────────────────────────────
+
 @pytest.mark.unit
 def test_dispatch_calls_callback():
     events = []
     w = ShellWatcher(debounce_ms=0)
     w.start(lambda e: events.append(e))
-    # dispatch puts event in queue; poll_events delivers it
-    w.dispatch(ShellEvent(path="/test/file.txt", action="created"))
+    w.dispatch(ShellEvent(action="created", path="/test/file.txt"))
     w._poll_events()
     w.stop()
     assert len(events) == 1
@@ -27,12 +60,12 @@ def test_debounce_suppresses_duplicates():
     events = []
     w = ShellWatcher(debounce_ms=500)
     w.start(lambda e: events.append(e))
-    w.dispatch(ShellEvent(path="/a.txt", action="deleted"))
-    w.dispatch(ShellEvent(path="/a.txt", action="deleted"))  # suppressed
-    w.dispatch(ShellEvent(path="/b.txt", action="deleted"))
+    w.dispatch(ShellEvent(action="deleted", path="/a.txt"))
+    w.dispatch(ShellEvent(action="deleted", path="/a.txt"))
+    w.dispatch(ShellEvent(action="deleted", path="/b.txt"))
     w._poll_events()
     time.sleep(0.6)
-    w.dispatch(ShellEvent(path="/a.txt", action="deleted"))
+    w.dispatch(ShellEvent(action="deleted", path="/a.txt"))
     w._poll_events()
     w.stop()
     assert len(events) == 3
@@ -44,72 +77,10 @@ def test_stop_prevents_further_dispatch():
     w = ShellWatcher()
     w.start(lambda e: events.append(e))
     w.stop()
-    w.dispatch(ShellEvent(path="/x.txt", action="created"))
+    w.dispatch(ShellEvent(action="created", path="/x.txt"))
     w._poll_events()
     assert len(events) == 0
 
-
-@pytest.mark.unit
-def test_shell_action_mapping():
-    assert _SHELL_TO_ACTION[0x00000100] == "created"
-    assert _SHELL_TO_ACTION[0x00000200] == "deleted"
-    assert _SHELL_TO_ACTION[0x00000001] == "renamed"
-
-
-@pytest.mark.integration
-def test_registration_id_is_nonzero(qapp):
-    """ShellWatcher must register with SHChangeNotifyRegister."""
-    import sys
-    if not sys.platform.startswith("win"):
-        pytest.skip("Windows-only")
-    w = ShellWatcher()
-    w.start()
-    assert w.registered, "SHChangeNotifyRegister must return nonzero id"
-    w.stop()
-
-
-@pytest.mark.integration
-def test_real_shell_broadcast_reaches_callback(qapp, test_temp_root):
-    """Real SHChangeNotify broadcast must reach the callback via queue."""
-    import sys, ctypes, os
-    if not sys.platform.startswith("win"):
-        pytest.skip("Windows-only")
-
-    shell32 = ctypes.windll.shell32
-    w = ShellWatcher(debounce_ms=0)
-    got = []
-    w.start(lambda e: got.append((e.action, str(e.path))))
-    assert w.registered
-
-    # broadcast a real SHCNE_CREATE
-    p = test_temp_root / "shell_test.txt"
-    p.write_text("x")
-    pidl = ctypes.c_void_p()
-    attr = ctypes.c_ulong()
-    shell32.SHParseDisplayName.restype = ctypes.c_long
-    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p,
-                                           ctypes.POINTER(ctypes.c_void_p),
-                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
-    shell32.SHParseDisplayName(str(p), None, ctypes.byref(pidl), 0, ctypes.byref(attr))
-    shell32.SHChangeNotify.restype = None
-    shell32.SHChangeNotify.argtypes = [ctypes.c_ulong, ctypes.c_uint,
-                                       ctypes.c_void_p, ctypes.c_void_p]
-    shell32.SHChangeNotify(0x100, 0, pidl, None)  # SHCNE_CREATE, SHCNF_IDLIST
-
-    # poll for delivery
-    result = {}
-    def check():
-        w._poll_events()
-        result["got"] = list(got)
-        w.stop()
-        p.unlink(missing_ok=True)
-        qapp.exit()
-
-    from PyQt5.QtCore import QTimer
-    QTimer.singleShot(1500, check)
-    qapp.exec_()
-    assert any(e[0] == "created" for e in result.get("got", [])), \
-        "real shell create event must reach callback"
 
 @pytest.mark.unit
 def test_shell_delete_dispatches_even_when_pidl_path_decode_fails():
@@ -117,7 +88,6 @@ def test_shell_delete_dispatches_even_when_pidl_path_decode_fails():
     events = []
     w = ShellWatcher(debounce_ms=0)
     w.start(lambda e: events.append(e))
-    # Simulate: action decoded but path unknown (pidl decode failed)
     w.dispatch(ShellEvent(action="deleted", path=None))
     w._poll_events()
     w.stop()
@@ -145,8 +115,100 @@ def test_debounce_aggregates_unknown_path_events():
     w = ShellWatcher(debounce_ms=500)
     w.start(lambda e: events.append(e))
     w.dispatch(ShellEvent(action="deleted", path=None))
-    w.dispatch(ShellEvent(action="deleted", path=None))  # suppressed
-    w.dispatch(ShellEvent(action="deleted", path=None))  # suppressed
+    w.dispatch(ShellEvent(action="deleted", path=None))
+    w.dispatch(ShellEvent(action="deleted", path=None))
     w._poll_events()
     w.stop()
-    assert len(events) == 1  # only one delivered due to debounce
+    assert len(events) == 1
+
+
+# ── integration tests ───────────────────────────────────────────────────────
+
+@pytest.mark.integration
+def test_registration_id_is_nonzero(qapp):
+    """ShellWatcher must register with SHChangeNotifyRegister."""
+    import sys
+    if not sys.platform.startswith("win"):
+        pytest.skip("Windows-only")
+    w = ShellWatcher()
+    w.start()
+    assert w.registered, "SHChangeNotifyRegister must return nonzero id"
+    w.stop()
+
+
+@pytest.mark.integration
+def test_real_shell_create_broadcast(qapp, test_temp_root):
+    """Real SHCNE_CREATE broadcast must reach callback."""
+    import sys, ctypes, os
+    if not sys.platform.startswith("win"):
+        pytest.skip("Windows-only")
+    from shell_watcher import SHCNE_CREATE
+    shell32 = ctypes.windll.shell32
+    w = ShellWatcher(debounce_ms=0)
+    got = []
+    w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
+    assert w.registered
+    p = test_temp_root / "shell_create_test.txt"
+    p.write_text("x")
+    pidl = ctypes.c_void_p()
+    attr = ctypes.c_ulong()
+    shell32.SHParseDisplayName.restype = ctypes.c_long
+    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p),
+                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+    shell32.SHParseDisplayName(str(p), None, ctypes.byref(pidl), 0, ctypes.byref(attr))
+    shell32.SHChangeNotify.restype = None
+    shell32.SHChangeNotify.argtypes = [ctypes.c_ulong, ctypes.c_uint,
+                                       ctypes.c_void_p, ctypes.c_void_p]
+    shell32.SHChangeNotify(SHCNE_CREATE, 0, pidl, None)
+    result = {}
+    def check():
+        w._poll_events()
+        result["got"] = list(got)
+        w.stop()
+        p.unlink(missing_ok=True)
+        qapp.exit()
+    from PyQt5.QtCore import QTimer
+    QTimer.singleShot(1500, check)
+    qapp.exec_()
+    assert any(e[0] == "created" for e in result.get("got", [])), \
+        "real SHCNE_CREATE must reach callback"
+
+
+@pytest.mark.integration
+def test_real_shell_delete_broadcast(qapp, test_temp_root):
+    """Real SHCNE_DELETE broadcast must reach callback."""
+    import sys, ctypes, os
+    if not sys.platform.startswith("win"):
+        pytest.skip("Windows-only")
+    from shell_watcher import SHCNE_DELETE
+    shell32 = ctypes.windll.shell32
+    w = ShellWatcher(debounce_ms=0)
+    got = []
+    w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
+    assert w.registered
+    p = test_temp_root / "shell_delete_test.txt"
+    p.write_text("x")
+    pidl = ctypes.c_void_p()
+    attr = ctypes.c_ulong()
+    shell32.SHParseDisplayName.restype = ctypes.c_long
+    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p,
+                                           ctypes.POINTER(ctypes.c_void_p),
+                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+    shell32.SHParseDisplayName(str(p), None, ctypes.byref(pidl), 0, ctypes.byref(attr))
+    shell32.SHChangeNotify.restype = None
+    shell32.SHChangeNotify.argtypes = [ctypes.c_ulong, ctypes.c_uint,
+                                       ctypes.c_void_p, ctypes.c_void_p]
+    shell32.SHChangeNotify(SHCNE_DELETE, 0, pidl, None)
+    result = {}
+    def check():
+        w._poll_events()
+        result["got"] = list(got)
+        w.stop()
+        p.unlink(missing_ok=True)
+        qapp.exit()
+    from PyQt5.QtCore import QTimer
+    QTimer.singleShot(1500, check)
+    qapp.exec_()
+    assert any(e[0] == "deleted" for e in result.get("got", [])), \
+        "real SHCNE_DELETE must reach callback"
