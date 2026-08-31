@@ -9,7 +9,7 @@ import logging
 import time
 from typing import Callable, Optional
 
-from .file_event import FileSemanticEvent
+from file_event import FileSemanticEvent
 
 LOGGER = logging.getLogger("pet.file_dispatcher")
 

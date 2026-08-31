@@ -16,7 +16,7 @@ from typing import Callable, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from .file_event import FileSemanticEvent
+from file_event import FileSemanticEvent
 
 LOGGER = logging.getLogger("pet.explorer_watch")
 
