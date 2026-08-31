@@ -21,8 +21,9 @@ context of its own.
 
 from PyQt5.QtCore import Qt, QRect, QRectF
 from PyQt5.QtGui import QPainter, QPainterPath, QPen, QFont, QFontMetrics, QColor, QImage
-from PyQt5.QtWidgets import QLabel, QApplication
+from PyQt5.QtWidgets import QLabel
 
+import anchor
 import theme
 
 
@@ -97,29 +98,12 @@ class BubbleWindow(QLabel):
         return QPixmap.fromImage(img)
 
     # ── placement ──
-    def place_near(self, anchor: QRect, screen=None):
+    def place_near(self, anchor_rect: QRect, screen=None):
         """Place next to *anchor* while staying in availableGeometry."""
-        self._anchor = QRect(anchor)
-        screen = screen or QApplication.screenAt(anchor.center()) or QApplication.primaryScreen()
-        avail = screen.availableGeometry()
+        self._anchor = QRect(anchor_rect)
         w, h = self.width(), self.height()
-        candidates = [
-            (anchor.left() + (anchor.width() - w) // 2, anchor.top() - h - self.GAP, "down"),
-            (anchor.left() + (anchor.width() - w) // 2, anchor.bottom() + self.GAP, "up"),
-            (anchor.right() + self.GAP, anchor.top() + (anchor.height() - h) // 2, "left"),
-            (anchor.left() - w - self.GAP, anchor.top() + (anchor.height() - h) // 2, "right"),
-        ]
-        chosen = None
-        for x, y, tail in candidates:
-            if (x >= avail.left() and y >= avail.top()
-                    and x + w - 1 <= avail.right() and y + h - 1 <= avail.bottom()):
-                chosen = (x, y, tail)
-                break
-        if chosen is None:
-            x = max(avail.left(), min(candidates[0][0], avail.right() - w + 1))
-            y = max(avail.top(), min(candidates[0][1], avail.bottom() - h + 1))
-            chosen = (x, y, candidates[0][2])
-        x, y, new_tail = chosen
+        x, y, new_tail = anchor.place_bubble(self, anchor_rect, screen,
+                                             gap=self.GAP, tail_len=self.TAIL)
         if new_tail != self._tail:
             self._tail = new_tail
             self.setPixmap(self._render(w, h, new_tail))

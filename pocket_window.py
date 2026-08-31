@@ -116,21 +116,12 @@ class PocketWindow(QWidget):
 
     def move_near(self, anchor_rect, live=False, screen=None):
         """Position beside the pet; live=True only updates geometry (follow)."""
-        from PyQt5.QtCore import QRect
         self.adjustSize()
         pw = max(self.sizeHint().width(), self.minimumWidth())
         ph = max(self.sizeHint().height(), self.minimumHeight())
-        scr = screen or QApplication.screenAt(anchor_rect.center()) or QApplication.primaryScreen()
-        avail = scr.availableGeometry()
-        x = anchor_rect.right() + 8
-        y = anchor_rect.top()
-        if x + pw - 1 > avail.right():
-            x = anchor_rect.left() - pw - 8
-        if y + ph - 1 > avail.bottom():
-            y = avail.bottom() - ph + 1
-        x = max(avail.left(), min(x, avail.right() - pw + 1))
-        y = max(avail.top(), min(y, avail.bottom() - ph + 1))
-        self.setGeometry(x, y, pw, ph)
+        self.resize(pw, ph)
+        import anchor
+        anchor.place_panel(self, anchor_rect, screen=screen)
         if not live:
             self.show()
             self.raise_()

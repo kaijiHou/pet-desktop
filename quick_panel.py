@@ -95,10 +95,11 @@ class QuickPanel(QWidget):
         self.move_near(rect, live=False, screen=pet_window.screen())
 
     def move_near(self, anchor_rect, live=False, screen=None):
-        scr = screen or QApplication.screenAt(anchor_rect.center()) or QApplication.primaryScreen(); avail = scr.availableGeometry(); self.adjustSize(); pw = self.width(); ph = max(self.sizeHint().height() + 16, self.height()); x, y = anchor_rect.right() + 8, anchor_rect.top()
-        if x + pw - 1 > avail.right(): x = anchor_rect.left() - pw - 8
-        if y + ph - 1 > avail.bottom(): y = avail.bottom() - ph + 1
-        x = max(avail.left(), min(x, avail.right() - pw + 1)); y = max(avail.top(), min(y, avail.bottom() - ph + 1)); self.setGeometry(x, y, pw, ph)
+        self.adjustSize()
+        ph = max(self.sizeHint().height() + 16, self.height())
+        self.resize(self.width(), ph)
+        import anchor
+        anchor.place_panel(self, anchor_rect, screen=screen)
         if not live:
             self.show(); self.raise_(); self.activateWindow()
             QApplication.instance().installEventFilter(self)

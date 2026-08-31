@@ -36,11 +36,11 @@ class TodayWageWindow(QWidget):
         self.move_near(anchor, screen=screen, live=False)
 
     def move_near(self, anchor, screen=None, live=False):
-        from PyQt5.QtWidgets import QApplication
-        scr = screen or QApplication.screenAt(anchor.center()) or QApplication.primaryScreen(); avail = scr.availableGeometry(); self.adjustSize(); w,h=self.sizeHint().width()+16,self.sizeHint().height()+16; x=anchor.right()+8; y=anchor.top()
-        if x+w-1>avail.right(): x=anchor.left()-w-8
-        if y+h-1>avail.bottom(): y=avail.bottom()-h+1
-        self.setGeometry(max(avail.left(), min(x,avail.right()-w+1)), max(avail.top(), min(y,avail.bottom()-h+1)), w,h)
+        self.adjustSize()
+        w, h = self.sizeHint().width() + 16, self.sizeHint().height() + 16
+        self.resize(w, h)
+        import anchor
+        anchor.place_panel(self, anchor, screen=screen)
         if not live:
             self.show(); self.raise_(); self._timer.start()
 
