@@ -139,15 +139,21 @@ def test_registration_id_is_nonzero(qapp):
 @pytest.mark.integration
 def test_real_shell_create_broadcast(qapp, test_temp_root):
     """Real SHCNE_CREATE broadcast must reach callback."""
-    import sys, ctypes, os
+    import sys, ctypes, os, time
     if not sys.platform.startswith("win"):
         pytest.skip("Windows-only")
     from shell_watcher import SHCNE_CREATE
     shell32 = ctypes.windll.shell32
-    w = ShellWatcher(debounce_ms=0)
-    got = []
-    w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
-    assert w.registered
+    # Retry up to 3 times to handle RegisterClassW resource contention
+    for attempt in range(3):
+        w = ShellWatcher(debounce_ms=0)
+        got = []
+        w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
+        if w.registered:
+            break
+        w.stop()
+        time.sleep(0.2)
+    assert w.registered, "Failed to register after 3 attempts"
     p = test_temp_root / "shell_create_test.txt"
     p.write_text("x")
     pidl = ctypes.c_void_p()
@@ -178,15 +184,20 @@ def test_real_shell_create_broadcast(qapp, test_temp_root):
 @pytest.mark.integration
 def test_real_shell_delete_broadcast(qapp, test_temp_root):
     """Real SHCNE_DELETE broadcast must reach callback."""
-    import sys, ctypes, os
+    import sys, ctypes, os, time
     if not sys.platform.startswith("win"):
         pytest.skip("Windows-only")
     from shell_watcher import SHCNE_DELETE
     shell32 = ctypes.windll.shell32
-    w = ShellWatcher(debounce_ms=0)
-    got = []
-    w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
-    assert w.registered
+    for attempt in range(3):
+        w = ShellWatcher(debounce_ms=0)
+        got = []
+        w.start(lambda e: got.append((e.action, str(e.path) if e.path else None)))
+        if w.registered:
+            break
+        w.stop()
+        time.sleep(0.2)
+    assert w.registered, "Failed to register after 3 attempts"
     p = test_temp_root / "shell_delete_test.txt"
     p.write_text("x")
     pidl = ctypes.c_void_p()
