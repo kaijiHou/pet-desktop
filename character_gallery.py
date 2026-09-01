@@ -180,6 +180,9 @@ class CharacterGalleryDialog(QDialog):
         if entry and entry.is_builtin:
             QMessageBox.information(self, "提示", "内置角色不能删除")
             return
+        if char_id == self.current_id:
+            QMessageBox.information(self, "提示", "当前正在使用的角色不能删除，请先切换角色")
+            return
         reply = QMessageBox.question(
             self, "确认删除",
             f"确定删除角色 '{entry.display_name if entry else char_id}'?",

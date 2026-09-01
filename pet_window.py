@@ -146,33 +146,37 @@ class SettingsDialog(QDialog):
 
     def _import_image(self):
         from character import import_character_image
-        from paths import PROJECT_ROOT
+        from paths import DATA_DIR
         from PyQt5.QtWidgets import QFileDialog
         from PIL import Image
         path, _ = QFileDialog.getOpenFileName(self, "选择角色图片", "", "图片 (*.png *.webp *.jpg *.jpeg)")
         if not path:
             return
+        img_dir = DATA_DIR / "character_images"
+        img_dir.mkdir(parents=True, exist_ok=True)
         try:
-            name = import_character_image(Path(path), PROJECT_ROOT / "assets")
+            name = import_character_image(Path(path), img_dir)
         except ValueError as exc:
             QMessageBox.warning(self, "导入失败", str(exc))
             return
-        self._work["character_image"] = name
+        self._work["character_image"] = str(img_dir / name)
         self._work["character_mode"] = "single"
+        self._work["selected_character_id"] = ""
         self._refresh_preview()
-        # Load actual image for live preview on the pet
         try:
-            img = Image.open(PROJECT_ROOT / "assets" / name).convert("RGBA")
+            img = Image.open(img_dir / name).convert("RGBA")
         except OSError:
             img = None
         if self.parent() and hasattr(self.parent(), "_reload_character_preview"):
             self.parent()._reload_character_preview(preview_pil_image=img)
 
     def _reset_image(self):
+        self._work["character_mode"] = "dynamic_pack"
+        self._work["selected_character_id"] = "default_dynamic_ghost"
         self._work["character_image"] = ""
         self._refresh_preview()
-        if self.parent() and hasattr(self.parent(), "_reload_character_preview"):
-            self.parent()._reload_character_preview()
+        if self.parent() and hasattr(self.parent(), "preview_dynamic_character"):
+            self.parent().preview_dynamic_character("default_dynamic_ghost")
 
     def _open_data_dir(self):
         from paths import DATA_DIR
@@ -189,7 +193,9 @@ class SettingsDialog(QDialog):
         # restore the pet's size and character as they were before the dialog
         if self.parent() and hasattr(self.parent(), "_update_scale_preview"):
             self.parent()._update_scale_preview(self._original_scale)
-            self.parent().character.clear_preview()
+        # Restore original character
+        if self.parent() and hasattr(self.parent(), "restore_character_preview"):
+            self.parent().restore_character_preview()
         self.reject()
 
     def _open_gallery(self):
@@ -202,10 +208,8 @@ class SettingsDialog(QDialog):
         if dlg.exec_() == QDialog.Accepted:
             self._work["selected_character_id"] = dlg.selected_id
             self._work["character_mode"] = "dynamic_pack"
-            if self.parent() and hasattr(self.parent(), "_load_dynamic_renderer"):
-                self.parent().dynamic_renderer = None
-                self.parent()._load_dynamic_renderer()
-                self.parent()._resize_to_character()
+            if self.parent() and hasattr(self.parent(), "preview_dynamic_character"):
+                self.parent().preview_dynamic_character(dlg.selected_id)
 
     def _save(self):
         c = self.config
@@ -217,12 +221,18 @@ class SettingsDialog(QDialog):
         c.set("pocket_badge_enabled", self.badge_check.isChecked())
         c.set("reminder_sound_enabled", self.sound_check.isChecked())
         c.set("reminder_bubble_enabled", self.bubble_check.isChecked())
-        if "character_image" in self._work:
-            c.set("character_image", self._work["character_image"])
-            c.set("character_mode", self._work.get("character_mode", "single"))
-        # Clear preview and reload from (now updated) Config
-        if self.parent() and hasattr(self.parent(), "character"):
-            self.parent().character.clear_preview()
+        # Save character config
+        mode = self._work.get("character_mode", "single")
+        c.set("character_mode", mode)
+        if mode == "dynamic_pack":
+            c.set("selected_character_id", self._work.get("selected_character_id", ""))
+            c.set("character_image", "")
+        else:
+            if "character_image" in self._work:
+                c.set("character_image", self._work["character_image"])
+        # Apply character config to pet window
+        if self.parent() and hasattr(self.parent(), "_apply_character_config"):
+            self.parent()._apply_character_config()
         self.accept()
 
 
@@ -1189,6 +1199,56 @@ class PetWindow(QWidget):
             self.update()
         except Exception:
             pass
+
+    def _apply_character_config(self):
+        """Apply character config from Config to renderer."""
+        import logging
+        _log = logging.getLogger("pet.window.character")
+        mode = self.config.get("character_mode", "single")
+        _log.info("_apply_character_config mode=%s", mode)
+        if mode == "dynamic_pack":
+            self._load_dynamic_renderer()
+        else:
+            # Switch away from dynamic
+            if self.dynamic_renderer:
+                self.dynamic_renderer.stop()
+                self.dynamic_renderer = None
+            self.character.reload()
+        self._set_character_scale(float(self.config.get("pet_scale", 3)))
+
+    def preview_dynamic_character(self, char_id):
+        """Temporarily preview a dynamic character without writing Config."""
+        import logging
+        from character_v4.renderer import DynamicPackRenderer
+        from character_v4.registry import CharacterRegistry
+        from paths import ASSETS_DIR, DATA_DIR
+        _log = logging.getLogger("pet.window.preview")
+        registry = CharacterRegistry(ASSETS_DIR, DATA_DIR)
+        entry = registry.resolve(char_id)
+        if not entry or not entry.pack_root:
+            _log.warning("Cannot resolve character: %s", char_id)
+            return
+        old_renderer = self.dynamic_renderer
+        old_mode = self.config.get("character_mode")
+        old_id = self.config.get("selected_character_id")
+        try:
+            renderer = DynamicPackRenderer(entry.pack_root, scale=self.config.get("pet_scale", 3))
+            if renderer.load():
+                if old_renderer:
+                    old_renderer.stop()
+                self.dynamic_renderer = renderer
+                renderer.frame_changed.connect(self.update)
+                self._resize_to_character()
+                _log.info("Preview character loaded: %s", entry.display_name)
+            else:
+                _log.warning("Failed to load character: %s", char_id)
+        except Exception:
+            _log.exception("Preview character failed")
+            self.dynamic_renderer = old_renderer
+
+    def restore_character_preview(self):
+        """Restore the original character from Config."""
+        self._apply_character_config()
 
     def _update_from_settings(self):
         self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手")

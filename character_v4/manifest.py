@@ -117,7 +117,8 @@ class CodexPetManifest:
 
         # Check spritesheet path safety
         sheet_path = (pack_root / self.spritesheet_path).resolve()
-        if not str(sheet_path).startswith(str(pack_root.resolve())):
+        root_resolved = pack_root.resolve()
+        if sheet_path != root_resolved and root_resolved not in sheet_path.parents:
             result.errors.append(f"Spritesheet path escapes pack root: {self.spritesheet_path}")
             return result
         if not sheet_path.exists():

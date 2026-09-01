@@ -68,8 +68,8 @@ def _import_folder(
     install_id = pet_id or manifest.id
     install_path = dest_dir / install_id
     if install_path.exists():
-        result.warnings.append(f"Overwriting existing pack: {install_id}")
-        shutil.rmtree(install_path)
+        result.errors.append(f"Pack '{install_id}' already exists. Use conflict_policy to override.")
+        return None, result
 
     # Copy files
     try:
