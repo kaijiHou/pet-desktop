@@ -61,7 +61,6 @@ class AnimationPlayer(QObject):
         if self._frame_idx >= count:
             if self._loop:
                 self._frame_idx = 0
-                self.frame_changed.emit()
             else:
                 self._frame_idx = count - 1
                 self._timer.stop()

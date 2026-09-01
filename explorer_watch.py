@@ -1,32 +1,32 @@
 """Active Explorer Watcher — monitors the current foreground Explorer directory.
 
-Uses SetWinEventHook to detect foreground changes, then reads the Explorer
-path via existing ExplorerService (ctypes, no pywin32 dependency).
+Uses SetWinEventHook for foreground changes and a QTimer to poll the
+active Explorer HWND path every 1s via a single long-lived COM session.
 """
 from __future__ import annotations
 
 import ctypes
 import ctypes.wintypes as wintypes
 import logging
+import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Optional
 
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 
 from file_event import FileSemanticEvent
 
 LOGGER = logging.getLogger("pet.explorer_watch")
 
-# Win32 constants
 EVENT_SYSTEM_FOREGROUND = 0x0003
 WINEVENT_OUTOFCONTEXT = 0x0000
 WINEVENT_SKIPOWNPROCESS = 0x0002
 
 
 def _get_foreground_hwnd() -> int:
-    user32 = ctypes.windll.user32
-    return user32.GetForegroundWindow()
+    return ctypes.windll.user32.GetForegroundWindow()
 
 
 def _get_window_pid(hwnd: int) -> int:
@@ -36,13 +36,11 @@ def _get_window_pid(hwnd: int) -> int:
 
 
 def _is_explorer_window(hwnd: int) -> bool:
-    """Check if a window belongs to explorer.exe using ctypes."""
     try:
         pid = _get_window_pid(hwnd)
         if pid == 0:
             return False
-        PROCESS_QUERY_LIMITED = 0x1000
-        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED, False, pid)
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
         if not handle:
             return False
         try:
@@ -57,49 +55,48 @@ def _is_explorer_window(hwnd: int) -> bool:
     return False
 
 
-def _get_explorer_path(hwnd: int) -> Optional[Path]:
-    """Try to get the current directory of an Explorer window using Shell.Application via ctypes."""
+# Cached: last Explorer HWND and path
+_cached_explorer_hwnd: int = 0
+_cached_explorer_path: Optional[Path] = None
+_ps_last_result: str = ""
+_ps_last_hwnd: int = 0
+
+
+def _get_explorer_path_ps(hwnd: int) -> Optional[Path]:
+    """Resolve Explorer HWND to filesystem path via a single PowerShell call."""
+    global _cached_explorer_hwnd, _cached_explorer_path, _ps_last_result, _ps_last_hwnd
+    # Cache: same HWND → same result within 1s (polling handles this)
+    if hwnd == _ps_last_hwnd and _cached_explorer_path is not None:
+        return _cached_explorer_path
     try:
-        # Use Shell.Application COM via ctypes to enumerate windows
-        import ctypes
-        ole32 = ctypes.windll.ole32
-        ole32.CoInitialize(None)
-        try:
-            # CLSID_Shell.Application = {13709620-C279-11CE-A49E-444553540000}
-            CLSID = ctypes.c_wchar_p("{13709620-C279-11CE-A49E-444553540000}")
-            shell = ctypes.c_void_p()
-            hr = ctypes.windll.ole32.CoCreateInstance(
-                CLSID, None, 0x17,  # CLSCTX_INPROC_SERVER | LOCAL_SERVER
-                ctypes.byref(ctypes.c_wchar_p("{4DF0C730-DF9D-11D0-97DE-00C04FD91996}")),
-                ctypes.byref(shell)
-            )
-            if hr != 0 or not shell:
-                return None
-            # This approach is complex with raw ctypes; fall back to path from HWND via window title
-            # Explorer window titles often contain the path
-            import ctypes.wintypes as wt
-            title_buf = ctypes.create_unicode_buffer(512)
-            user32 = ctypes.windll.user32
-            user32.GetWindowTextW(hwnd, title_buf, 512)
-            title = title_buf.value
-            # Explorer title format: "Folder Name" or "Folder Name - File Explorer"
-            # This is not reliable for path extraction; use a simpler approach
-            return None
-        finally:
-            ole32.CoUninitialize()
-    except Exception:
-        pass
+        ps_cmd = (
+            f"$s = New-Object -ComObject Shell.Application; "
+            f"$w = $s.Windows(); "
+            f"foreach ($i in $w) {{ if ($i.HWND -eq {hwnd}) {{ $p = $i.LocationPath; if ($p) {{ Write-Output $p; break }} }} }}"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_cmd],
+            capture_output=True, text=True, timeout=3,
+            creationflags=0x08000000  # CREATE_NO_WINDOW
+        )
+        _ps_last_hwnd = hwnd
+        if result.returncode == 0 and result.stdout.strip():
+            p = Path(result.stdout.strip())
+            if p.is_dir():
+                _cached_explorer_path = p
+                return p
+        _cached_explorer_path = None
+    except Exception as exc:
+        LOGGER.debug("Explorer path resolve failed: %s", exc)
     return None
 
 
 class ActiveExplorerWatcher(QObject):
     """Monitors the current foreground Explorer directory.
 
-    When the foreground window is Explorer:
-    1. Poll the current directory path every 1000ms
-    2. Emit directory_changed events when path changes
+    Emits directory_changed events when the active Explorer window
+    navigates to a different directory.
     """
-
     event = pyqtSignal(object)  # FileSemanticEvent
 
     def __init__(self, parent=None):
@@ -108,8 +105,8 @@ class ActiveExplorerWatcher(QObject):
         self._current_path: Optional[Path] = None
         self._hook = None
         self._hook_proc = None
-        # Poll timer for path changes within same Explorer window
-        self._poll_timer = None
+        self._poll_timer = QTimer(self)
+        self._poll_timer.timeout.connect(self._poll_explorer_path)
 
     def start(self):
         """Start monitoring foreground Explorer windows."""
@@ -129,42 +126,28 @@ class ActiveExplorerWatcher(QObject):
         if not self._hook:
             LOGGER.error("SetWinEventHook failed")
             return
-        # Poll timer: check Explorer path every 1s when Explorer is foreground
-        from PyQt5.QtCore import QTimer
-        self._poll_timer = QTimer(self)
-        self._poll_timer.timeout.connect(self._poll_explorer_path)
         self._poll_timer.start(1000)
-        LOGGER.info("ActiveExplorerWatcher started (hook=%s)", self._hook)
-        self._check_foreground()
+        LOGGER.info("ActiveExplorerWatcher started")
 
     def stop(self):
-        """Stop monitoring."""
         if self._hook:
             ctypes.windll.user32.UnhookWinEvent(self._hook)
             self._hook = None
-        if self._poll_timer:
-            self._poll_timer.stop()
-            self._poll_timer = None
+        self._poll_timer.stop()
         self._current_hwnd = 0
         self._current_path = None
         LOGGER.info("ActiveExplorerWatcher stopped")
 
     def _on_foreground_change(self, hwnd, event, hwnd_obj, idObject, idChild, dwEventThread, dwmsEventTime):
-        """Callback when foreground window changes."""
         self._check_foreground()
 
     def _check_foreground(self):
-        """Check if the current foreground is an Explorer window."""
         hwnd = _get_foreground_hwnd()
         if hwnd == self._current_hwnd:
             return
         self._current_hwnd = hwnd
-        if _is_explorer_window(hwnd):
-            # Will be picked up by poll timer
-            pass
-        else:
+        if not _is_explorer_window(hwnd):
             if self._current_path is not None:
-                LOGGER.debug("Foreground left Explorer")
                 self._current_path = None
 
     def _poll_explorer_path(self):
@@ -172,8 +155,7 @@ class ActiveExplorerWatcher(QObject):
         hwnd = _get_foreground_hwnd()
         if not _is_explorer_window(hwnd):
             return
-        # Use the existing ExplorerService approach to get path from HWND
-        path = self._resolve_explorer_path(hwnd)
+        path = _get_explorer_path_ps(hwnd)
         if path and path != self._current_path:
             self._current_path = path
             LOGGER.info("Explorer directory: %s", path)
@@ -183,34 +165,6 @@ class ActiveExplorerWatcher(QObject):
                 is_dir=True,
                 source="explorer_watch",
             ))
-
-    def _resolve_explorer_path(self, hwnd: int) -> Optional[Path]:
-        """Resolve Explorer HWND to filesystem path using Shell.Application."""
-        try:
-            import subprocess
-            # Use PowerShell to get Explorer path from HWND (reliable, no pywin32)
-            ps_cmd = (
-                f'$shell = New-Object -ComObject Shell.Application; '
-                f'$windows = $shell.Windows(); '
-                f'foreach ($w in $windows) {{ '
-                f'  if ($w.HWND -eq {hwnd}) {{ '
-                f'    $loc = $w.LocationPath; '
-                f'    if ($loc) {{ Write-Output $loc; break }} '
-                f'  }} '
-                f'}}'
-            )
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", ps_cmd],
-                capture_output=True, text=True, timeout=3, creationflags=0x08000000
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                path_str = result.stdout.strip()
-                p = Path(path_str)
-                if p.is_dir():
-                    return p
-        except Exception:
-            pass
-        return None
 
     @property
     def current_path(self) -> Optional[Path]:

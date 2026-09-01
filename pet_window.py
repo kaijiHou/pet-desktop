@@ -26,6 +26,7 @@ from bubble_window import BubbleWindow
 import sounds, theme
 
 
+LOGGER = logging.getLogger("pet.window")
 drop_log = logging.getLogger("pet.dnd")
 
 
@@ -232,9 +233,13 @@ class PetWindow(QWidget):
         self.character = CharacterController(config, scale=config.get("pet_scale", 3))
         self.sprite_loader = PetSpriteLoader(scale=config.get("pet_scale", 3)) \
             if config.get("character_mode", "single") == "sheet" else None
+        self.dynamic_renderer = None
         from shell_watcher import ShellWatcher
         self._shell_watcher = ShellWatcher()
         self._shell_watcher.start(self._on_shell_event)
+
+        if self.config.get("character_mode") == "dynamic_pack":
+            self._load_dynamic_renderer()
 
         self._state = self.STATE_IDLE
         self._animation = "RestPose"
@@ -271,18 +276,32 @@ class PetWindow(QWidget):
         QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
 
     def _load_dynamic_renderer(self):
-        from character_v4.renderer import DynamicPackRenderer
-        from paths import PROJECT_ROOT
-        pack_id = self.config.get("selected_character_id", "")
-        if not pack_id:
-            return
-        pack_dir = PROJECT_ROOT / "data" / "characters" / pack_id
-        if not pack_dir.exists():
-            return
-        renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3))
-        if renderer.load():
-            self.dynamic_renderer = renderer
-            renderer.frame_changed.connect(self.update)
+        """Load dynamic pack renderer. On failure, fallback to single/default."""
+        try:
+            from character_v4.renderer import DynamicPackRenderer
+            from paths import PROJECT_ROOT
+            pack_id = self.config.get("selected_character_id", "")
+            if not pack_id:
+                return
+            # Check built-in first
+            pack_dir = PROJECT_ROOT / "assets" / "default_dynamic_pet"
+            if not pack_dir.exists():
+                pack_dir = PROJECT_ROOT / "data" / "characters" / pack_id
+            if not pack_dir.exists():
+                return
+            renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3))
+            if renderer.load():
+                self.dynamic_renderer = renderer
+                renderer.frame_changed.connect(self.update)
+                # Resize window to dynamic pack size
+                w, h = renderer.size()
+                self._pet_w, self._pet_h = w, h
+                self.setFixedSize(w + 40, h + 60)
+                LOGGER.info("Dynamic renderer loaded: %s (%dx%d)", renderer.display_name, w, h)
+            else:
+                LOGGER.warning("Dynamic renderer failed to load, using single mode")
+        except Exception:
+            LOGGER.exception("Dynamic renderer init failed, using single mode")
 
     def _setup_window(self):
         flags = Qt.FramelessWindowHint | Qt.Tool
