@@ -44,6 +44,9 @@ def pet_window(qapp):
     )
     config_mod.CONFIG_DIR = cfg_dir
     config_mod.CONFIG_FILE = cfg_dir / "config.json"
+    # Force single mode for tests that rely on character.base_size() geometry
+    import os
+    os.environ["PYTEST_CURRENT_TEST"] = "1"
     reminder_service.REMINDERS_FILE = tmp / "reminders.json"
     pocket_service.POCKET_FILE = tmp / "pocket.json"
     destinations.DESTINATIONS_FILE = tmp / "destinations.json"
@@ -51,6 +54,8 @@ def pet_window(qapp):
     sounds.play_startup = lambda: None
 
     cfg = config_mod.Config()
+    cfg.set("character_mode", "single")
+    cfg.set("selected_character_id", "")
     window = pet_window_mod.PetWindow(cfg)
     window.tray_icon.hide()
 

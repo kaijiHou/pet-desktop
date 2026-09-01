@@ -53,7 +53,9 @@ class SettingsDialog(QDialog):
         col_btn = QVBoxLayout()
         self.import_button = QPushButton("选择图片...")
         self.reset_button = QPushButton("恢复默认角色")
+        self.gallery_button = QPushButton("管理角色...")
         col_btn.addWidget(self.import_button); col_btn.addWidget(self.reset_button)
+        col_btn.addWidget(self.gallery_button)
         col_btn.addStretch(); row_img.addLayout(col_btn); row_img.addStretch()
         form.addLayout(row_img)
         row_scale = QHBoxLayout(); row_scale.addWidget(QLabel("大小"))
@@ -110,6 +112,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
         self.import_button.clicked.connect(self._import_image)
         self.reset_button.clicked.connect(self._reset_image)
+        self.gallery_button.clicked.connect(self._open_gallery)
         self._refresh_preview()
 
     def _slider_to_scale(self, pct):
@@ -189,6 +192,21 @@ class SettingsDialog(QDialog):
             self.parent().character.clear_preview()
         self.reject()
 
+    def _open_gallery(self):
+        from character_gallery import CharacterGalleryDialog
+        from character_v4.registry import CharacterRegistry
+        from paths import ASSETS_DIR, DATA_DIR
+        registry = CharacterRegistry(ASSETS_DIR, DATA_DIR)
+        current_id = self._work.get("selected_character_id", "")
+        dlg = CharacterGalleryDialog(registry, current_id, self)
+        if dlg.exec_() == QDialog.Accepted:
+            self._work["selected_character_id"] = dlg.selected_id
+            self._work["character_mode"] = "dynamic_pack"
+            if self.parent() and hasattr(self.parent(), "_load_dynamic_renderer"):
+                self.parent().dynamic_renderer = None
+                self.parent()._load_dynamic_renderer()
+                self.parent()._resize_to_character()
+
     def _save(self):
         c = self.config
         c.set("pet_scale", self._slider_to_scale(self.scale_slider.value()))
@@ -263,6 +281,7 @@ class PetWindow(QWidget):
         self._press_pos = QPoint()
         self._moved = False
         self._drag_hover = False
+        self._last_drag_direction = None
         self._sem_steps = []
         self._sem_idx = -1
         self._sem_active = False
@@ -322,16 +341,18 @@ class PetWindow(QWidget):
         """Load dynamic pack renderer. On failure, fallback to single/default."""
         try:
             from character_v4.renderer import DynamicPackRenderer
-            from paths import PROJECT_ROOT
+            from paths import ASSETS_DIR, DATA_DIR
+            BUILTIN_ID = "default_dynamic_ghost"
             pack_id = self.config.get("selected_character_id", "")
             if not pack_id:
                 return
-            # Check built-in first
-            from paths import ASSETS_DIR
-            pack_dir = ASSETS_DIR / "default_dynamic_ghost"
+            # Resolve path by id
+            if pack_id == BUILTIN_ID:
+                pack_dir = ASSETS_DIR / BUILTIN_ID
+            else:
+                pack_dir = DATA_DIR / "characters" / pack_id
             if not pack_dir.exists():
-                pack_dir = PROJECT_ROOT / "data" / "characters" / pack_id
-            if not pack_dir.exists():
+                LOGGER.warning("Pack dir not found: %s", pack_dir)
                 return
             renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3))
             if renderer.load():
@@ -464,11 +485,18 @@ class PetWindow(QWidget):
 
     def visible_pet_rect(self):
         """Return the current visible character bounds in this widget."""
-        w, h = self.character.base_size()
+        w, h = self._current_character_size()
         sf, dx, dy, rot = self._current_transform()
         cx = self.width() / 2 + dx
         cy = 20 + h / 2 + dy
-        bbox = self.character.visible_alpha_bbox
+        bbox = self._current_character_visible_bbox()
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            left, top, bw, bh = bbox
+            x1 = cx + (left / w - 0.5) * w * sf if w else cx - w * sf / 2
+            x2 = cx + ((left + bw) / w - 0.5) * w * sf if w else cx + w * sf / 2
+            y1 = cy + (top / h - 0.5) * h * sf if h else cy - h * sf / 2
+            y2 = cy + ((top + bh) / h - 0.5) * h * sf if h else cy + h * sf / 2
+            return QRect(round(x1), round(y1), max(1, round(x2 - x1)), max(1, round(y2 - y1)))
         if self.character.mode != "single" or not bbox:
             return QRect(round(cx - w * sf / 2), round(cy - h * sf / 2),
                          max(1, round(w * sf)), max(1, round(h * sf)))
@@ -666,6 +694,14 @@ class PetWindow(QWidget):
             if self._dragging:
                 self.move(event.globalPos() - self._drag_pos)
                 self._last_activity = time.time()
+                if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+                    dx = event.globalPos().x() - self._press_pos.x()
+                    if dx > 10 and self._last_drag_direction != "right":
+                        self._last_drag_direction = "right"
+                        self.dynamic_renderer.play_semantic("drag_right")
+                    elif dx < -10 and self._last_drag_direction != "left":
+                        self._last_drag_direction = "left"
+                        self.dynamic_renderer.play_semantic("drag_left")
             event.accept()
 
     def mouseReleaseEvent(self, event):
@@ -673,8 +709,11 @@ class PetWindow(QWidget):
             self._pressing = False
             if self._dragging:
                 self._dragging = False
+                self._last_drag_direction = None
                 self.config.set("pet_x", self.x())
                 self.config.set("pet_y", self.y())
+                if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+                    self.dynamic_renderer.idle()
             elif not self._moved:
                 self._on_single_click()
             event.accept()
@@ -1185,13 +1224,6 @@ class PetWindow(QWidget):
             source, self.config.get("pet_scale"), self.character.scale,
             w, h, self.width(), self.height(), vpr.width(), vpr.height(),
             " ".join(f"{k}={v}" for k, v in fields.items()))
-
-    def _resize_to_character(self):
-        w, h = self.character.base_size()
-        self._pet_w, self._pet_h = w, h
-        self.setFixedSize(w + 40, h + 60)
-        self._reposition_attached_panels(reposition_quick=True, reposition_pocket=True)
-        self._position_bubble()
 
     def _change_scale(self, delta):
         current = float(self.config.get("pet_scale", 3))

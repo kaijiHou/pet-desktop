@@ -71,7 +71,7 @@ def test_wheel_migration_runs_only_once(test_temp_root, monkeypatch):
 # ── full-chain scale metrics ──
 
 def _metrics(pet):
-    w, h = pet.character.base_size()
+    w, h = pet._current_character_size()
     vpr = pet.visible_pet_rect()
     return (float(pet.config.get("pet_scale")), float(pet.character.scale),
             (w, h), (pet.width(), pet.height()), (vpr.width(), vpr.height()))
