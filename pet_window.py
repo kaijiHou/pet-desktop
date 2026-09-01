@@ -237,6 +237,16 @@ class PetWindow(QWidget):
         from shell_watcher import ShellWatcher
         self._shell_watcher = ShellWatcher()
         self._shell_watcher.start(self._on_shell_event)
+        # Active Explorer Watcher (non-blocking, skip in test env)
+        self._explorer_watcher = None
+        try:
+            import os
+            if not os.environ.get("PYTEST_CURRENT_TEST"):
+                from explorer_watch import ActiveExplorerWatcher
+                self._explorer_watcher = ActiveExplorerWatcher(self)
+                self._explorer_watcher.start()
+        except Exception:
+            pass
 
         if self.config.get("character_mode") == "dynamic_pack":
             self._load_dynamic_renderer()
@@ -256,7 +266,7 @@ class PetWindow(QWidget):
         self._sem_timer = QTimer(self)
         self._sem_timer.setSingleShot(True)
         self._sem_timer.timeout.connect(self._sem_tick)
-        w, h = self.character.base_size()
+        w, h = self._current_character_size()
         self._pet_w, self._pet_h = w, h
         self._quick_panel = None
         self._pocket_window = None
@@ -274,6 +284,36 @@ class PetWindow(QWidget):
                 QTimer.singleShot(1200, lambda: self._prompt_missing_clockout(missing))
         self._load_position()
         QApplication.instance().applicationStateChanged.connect(self._application_state_changed)
+
+    # -- unified character geometry --
+    def _current_character_size(self):
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            return self.dynamic_renderer.size()
+        return self.character.base_size()
+
+    def _current_character_visible_bbox(self):
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            return self.dynamic_renderer.visible_bbox()
+        bb = self.character.visible_alpha_bbox
+        if bb:
+            return bb
+        return (0, 0, *self.character.base_size())
+
+    def _set_character_scale(self, scale, persist=False):
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            self.dynamic_renderer.set_scale(scale)
+        self.character.set_scale(scale)
+        if persist:
+            self.config.set("pet_scale", scale)
+        self._resize_to_character()
+
+    def _resize_to_character(self):
+        w, h = self._current_character_size()
+        self._pet_w, self._pet_h = w, h
+        self.setFixedSize(w + 40, h + 60)
+        self._reposition_attached_panels(reposition_quick=True, reposition_pocket=True)
+        self._position_bubble()
+        self.update()
 
     def _load_dynamic_renderer(self):
         """Load dynamic pack renderer. On failure, fallback to single/default."""
@@ -293,11 +333,7 @@ class PetWindow(QWidget):
             if renderer.load():
                 self.dynamic_renderer = renderer
                 renderer.frame_changed.connect(self.update)
-                # Resize window to dynamic pack size
-                w, h = renderer.size()
-                self._pet_w, self._pet_h = w, h
-                self.setFixedSize(w + 40, h + 60)
-                LOGGER.info("Dynamic renderer loaded: %s (%dx%d)", renderer.display_name, w, h)
+                LOGGER.info("Dynamic renderer loaded: %s", renderer.display_name)
             else:
                 LOGGER.warning("Dynamic renderer failed to load, using single mode")
         except Exception:
@@ -529,7 +565,7 @@ class PetWindow(QWidget):
             painter = QPainter(self)
             painter.setRenderHint(QPainter.SmoothPixmapTransform)
             painter.setRenderHint(QPainter.Antialiasing)
-            w, h = self.character.base_size()
+            w, h = self._current_character_size()
             sf, dx, dy, rot = self._current_transform()
             t = QTransform()
             t.translate(self.width() // 2 + dx, 20 + h // 2 + dy)
@@ -641,9 +677,13 @@ class PetWindow(QWidget):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() == Qt.LeftButton:
+            if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+                self.dynamic_renderer.play_semantic("double_click")
             event.accept()
 
     def _on_single_click(self):
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            self.dynamic_renderer.play_semantic("click")
         if self._state == self.STATE_SLEEP:
             self.set_state(self.STATE_IDLE)
         if self._quick_panel is None:
@@ -677,6 +717,8 @@ class PetWindow(QWidget):
         self._last_activity = time.time()
         if self._state == self.STATE_SLEEP:
             self.set_state(self.STATE_IDLE)
+        if self.dynamic_renderer and self.dynamic_renderer.is_loaded:
+            self.dynamic_renderer.play_semantic("hover")
 
     def dragEnterEvent(self, event):
         paths = self._local_drop_paths(event)
@@ -1125,8 +1167,7 @@ class PetWindow(QWidget):
 
     def _update_scale_preview(self, scale):
         self._scale_debug("settings_preview", old=float(self.config.get("pet_scale", 3)), new=float(scale))
-        self.character.set_scale(float(scale))
-        self._resize_to_character()
+        self._set_character_scale(float(scale))
 
     def _scale_debug(self, source, **fields):
         """Optional scaling diagnostics (PET_SCALE_DEBUG=1). Never logs wages."""
@@ -1151,9 +1192,7 @@ class PetWindow(QWidget):
     def _change_scale(self, delta):
         current = float(self.config.get("pet_scale", 3))
         ns = max(1.0, min(6.0, round(current + delta, 2)))
-        self.config.set("pet_scale", ns)
-        self.character.set_scale(ns)
-        self._resize_to_character()
+        self._set_character_scale(ns, persist=True)
         self._scale_debug("wheel_change", delta=delta, old=current, new=ns)
 
     def _pil_to_qimage(self, pi):
