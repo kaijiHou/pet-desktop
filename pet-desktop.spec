@@ -13,6 +13,7 @@ a = Analysis(
     datas=[
         (str(ROOT / "assets" / "animations.json"), "assets"),
         (str(ROOT / "assets" / "holiday_cn"), "assets/holiday_cn"),
+        (str(ROOT / "assets" / "default_dynamic_ghost"), "assets/default_dynamic_ghost"),
     ],
     hiddenimports=[],
     hookspath=[],

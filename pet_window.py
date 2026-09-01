@@ -219,8 +219,12 @@ class PetWindow(QWidget):
                   "SUCCESS": "Save", "ERROR": "GetAttention"}
 
     def __init__(self, config):
+        import logging
+        _ilog = logging.getLogger("pet.window.init")
+        _ilog.info("PetWindow.__init__ start")
         super().__init__()
         self.config = config
+        _ilog.info("PetWindow.__init__ config set")
         self.reminder = ReminderService()
         self.wage = WageService()
         self.wage.on_progress = self._on_wage_progress
@@ -237,20 +241,19 @@ class PetWindow(QWidget):
         from shell_watcher import ShellWatcher
         self._shell_watcher = ShellWatcher()
         self._shell_watcher.start(self._on_shell_event)
-        # Active Explorer Watcher (non-blocking, skip in test env)
+        import logging
+        logging.getLogger("pet.window.init").info("shell_watcher started, now loading dynamic...")
+        # Active Explorer Watcher (disabled pending stable integration)
         self._explorer_watcher = None
-        try:
-            import os
-            if not os.environ.get("PYTEST_CURRENT_TEST"):
-                from explorer_watch import ActiveExplorerWatcher
-                self._explorer_watcher = ActiveExplorerWatcher(self)
-                self._explorer_watcher.start()
-        except Exception:
-            pass
 
+        import logging
+        _ilog = logging.getLogger("pet.window.init")
         if self.config.get("character_mode") == "dynamic_pack":
+            _ilog.info("calling _load_dynamic_renderer")
             self._load_dynamic_renderer()
+            _ilog.info("_load_dynamic_renderer done, renderer=%s", self.dynamic_renderer)
 
+        _ilog.info("about to set _state")
         self._state = self.STATE_IDLE
         self._animation = "RestPose"
         self._frame = 0
@@ -324,7 +327,8 @@ class PetWindow(QWidget):
             if not pack_id:
                 return
             # Check built-in first
-            pack_dir = PROJECT_ROOT / "assets" / "default_dynamic_ghost"
+            from paths import ASSETS_DIR
+            pack_dir = ASSETS_DIR / "default_dynamic_ghost"
             if not pack_dir.exists():
                 pack_dir = PROJECT_ROOT / "data" / "characters" / pack_id
             if not pack_dir.exists():
@@ -1249,14 +1253,19 @@ class PetWindow(QWidget):
 
 
 def main():
+    import logging
+    _mlog = logging.getLogger("pet.main")
     app = QApplication(sys.argv)
     app.setApplicationName("Desktop Pet")
     app.setQuitOnLastWindowClosed(False)
     app.setFont(theme.font())
     app.setStyleSheet(theme.app_qss())
     config = Config()
+    _mlog.info("config loaded, mode=%s", config.get("character_mode"))
     window = PetWindow(config)
+    _mlog.info("PetWindow created")
     window.show()
+    _mlog.info("PetWindow shown")
     if config.get("show_welcome", True):
         QTimer.singleShot(1200, lambda: (
             window.show_bubble("欢迎使用桌面助手\n① 拖文件到角色：临时寄存\n② 单击角色：打开文件口袋\n③ 右键角色：提醒和设置", 10000),

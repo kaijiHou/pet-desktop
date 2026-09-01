@@ -25,5 +25,6 @@ TEMP_DIR = PROJECT_ROOT / ".tmp"
 # Runtime state stays beside the project/executable instead of silently
 # consuming the system drive. It contains configuration and local indexes,
 # never the user's referenced Pocket payloads.
+ASSETS_DIR = BUNDLE_ROOT / "assets"
 DATA_DIR = PROJECT_ROOT / "data"
 CONFIG_DIR = DATA_DIR
