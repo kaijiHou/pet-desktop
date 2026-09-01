@@ -240,7 +240,10 @@ def test_status_change_recalculates_month_tiers(test_temp_root, isolated_config)
     from datetime import datetime, date, timedelta
     ws = WageService(test_temp_root / "wage.json")
     # Create a workday 3 days ago
+    # Find a weekday 3-7 days ago to ensure it is a workday
     day1 = date.today() - timedelta(days=3)
+    while day1.weekday() >= 5:
+        day1 -= timedelta(days=1)
     ws.record_clock_out(datetime(day1.year, day1.month, day1.day, 20, 0))
     r1 = ws.record_for(day1)
     assert r1.overtime_minutes > 0

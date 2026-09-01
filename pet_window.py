@@ -284,7 +284,7 @@ class PetWindow(QWidget):
             if not pack_id:
                 return
             # Check built-in first
-            pack_dir = PROJECT_ROOT / "assets" / "default_dynamic_pet"
+            pack_dir = PROJECT_ROOT / "assets" / "default_dynamic_ghost"
             if not pack_dir.exists():
                 pack_dir = PROJECT_ROOT / "data" / "characters" / pack_id
             if not pack_dir.exists():

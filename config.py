@@ -17,7 +17,8 @@ DEFAULT_CONFIG = {
 
     # Character (V2): "single" = one transparent PNG (default buddy when unset),
     # "sheet" = legacy sprite sheet mode.
-    "character_mode": "single",
+    "character_mode": "dynamic_pack",
+    "selected_character_id": "default_dynamic_ghost",
     "character_image": "",      # file name inside assets/, "" = built-in buddy
 
     # Behavior (V2)
@@ -62,20 +63,32 @@ class Config:
         self.data = dict(DEFAULT_CONFIG)
         self._load()
         self._migrate_v31_scale_defaults()
+        self._migrate_v43_dynamic_default()
 
     def _migrate_v31_scale_defaults(self):
-        """One-shot: re-enable plain-wheel zoom on V2-era machines.
-
-        V2 builds saved ``wheel_zoom_enabled: false`` (the default of that
-        era's settings dialog), which silently disabled plain-wheel zoom on
-        every machine that ever opened Settings. V3.1 restores wheel zoom as
-        the default interaction; the marker below guarantees this migration
-        runs exactly once, afterwards the Settings checkbox governs.
-        """
+        """One-shot: re-enable plain-wheel zoom on V2-era machines."""
         if self.data.get("v31_wheel_migration_done"):
             return
         self.data["wheel_zoom_enabled"] = True
         self.data["v31_wheel_migration_done"] = True
+        self.save()
+
+    def _migrate_v43_dynamic_default(self):
+        """V4.3: set default to dynamic pack for fresh/empty installs.
+
+        - Fresh install (no config file): use dynamic ghost.
+        - Old single with no custom image: migrate to dynamic ghost.
+        - Old single with custom image: keep as-is.
+        - Old sheet: keep as-is.
+        """
+        if self.data.get("v43_dynamic_default_migration_done"):
+            return
+        mode = self.data.get("character_mode", "single")
+        has_custom = bool(self.data.get("character_image", ""))
+        if mode == "single" and not has_custom:
+            self.data["character_mode"] = "dynamic_pack"
+            self.data["selected_character_id"] = "default_dynamic_ghost"
+        self.data["v43_dynamic_default_migration_done"] = True
         self.save()
 
     def _load(self):

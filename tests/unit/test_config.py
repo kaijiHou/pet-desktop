@@ -26,7 +26,8 @@ EXPECTED_DEFAULTS = {
     "pet_y": -1,
     "pet_name": "小助手",
     # V2 behavior keys
-    "character_mode": "single",
+    "character_mode": "dynamic_pack",
+    "selected_character_id": "default_dynamic_ghost",
     "character_image": "",
     "wheel_zoom_enabled": True,
     "show_pet_name": False,
