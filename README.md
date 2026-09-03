@@ -42,7 +42,7 @@ cd D:\pet-desktop
 .venv\Scripts\python.exe -m pytest tests -q
 ```
 
-（191 passed，含单图角色、导入、shell watcher、GUI smoke、语义动画等）
+（351 passed，含节假日/调休、工资日历、动态角色预览、shell watcher、GUI smoke、语义动画等）
 
 ## 文档
 

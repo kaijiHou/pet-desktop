@@ -62,7 +62,6 @@ class DynamicPackRenderer(QObject):
         if self._atlas is None or self._atlas._pil_image is None:
             return
         try:
-            img = self._atlas._pil_image
             from .manifest import CODEX_CELL_W, CODEX_CELL_H
             rows = self._atlas._frames
             min_x, min_y = CODEX_CELL_W, CODEX_CELL_H
@@ -71,27 +70,17 @@ class DynamicPackRenderer(QObject):
             for anim_name, frame_list in rows.items():
                 if not frame_list:
                     continue
-                # Use first frame of each animation
-                qpix = frame_list[0]
-                if qpix.isNull():
-                    continue
-                # Get alpha channel from PIL
-                w, h = qpix.width(), qpix.height()
-                # Sample a subset of frames for performance
-                for fi in [0, len(frame_list)//2]:
-                    if fi >= len(frame_list):
+                # Every actual frame participates in the union. Sampling
+                # caused drag/jump frames to clip or shift their anchor.
+                for qpix in frame_list:
+                    if qpix.isNull():
                         continue
-                    qpix = frame_list[fi]
-                    # Convert QPixmap to QImage to read alpha
                     qimg = qpix.toImage()
-                    for y in range(0, h, 4):
-                        for x in range(0, w, 4):
+                    for y in range(qimg.height()):
+                        for x in range(qimg.width()):
                             if qimg.pixelColor(x, y).alpha() > 10:
-                                min_x = min(min_x, x)
-                                min_y = min(min_y, y)
-                                max_x = max(max_x, x)
-                                max_y = max(max_y, y)
-                                found = True
+                                min_x = min(min_x, x); min_y = min(min_y, y)
+                                max_x = max(max_x, x); max_y = max(max_y, y); found = True
             if found:
                 self._global_bbox = (min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
             else:
@@ -145,6 +134,8 @@ class DynamicPackRenderer(QObject):
         """Stop all animations."""
         if self._player:
             self._player.stop()
+        if self._state_machine:
+            self._state_machine.stop()
 
     @property
     def display_name(self) -> str:

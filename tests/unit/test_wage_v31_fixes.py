@@ -14,6 +14,7 @@ def _svc(tmp_path):
     svc = WageService(tmp_path, now_provider=lambda: NOW[0])
     svc.update_settings(enabled=True, monthly_salary="22000", work_start="09:00",
                         lunch_start="12:00", lunch_end="13:00", manual_workday_count=22)
+    svc.calendar.set_month_workday_override(2026, 8, 22)
     return svc
 
 

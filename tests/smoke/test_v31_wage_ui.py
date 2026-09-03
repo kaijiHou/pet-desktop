@@ -20,6 +20,7 @@ def _svc(now, privacy=False):
     svc.update_settings(enabled=True, monthly_salary="22000", work_start="09:00",
                         lunch_start="12:00", lunch_end="13:00",
                         manual_workday_count=22, privacy_mode=privacy)
+    svc.calendar.set_month_workday_override(now.year, now.month, 22)
     return svc
 
 

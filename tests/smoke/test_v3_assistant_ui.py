@@ -25,6 +25,7 @@ def _iso_wage(privacy=False, now=None):
     svc.update_settings(enabled=True, monthly_salary="22000", work_start="09:00",
                         lunch_start="12:00", lunch_end="13:00",
                         manual_workday_count=22, privacy_mode=privacy)
+    svc.calendar.set_month_workday_override(svc._now().year, svc._now().month, 22)
     return svc
 
 

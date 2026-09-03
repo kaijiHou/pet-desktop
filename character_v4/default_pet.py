@@ -44,6 +44,24 @@ HIGHLIGHT = (255, 255, 255, 255)
 ARM_COLOR = (160, 195, 240, 200)
 CX = CELL_W // 2   # center x in cell
 CY = CELL_H // 2 + 12  # center y (ghost sits low)
+SUPERSAMPLE = 4
+
+
+class _ScaledDraw:
+    """Scale ImageDraw primitives for a small 4x supersampled atlas."""
+    def __init__(self, draw, scale): self._draw, self._scale = draw, scale
+    def _box(self, box): return [round(v * self._scale) for v in box]
+    def _kw(self, kw):
+        kw = dict(kw)
+        if "width" in kw: kw["width"] = max(1, round(kw["width"] * self._scale))
+        return kw
+    def ellipse(self, box, **kw): return self._draw.ellipse(self._box(box), **self._kw(kw))
+    def line(self, xy, **kw):
+        points = list(xy)
+        if points and isinstance(points[0], (int, float)):
+            points = list(zip(points[::2], points[1::2]))
+        return self._draw.line([(round(p[0] * self._scale), round(p[1] * self._scale)) for p in points], **self._kw(kw))
+    def arc(self, box, *args, **kw): return self._draw.arc(self._box(box), *args, **self._kw(kw))
 
 
 def _ghost(draw, ox, oy, body_y=0, eye="open", arm_deg=0, squash=1.0, x_off=0):
@@ -108,8 +126,8 @@ def generate_default_pet(output_dir: Path) -> Path:
     pack_dir = output_dir / "default_dynamic_ghost"
     pack_dir.mkdir(parents=True, exist_ok=True)
 
-    atlas = Image.new("RGBA", (ATLAS_W, ATLAS_H), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(atlas)
+    atlas = Image.new("RGBA", (ATLAS_W * SUPERSAMPLE, ATLAS_H * SUPERSAMPLE), (0, 0, 0, 0))
+    draw = _ScaledDraw(ImageDraw.Draw(atlas), SUPERSAMPLE)
 
     # Row 0: idle (6 frames) — breathing + periodic blink
     for i in range(6):
@@ -165,6 +183,9 @@ def generate_default_pet(output_dir: Path) -> Path:
         tilt_y = 3 * math.sin(i * math.pi / 3)
         _ghost(draw, i * CELL_W, 8 * CELL_H, body_y=tilt_y, eye="blink")
 
+    # Downsample once after all primitives are drawn for smooth, compact edges.
+    atlas = atlas.resize((ATLAS_W, ATLAS_H), Image.Resampling.LANCZOS)
+
     # Save atlas
     atlas_path = pack_dir / "spritesheet.webp"
     atlas.save(str(atlas_path), "WEBP", quality=90)
@@ -178,7 +199,9 @@ def generate_default_pet(output_dir: Path) -> Path:
         "spriteVersionNumber": 1,
     }
     with open(pack_dir / "pet.json", "w", encoding="utf-8") as f:
-        json.dump(manifest, f, ensure_ascii=False, indent=2)
+        # ASCII escapes keep the manifest readable on legacy Windows locale
+        # readers while preserving the same Unicode values when decoded.
+        json.dump(manifest, f, ensure_ascii=True, indent=2)
 
     LOGGER.info("Default dynamic pet generated: %s (%dx%d V1)", pack_dir, ATLAS_W, ATLAS_H)
     return pack_dir

@@ -26,8 +26,6 @@ class WageCalculator:
 
     def salary_workday_count(self, day: Optional[date] = None) -> int:
         day = day or date.today()
-        if self.settings.manual_workday_count is not None:
-            return self.settings.manual_workday_count
         if self.calendar is not None:
             return max(1, int(self.calendar.workday_count(day.year, day.month)))
         return 22

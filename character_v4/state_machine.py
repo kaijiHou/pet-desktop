@@ -45,13 +45,17 @@ DEFAULT_STATES = {
     "DRAG_LEFT":     StateDef("DRAG_LEFT", "running_l", 15, loop=True, fallback="idle"),
     "DRAG_RIGHT":    StateDef("DRAG_RIGHT", "running_r", 15, loop=True, fallback="idle"),
     "RECEIVE_FILE":  StateDef("RECEIVE_FILE", "waving", 30, loop=False, next_state="IDLE", fallback="idle"),
+    "GIVE_FILE":     StateDef("GIVE_FILE", "waving", 30, loop=False, next_state="IDLE", fallback="idle"),
     "CREATE_FILE":   StateDef("CREATE_FILE", "jumping", 30, loop=False, next_state="IDLE", fallback="idle"),
+    "COPY_FILE":     StateDef("COPY_FILE", "jumping", 30, loop=False, next_state="IDLE", fallback="idle"),
+    "MOVE_FILE":     StateDef("MOVE_FILE", "waving", 30, loop=False, next_state="IDLE", fallback="idle"),
     "DELETE_FILE":   StateDef("DELETE_FILE", "failed", 35, loop=False, next_state="IDLE", fallback="idle"),
     "RENAME_FILE":   StateDef("RENAME_FILE", "review", 30, loop=False, next_state="IDLE", fallback="idle"),
     "REMINDER":      StateDef("REMINDER", "waving", 40, loop=False, next_state="IDLE", fallback="idle"),
     "WAGE_PROGRESS": StateDef("WAGE_PROGRESS", "review", 20, loop=False, next_state="IDLE", fallback="idle"),
     "OVERTIME":      StateDef("OVERTIME", "waiting", 15, loop=True, fallback="idle"),
     "CLOCK_OUT":     StateDef("CLOCK_OUT", "waving", 25, loop=False, next_state="IDLE", fallback="idle"),
+    "MEAL_ALLOWANCE": StateDef("MEAL_ALLOWANCE", "waving", 25, loop=False, next_state="IDLE", fallback="idle"),
     "ERROR":         StateDef("ERROR", "failed", 50, loop=False, next_state="IDLE", fallback="idle"),
     "SLEEP":         StateDef("SLEEP", "waiting", 5, loop=True, fallback="idle"),
     "LOOK_UP":       StateDef("LOOK_UP", "look_up", 8, loop=False, next_state="IDLE", fallback="idle"),
@@ -134,17 +138,17 @@ class PetStateMachine:
             "drag_left": "DRAG_LEFT",
             "drag_right": "DRAG_RIGHT",
             "receive_file": "RECEIVE_FILE",
-            "give_file": "RECEIVE_FILE",
+            "give_file": "GIVE_FILE",
             "create_file": "CREATE_FILE",
             "delete_file": "DELETE_FILE",
             "rename_file": "RENAME_FILE",
-            "copy_file": "CREATE_FILE",
-            "move_file": "RECEIVE_FILE",
+            "copy_file": "COPY_FILE",
+            "move_file": "MOVE_FILE",
             "reminder": "REMINDER",
             "wage_progress": "WAGE_PROGRESS",
             "overtime": "OVERTIME",
             "clock_out": "CLOCK_OUT",
-            "meal_allowance": "RECEIVE_FILE",
+            "meal_allowance": "MEAL_ALLOWANCE",
             "success": "CLICK",
             "error": "ERROR",
             "sleep": "SLEEP",
@@ -152,7 +156,11 @@ class PetStateMachine:
             "look_down": "LOOK_DOWN",
             "wake": "WAKE",
         }
-        return mapping.get(event.lower())
+        key = str(event or "").lower()
+        target = mapping.get(key)
+        if target is None:
+            LOGGER.warning("Ignoring unknown semantic event: %s", event)
+        return target
 
     def _maybe_random_idle_action(self):
         """Random idle action every 15-45s."""
@@ -177,3 +185,8 @@ class PetStateMachine:
     def force_idle(self):
         """Force return to idle state."""
         self._enter_state("IDLE")
+
+    def stop(self):
+        """Stop random idle actions and playback during teardown."""
+        self._idle_timer.stop()
+        self.player.stop()

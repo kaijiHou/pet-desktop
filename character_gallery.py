@@ -7,33 +7,29 @@ from typing import Optional
 
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QFont, QPixmap, QImage
-from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QPushButton, QFileDialog, QMessageBox, QGroupBox,
-)
+from PyQt5.QtWidgets import QLabel, QListWidget, QListWidgetItem, QFileDialog, QGroupBox, QVBoxLayout, QHBoxLayout
+from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, DangerButton, InlineBanner
 
 from character_v4.registry import CharacterRegistry, CharacterEntry
 
 LOGGER = logging.getLogger("pet.character.gallery")
 
 
-class CharacterGalleryDialog(QDialog):
+class CharacterGalleryDialog(ModernDialog):
     """Modal dialog for character selection and management."""
 
     def __init__(self, registry: CharacterRegistry, current_id: str, parent=None):
-        super().__init__(parent)
+        super().__init__("角色管理", "统一管理动态角色包与单图角色", parent, min_width=560, min_height=520)
         self.registry = registry
         self.current_id = current_id
         self.selected_id = current_id
         self._entries: list[CharacterEntry] = []
-        self.setWindowTitle("角色管理")
-        self.setMinimumSize(500, 400)
         self._build_ui()
         self._load_entries()
         self._select_current()
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
+        layout = self.body
 
         # Character list
         self.list_widget = QListWidget()
@@ -55,13 +51,13 @@ class CharacterGalleryDialog(QDialog):
 
         # Buttons
         btn_layout = QHBoxLayout()
-        self.btn_use = QPushButton("使用")
+        self.btn_use = PrimaryButton("使用")
         self.btn_use.clicked.connect(self._on_use)
-        self.btn_import_dynamic = QPushButton("导入动态角色包")
+        self.btn_import_dynamic = SecondaryButton("导入动态角色包")
         self.btn_import_dynamic.clicked.connect(self._on_import_dynamic)
-        self.btn_import_image = QPushButton("导入单图")
+        self.btn_import_image = SecondaryButton("导入单图")
         self.btn_import_image.clicked.connect(self._on_import_image)
-        self.btn_delete = QPushButton("删除")
+        self.btn_delete = DangerButton("删除")
         self.btn_delete.clicked.connect(self._on_delete)
         btn_layout.addWidget(self.btn_use)
         btn_layout.addWidget(self.btn_import_dynamic)
@@ -69,16 +65,12 @@ class CharacterGalleryDialog(QDialog):
         btn_layout.addWidget(self.btn_delete)
         layout.addLayout(btn_layout)
 
-        # OK/Cancel
-        ok_layout = QHBoxLayout()
-        ok_layout.addStretch()
-        btn_ok = QPushButton("确定")
-        btn_ok.clicked.connect(self.accept)
-        btn_cancel = QPushButton("取消")
-        btn_cancel.clicked.connect(self.reject)
-        ok_layout.addWidget(btn_ok)
-        ok_layout.addWidget(btn_cancel)
-        layout.addLayout(ok_layout)
+        self.notice = InlineBanner(); self.notice.hide(); layout.addWidget(self.notice)
+        btn_cancel = SecondaryButton("取消"); btn_cancel.clicked.connect(self.reject); self.add_footer(btn_cancel)
+        btn_ok = PrimaryButton("确定"); btn_ok.clicked.connect(self.accept); self.add_footer(btn_ok)
+
+    def _notify(self, text, level="info"):
+        self.notice.label.setText(text); self.notice.set_level(level); self.notice.show()
 
     def _load_entries(self):
         self._entries = self.registry.all()
@@ -150,9 +142,9 @@ class CharacterGalleryDialog(QDialog):
                 if item.data(Qt.UserRole) == entry.id:
                     self.list_widget.setCurrentItem(item)
                     break
-            QMessageBox.information(self, "导入成功", f"已导入: {entry.display_name}")
+            self._notify(f"已导入：{entry.display_name}", "success")
         else:
-            QMessageBox.warning(self, "导入失败", "角色包无效或导入失败")
+            self._notify("角色包无效或导入失败", "warning")
 
     def _on_import_image(self):
         """Import a single image as a character."""
@@ -166,9 +158,9 @@ class CharacterGalleryDialog(QDialog):
             return
         try:
             name = import_character_image(Path(path), PROJECT_ROOT / "assets")
-            QMessageBox.information(self, "导入成功", f"已导入图片: {name}")
+            self._notify(f"已导入图片：{name}", "success")
         except ValueError as exc:
-            QMessageBox.warning(self, "导入失败", str(exc))
+            self._notify(str(exc), "warning")
 
     def _on_delete(self):
         """Delete the selected user-installed character."""
@@ -178,16 +170,11 @@ class CharacterGalleryDialog(QDialog):
         char_id = item.data(Qt.UserRole)
         entry = self.registry.resolve(char_id)
         if entry and entry.is_builtin:
-            QMessageBox.information(self, "提示", "内置角色不能删除")
+            self._notify("内置角色不能删除", "warning")
             return
         if char_id == self.current_id:
-            QMessageBox.information(self, "提示", "当前正在使用的角色不能删除，请先切换角色")
+            self._notify("当前正在使用的角色不能删除，请先切换角色", "warning")
             return
-        reply = QMessageBox.question(
-            self, "确认删除",
-            f"确定删除角色 '{entry.display_name if entry else char_id}'?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            self.registry.remove(char_id)
-            self._load_entries()
+        self.registry.remove(char_id)
+        self._load_entries()
+        self._notify(f"已删除：{entry.display_name if entry else char_id}", "success")

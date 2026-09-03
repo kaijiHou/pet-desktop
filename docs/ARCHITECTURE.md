@@ -445,3 +445,11 @@ PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面�
 - `WorkDayRecord.resolved_no_overtime`：显式"未加班"永久解决漏打卡；"稍后"仅会话内存（wage_prompts.json 不再参与判定）。
 - `WorkCalendarService` 数据优先级：manual override > 用户 data/holidays.json > 捆绑 assets/holiday_cn/*.json（holiday-cn，MIT）> 周一~五；`isOffDay=false` 条目=调休上班。
 - PetWindow 后台工资唤醒：single-shot 定时到下一关键时点（work_start/lunch/17:30/20:00/下一个收入提示槽，≤1h 上限），设置变更后重排；无常驻轮询。
+
+## 33. V4.7 统一工资日历与 Modern UI
+
+`WorkCalendarService` 负责唯一的工作日状态、按月计数和 `HolidayInfo` 元数据；`WageCalculator` 不读取旧手工天数字段。`ModernMonthCalendar` 用 42 个 `CalendarDayCell` 渲染状态，StatCard 与 WageService 月汇总复用同一结果。
+
+`ui/modern/` 提供无标题栏 `ModernDialog`、按钮、卡片、输入框和非阻塞 Banner/Toast。WorkCalendarDialog、WageSettingsDialog、SettingsDialog、CharacterGalleryDialog 均通过该组件层保持统一圆角、间距和中文操作文案。
+
+动态角色预览和桌面角色均由 `CharacterRegistry → CodexPetManifest → SpritesheetAtlas` 解析；默认图集在生成阶段 4× supersampling。Renderer teardown 同时停止 AnimationPlayer 与 PetStateMachine idle timer，避免预览切换泄漏后台计时器。

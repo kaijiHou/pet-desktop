@@ -21,6 +21,7 @@ class WageService:
         self.records_path = self.data_dir / "wage_records.json"
         self.prompt_path = self.data_dir / "wage_prompts.json"
         self._now = now_provider or datetime.now
+        self._legacy_migration_notice_pending = False
         self.settings = self._load_settings()
         self.calendar = WorkCalendarService(storage_path=self.data_dir / "work_calendar.json",
                                              holiday_data_path=self.data_dir / "holidays.json")
@@ -33,7 +34,20 @@ class WageService:
 
     def _load_settings(self):
         raw = load_json(self.settings_path, {})
-        return WageSettings.from_dict(raw if isinstance(raw, dict) else {})
+        raw = raw if isinstance(raw, dict) else {}
+        settings = WageSettings.from_dict(raw)
+        # Persist the migration once so the old editable field is preserved as
+        # audit data but can never silently influence payroll again.
+        if raw.get("manual_workday_count") not in (None, "") and raw.get("legacy_manual_workday_count") in (None, ""):
+            self._legacy_migration_notice_pending = True
+            save_json_atomic(self.settings_path, settings.to_dict())
+            LOGGER.info("migrated legacy manual_workday_count to audit field")
+        return settings
+
+    def consume_legacy_migration_notice(self) -> bool:
+        pending = self._legacy_migration_notice_pending
+        self._legacy_migration_notice_pending = False
+        return pending
 
     def _load_records(self):
         raw = load_json(self.records_path, {})
@@ -56,6 +70,10 @@ class WageService:
 
     def update_settings(self, **changes):
         raw = self.settings.to_dict()
+        if changes.get("manual_workday_count") not in (None, ""):
+            changes["legacy_manual_workday_count"] = changes["manual_workday_count"]
+            changes["manual_workday_count"] = None
+            LOGGER.info("ignoring deprecated manual_workday_count for calculation")
         raw.update(changes)
         self.settings = WageSettings.from_dict(raw)
         save_json_atomic(self.settings_path, self.settings.to_dict())

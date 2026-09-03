@@ -24,32 +24,42 @@ from wage.service import WageService
 from wage.model import WORKDAY, ADJUSTED_WORKDAY, REST, LEAVE
 from bubble_window import BubbleWindow
 import sounds, theme
+from ui.modern import ModernDialog, PrimaryButton, SecondaryButton
 
 
 LOGGER = logging.getLogger("pet.window")
 drop_log = logging.getLogger("pet.dnd")
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(ModernDialog):
     """V2.2 settings with working-copy semantics + live size preview.
 
     Cancel restores the size the pet had before the dialog opened.
     """
 
     def __init__(self, config, parent=None):
-        super().__init__(parent)
+        super().__init__("设置", "角色、行为、提醒和数据", parent, min_width=470)
         self.config = config
         self._work = dict(config.data)
         self._original_scale = float(config.get("pet_scale", 3))
-        self.setWindowTitle("设置")
-        self.setMinimumWidth(420)
-        layout = QVBoxLayout(self)
+        layout = self.body
 
         # ── 角色 ──
         box = QGroupBox("角色"); form = QVBoxLayout(box)
         row_img = QHBoxLayout()
-        self.image_label = QLabel(); self.image_label.setFixedSize(64, 64)
-        self.image_label.setAlignment(Qt.AlignCenter); row_img.addWidget(self.image_label)
+        from character_v4.registry import CharacterRegistry
+        from paths import ASSETS_DIR, DATA_DIR
+        self._character_registry = CharacterRegistry(ASSETS_DIR, DATA_DIR)
+        self.preview_widget = __import__("ui.modern", fromlist=["CharacterPreviewWidget"]).CharacterPreviewWidget(
+            self._character_registry, self._work.get("selected_character_id", "default_dynamic_ghost"), self)
+        self.preview_widget.setFixedSize(88, 88)
+        self.image_label = self.preview_widget  # backwards-compatible attribute
+        row_img.addWidget(self.preview_widget)
+        role_info = QVBoxLayout()
+        self.character_name_label = QLabel(); self.character_name_label.setStyleSheet("font-size:15px;font-weight:700;")
+        self.character_source_label = QLabel(); self.character_source_label.setObjectName("muted")
+        role_info.addWidget(self.character_name_label); role_info.addWidget(self.character_source_label); role_info.addStretch()
+        row_img.addLayout(role_info)
         col_btn = QVBoxLayout()
         self.import_button = QPushButton("选择图片...")
         self.reset_button = QPushButton("恢复默认角色")
@@ -73,6 +83,7 @@ class SettingsDialog(QDialog):
         self.name_check = QCheckBox("显示角色名称")
         self.name_check.setChecked(self._work.get("show_pet_name", False))
         form.addWidget(self.name_check); layout.addWidget(box)
+        self.notice_label = QLabel(""); self.notice_label.setObjectName("muted"); self.notice_label.setWordWrap(True); self.notice_label.hide(); layout.addWidget(self.notice_label)
 
         # ── 行为 ──
         box2 = QGroupBox("行为"); bl = QVBoxLayout(box2)
@@ -107,9 +118,9 @@ class SettingsDialog(QDialog):
         dl.addWidget(self.open_data_button); dl.addWidget(self.open_log_button); dl.addWidget(self.wage_button); dl.addStretch()
         layout.addWidget(box4)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self._save); buttons.rejected.connect(self._reject)
-        layout.addWidget(buttons)
+        cancel = SecondaryButton("取消"); save = PrimaryButton("保存")
+        cancel.clicked.connect(self._reject); save.clicked.connect(self._save)
+        self.add_footer(cancel); self.add_footer(save)
         self.import_button.clicked.connect(self._import_image)
         self.reset_button.clicked.connect(self._reset_image)
         self.gallery_button.clicked.connect(self._open_gallery)
@@ -126,7 +137,6 @@ class SettingsDialog(QDialog):
             self.parent()._update_scale_preview(scale)
 
     def _refresh_preview(self):
-        from character import draw_default_buddy
         from paths import PROJECT_ROOT
         name = self._work.get("character_image", ""); img = None
         if name:
@@ -137,12 +147,18 @@ class SettingsDialog(QDialog):
                     img = PILImage.open(path).convert("RGBA")
                 except OSError:
                     img = None
-        if img is None:
-            img = draw_default_buddy()
-        data = img.tobytes("raw", "RGBA")
-        qimg = QImage(data, img.width, img.height, QImage.Format_RGBA8888)
-        self.image_label.setPixmap(QPixmap.fromImage(qimg).scaled(
-            64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        if img is not None:
+            data = img.tobytes("raw", "RGBA")
+            qimg = QImage(data, img.width, img.height, QImage.Format_RGBA8888)
+            self.preview_widget.set_static_image(qimg)
+            self.character_name_label.setText("单图角色")
+            self.character_source_label.setText("本地图片")
+        else:
+            char_id = self._work.get("selected_character_id", "default_dynamic_ghost") or "default_dynamic_ghost"
+            self.preview_widget.set_character_id(char_id)
+            entry = self._character_registry.resolve(char_id)
+            self.character_name_label.setText(entry.display_name if entry else char_id)
+            self.character_source_label.setText("动态角色 · " + ("内置" if entry and entry.is_builtin else "已安装" if entry else "资源加载失败"))
 
     def _import_image(self):
         from character import import_character_image
@@ -157,7 +173,7 @@ class SettingsDialog(QDialog):
         try:
             name = import_character_image(Path(path), img_dir)
         except ValueError as exc:
-            QMessageBox.warning(self, "导入失败", str(exc))
+            self.notice_label.setText(str(exc)); self.notice_label.show()
             return
         self._work["character_image"] = str(img_dir / name)
         self._work["character_mode"] = "single"
@@ -208,6 +224,8 @@ class SettingsDialog(QDialog):
         if dlg.exec_() == QDialog.Accepted:
             self._work["selected_character_id"] = dlg.selected_id
             self._work["character_mode"] = "dynamic_pack"
+            self._work["character_image"] = ""
+            self._refresh_preview()
             if self.parent() and hasattr(self.parent(), "preview_dynamic_character"):
                 self.parent().preview_dynamic_character(dlg.selected_id)
 
@@ -353,7 +371,7 @@ class PetWindow(QWidget):
             from character_v4.renderer import DynamicPackRenderer
             from paths import ASSETS_DIR, DATA_DIR
             BUILTIN_ID = "default_dynamic_ghost"
-            pack_id = self.config.get("selected_character_id", "")
+            pack_id = self.config.get("selected_character_id", "") or "default_dynamic_ghost"
             if not pack_id:
                 return
             # Resolve path by id
@@ -366,6 +384,8 @@ class PetWindow(QWidget):
                 return
             renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3))
             if renderer.load():
+                if self.dynamic_renderer is not None:
+                    self.dynamic_renderer.stop()
                 self.dynamic_renderer = renderer
                 renderer.frame_changed.connect(self.update)
                 LOGGER.info("Dynamic renderer loaded: %s", renderer.display_name)
@@ -880,11 +900,17 @@ class PetWindow(QWidget):
             event_map = {
                 "CREATE_FILE": "create_file", "DELETE_FILE": "delete_file",
                 "RENAME_FILE": "rename_file", "RECEIVE_FILE": "receive_file",
+                "GIVE_FILE": "give_file", "COPY_FILE": "copy_file", "MOVE_FILE": "move_file",
                 "REMINDER": "reminder", "WAGE_PROGRESS": "wage_progress",
                 "OVERTIME_START": "overtime", "CLOCK_OUT": "clock_out",
+                "MEAL_ALLOWANCE": "meal_allowance",
                 "ERROR": "error", "SUCCESS": "success",
             }
-            self.dynamic_renderer.play_semantic(event_map.get(semantic, "idle"))
+            event = event_map.get(str(semantic).upper())
+            if event is None:
+                LOGGER.warning("Ignoring unknown semantic: %s", semantic)
+                return
+            self.dynamic_renderer.play_semantic(event)
             return
         if self.character.mode == "sheet":
             self.play_animation(self._SHEET_MAP.get(semantic, "RestPose"))

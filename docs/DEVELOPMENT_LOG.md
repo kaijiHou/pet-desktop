@@ -937,3 +937,14 @@ pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixe
 
 - IME 坏状态可致任何半透明顶层进程崩溃（KI-26），应用侧无法根除，已用最安全架构 + 真机 soak 缓解；
 - 源码级真机验收见 `V31_REAL_ACCEPTANCE.md`；fresh EXE 逐项验收在同文件持续更新。
+
+---
+
+## 2026-09-03 - V4.7 工资/日历与现代 UI 重构
+
+- 基线：`V47_BASELINE_HEAD=24b7bd939237bdb59aed3a087db668c302fe5b5c`，目标仓库 `kaijiHou/pet-desktop`，分支 `master`。
+- `WorkCalendarService` 成为唯一正常工作日来源；旧全局手工天数迁移为审计字段，新增按月覆盖、节假日名称/状态/来源/官方年份和纸面链接。
+- 工作日历改为 42 格自绘月历和 StatCard 统计；工资设置移除全局 SpinBox，改为只读自动天数卡片；设置/工资/日历/角色管理统一无标题栏现代组件。
+- 动态角色预览与桌面渲染统一 CharacterRegistry→Manifest→Atlas；默认小幽灵使用 4× supersampling，renderer 停止时同时关闭 state-machine idle timer。
+- 自动化新增 V4.7 日历契约、动态 UI、默认图集测试；完整套件 `pytest tests -q` 为 **352 passed**；真实 Windows 视觉与 Explorer 验收仍为 `NOT TESTED`，详见 `V47_REAL_ACCEPTANCE.md`。
+- Fresh release：`scripts/build_release.ps1` 和 `scripts/verify_release.ps1` 均 PASS；ZIP 48,547,454 bytes，SHA-256 `1478b043d1d69543b43a6edbe839604b1267eac0980f655aa61971e68b6a94f6`，解压副本单进程、日志生成、WebEngine 0。

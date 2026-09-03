@@ -1,7 +1,7 @@
 {
   "id": "default_dynamic_ghost",
-  "displayName": "小幽灵",
-  "description": "原创动态角色 — 半透明小幽灵，支持呼吸/挥手/跳跃/失败/等待动画",
+  "displayName": "\u5c0f\u5e7d\u7075",
+  "description": "\u539f\u521b\u52a8\u6001\u89d2\u8272 \u2014 \u534a\u900f\u660e\u5c0f\u5e7d\u7075\uff0c\u652f\u6301\u547c\u5438/\u6325\u624b/\u8df3\u8dc3/\u5931\u8d25/\u7b49\u5f85\u52a8\u753b",
   "spritesheetPath": "spritesheet.webp",
   "spriteVersionNumber": 1
 }

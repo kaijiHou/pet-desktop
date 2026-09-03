@@ -10,7 +10,7 @@ from wage.service import WageService
 def _calculator(tmp_path, **kwargs):
     settings = WageSettings(enabled=True, monthly_salary="22000", work_start="09:00", lunch_start="12:00", lunch_end="13:00", **kwargs)
     cal = WorkCalendarService(tmp_path / "calendar.json", tmp_path / "none.json")
-    cal.set_manual_workday_count(22)
+    cal.set_month_workday_override(2026, 8, 22)
     return WageCalculator(settings, cal), cal
 
 

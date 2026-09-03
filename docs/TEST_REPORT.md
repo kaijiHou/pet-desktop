@@ -356,3 +356,26 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 | 真机 `realapp_soak.py` | SOAK SURVIVED 46s/37 气泡；A/B/C 缩放全链路指标同步（见 DEVELOPMENT_LOG） |
 
 结论：金额逻辑（Decimal、固定时钟）与真实窗口交互（Qt offscreen）全部通过；IME 相关原生崩溃按 KI-22/KI-26 以架构规避 + 真机 soak 缓解。
+
+---
+
+## V4.7（2026-09-03，代码验收）
+
+| 套件 | 结果 |
+|---|---|
+| V4.7 calendar contract | **6 passed**（2026-09/10 法定日数、调休状态、按日/按月覆盖、计算器权威来源、旧字段迁移） |
+| V4.7 dynamic UI | **3 passed**（生产动态启动、预览/重置 ID、一致性与对话框构造） |
+| V4.7 default ghost | **1 passed**（图集尺寸、透明通道、语义帧差异） |
+| 既有 GUI/启动/角色回归 | **通过 targeted** |
+| 真实 Windows 视觉/Explorer | **NOT TESTED** |
+
+| Full suite | **352 passed** |
+
+金额/状态统计均由同一 WageService 实例驱动；V4.7 不宣称真实验收完成，直到用户手动完成清单。
+
+### V4.7 fresh release
+
+- `scripts/build_release.ps1`：clean build + 352 tests **PASS**。
+- `scripts/verify_release.ps1`：全新解压副本 **PASS**（running/responding、单进程、动画目录、用户素材目录、日志、WebEngine 文件 0）。
+- ZIP：`release/DesktopPet-windows-x64.zip`，48,547,454 bytes；SHA-256 `1478b043d1d69543b43a6edbe839604b1267eac0980f655aa61971e68b6a94f6`。
+- 真实 Windows 视觉、Explorer 和鼠标清单仍为 **NOT TESTED**。

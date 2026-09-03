@@ -44,6 +44,9 @@ class WageSettings:
     manual_workday_count: Optional[int] = None
     overtime_start: time = time(17, 30)
     meal_allowance_time: time = time(20, 0)
+    # Kept only for migration/audit.  It is deliberately ignored by the
+    # calculator; statutory workdays come from WorkCalendarService.
+    legacy_manual_workday_count: Optional[int] = None
 
     def __post_init__(self):
         self.monthly_salary = money(self.monthly_salary)
@@ -57,6 +60,8 @@ class WageSettings:
             self.income_interval_minutes = 0
         if self.manual_workday_count is not None:
             self.manual_workday_count = max(1, int(self.manual_workday_count))
+        if self.legacy_manual_workday_count is not None:
+            self.legacy_manual_workday_count = max(1, int(self.legacy_manual_workday_count))
 
     @property
     def configured(self) -> bool:
@@ -72,6 +77,7 @@ class WageSettings:
             "income_interval_minutes": self.income_interval_minutes,
             "privacy_mode": self.privacy_mode,
             "manual_workday_count": self.manual_workday_count,
+            "legacy_manual_workday_count": self.legacy_manual_workday_count,
             "overtime_start": self.overtime_start.strftime("%H:%M"),
             "meal_allowance_time": self.meal_allowance_time.strftime("%H:%M"),
         }
@@ -80,6 +86,13 @@ class WageSettings:
     def from_dict(cls, raw: dict):
         if not isinstance(raw, dict):
             return cls()
+        legacy = raw.get("legacy_manual_workday_count")
+        manual = raw.get("manual_workday_count")
+        # Older releases persisted the editable global count.  Preserve it as
+        # audit data while making it clear that it no longer drives payroll.
+        if legacy in (None, "") and raw.get("manual_workday_count") not in (None, ""):
+            legacy = raw.get("manual_workday_count")
+            manual = None
         return cls(
             enabled=bool(raw.get("enabled", False)),
             monthly_salary=raw.get("monthly_salary", "0"),
@@ -88,9 +101,10 @@ class WageSettings:
             lunch_end=raw.get("lunch_end", "13:00"),
             income_interval_minutes=raw.get("income_interval_minutes", 0),
             privacy_mode=bool(raw.get("privacy_mode", False)),
-            manual_workday_count=raw.get("manual_workday_count"),
+            manual_workday_count=manual,
             overtime_start=raw.get("overtime_start", "17:30"),
             meal_allowance_time=raw.get("meal_allowance_time", "20:00"),
+            legacy_manual_workday_count=legacy,
         )
 
 

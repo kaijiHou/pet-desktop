@@ -21,6 +21,7 @@ def _calc(tmp_path, **kwargs):
                             lunch_start="12:00", lunch_end="13:00",
                             manual_workday_count=22, **kwargs)
     cal = WorkCalendarService(tmp_path / "calendar.json", tmp_path / "none.json")
+    cal.set_month_workday_override(2026, 8, 22)
     return WageCalculator(settings, cal), cal
 
 
@@ -60,11 +61,11 @@ def test_manual_calendar_override_wins(test_temp_root):
 
 def test_manual_workday_count_override(test_temp_root):
     calc, cal = _calc(test_temp_root)
-    # August 2026 has 21 Mon-Fri days; manual company count must win.
-    assert cal.workday_count(2026, 8) == 21
+    # An explicit per-month override is the only supported manual count.
+    assert cal.workday_count(2026, 8) == 22
     calc.settings.manual_workday_count = 20
-    assert calc.salary_workday_count(DAY) == 20
-    assert calc.daily_salary(DAY) == Decimal("1100.00")
+    assert calc.salary_workday_count(DAY) == 22
+    assert calc.daily_salary(DAY) == Decimal("1000.00")
 
 
 def test_missing_wage_settings_unconfigured(test_temp_root):
@@ -94,8 +95,8 @@ def test_corrupt_wage_data_safe_fallback(test_temp_root):
     assert reloaded.records == {}
     assert reloaded.configured is True
     # Corrupt side files must not crash or corrupt the math: 12:00 noon is
-    # 180 paid minutes of 450 → 1000 × 180/450 = 400.00 exactly.
-    assert reloaded.current_breakdown().total_earned == Decimal("400.00")
+    # 180 paid minutes of 450 using August's automatic 21-day calendar.
+    assert reloaded.current_breakdown().total_earned == Decimal("419.05")
 
 
 # ── overtime ─────────────────────────────────────────────────────────────

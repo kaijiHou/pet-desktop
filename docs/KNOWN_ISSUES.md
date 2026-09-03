@@ -212,8 +212,18 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 
 ### KI-25 ✅ 工时"日历"实为列表 + 节假日接口无数据（本轮已修复）
 - **现象**：ui_calendar 是 QListWidget 逐行列日期；WorkCalendarService 有 holidays.json 接口但软件不带任何数据，国庆/春节/调休全靠手改。
-- **修复**：QCalendarWidget 真月历 + 捆绑 holiday-cn（MIT，国务院文件口径）2025/2026 数据（assets/holiday_cn/，随 EXE 打包）；优先级 manual override > 用户 holidays.json > 捆绑数据 > 周一~五。
+- **修复**：42 格自绘月历 + 捆绑 holiday-cn（MIT，国务院文件口径）2025/2026 数据（assets/holiday_cn/，随 EXE 打包）；优先级 manual override > 用户 holidays.json > 捆绑数据 > 周一~五。
 - **测试**：`tests/unit/test_statutory_calendar.py` 9 项（国庆/春节/调休/周末/工作日/override 覆盖）。
 
 ### KI-26 🟡 IME 环境下半透明顶层窗口的系统性崩溃风险（接受并缓解）
 - 系统处于某种 IME/CTF 状态时，本机任何进程创建半透明 frameless 窗口都可能触发 Qt5Core fail-fast（含纯 QLabel 变体在坏状态批次的 6/6 崩溃）。应用侧已采用最安全架构（气泡无 Python paintEvent + 输入穿透），真实应用 46s/37 气泡 soak 未复现；若用户报告"气泡一弹就闪退"，优先怀疑系统 IME 状态而非应用回归。
+
+### KI-27 🟡 V4.7 真实桌面视觉验收尚未完成
+- 离屏自动化已覆盖现代窗口层、动态角色链和 2026 节假日数据；但真实 Windows 字体、Explorer 事件、拖动/缩放和 IME 环境仍需人工确认。
+- 当前不宣称 V4.7 完成，清单见 `V47_REAL_ACCEPTANCE.md`。
+
+### V4.7 已修复项
+- 双全局工作日数来源：已统一到 WorkCalendarService，旧字段只保留审计值。
+- 动态角色预览错用旧蓝色伙伴：设置、角色库和桌面均按 selected character ID 加载同一动态包。
+- 工资/日历原生旧式布局：已迁移到 ModernDialog、StatCard 和 42 格自绘日历。
+- 节假日名称与调休来源不可见：详情区现在显示节日、补班文案、来源、官方年份和文件链接。

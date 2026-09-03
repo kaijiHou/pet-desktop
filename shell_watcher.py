@@ -17,6 +17,7 @@ Limitations (§39, honest):
 """
 
 import ctypes
+import uuid
 from ctypes import wintypes, WINFUNCTYPE
 import logging
 import threading
@@ -269,7 +270,7 @@ class ShellWatcher(QObject):
         # Unique class name per instance: RegisterClassW only registers a name
         # once, and a second window created from a duplicate registration would
         # bind to the FIRST instance's WndProc (which may be GC'd -> crash).
-        class_name = f"DesktopPetShellWatcher_{id(self)}"
+        class_name = f"DesktopPetShellWatcher_{uuid.uuid4().hex}"
         wc = WNDCLASSW()
         wc.lpfnWndProc = self._wnd_proc
         wc.hInstance = kernel32.GetModuleHandleW(None)

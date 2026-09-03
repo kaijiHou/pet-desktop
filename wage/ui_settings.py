@@ -1,28 +1,62 @@
-"""Compact first-run/settings dialog for local wage tracking."""
+"""Modern wage settings; day counts are read-only and come from the calendar."""
 
-from PyQt5.QtCore import Qt, QTime
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QCheckBox, QDoubleSpinBox, QTimeEdit, QComboBox, QSpinBox, QDialogButtonBox, QLabel
+from PyQt5.QtCore import QTime
+from PyQt5.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel, QTimeEdit, QVBoxLayout, QWidget
+
+from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, SectionTitle, InlineBanner
 
 
-class WageSettingsDialog(QDialog):
+class WageSettingsDialog(ModernDialog):
     def __init__(self, service, parent=None):
-        super().__init__(parent); self.service = service; self.setWindowTitle("工资与工作时间"); self.setMinimumWidth(360)
-        root = QVBoxLayout(self); form = QFormLayout()
-        s = service.settings
-        self.enabled = QCheckBox("启用今日收入统计"); self.enabled.setChecked(s.enabled); root.addWidget(self.enabled)
-        self.salary = QDoubleSpinBox(); self.salary.setRange(0, 99999999); self.salary.setDecimals(2); self.salary.setValue(float(s.monthly_salary)); self.salary.setSuffix(" 元/月")
-        self.work_start = QTimeEdit(QTime(s.work_start.hour, s.work_start.minute)); self.work_start.setDisplayFormat("HH:mm")
-        self.lunch_start = QTimeEdit(QTime(s.lunch_start.hour, s.lunch_start.minute)); self.lunch_start.setDisplayFormat("HH:mm")
-        self.lunch_end = QTimeEdit(QTime(s.lunch_end.hour, s.lunch_end.minute)); self.lunch_end.setDisplayFormat("HH:mm")
-        self.interval = QComboBox(); self.interval.addItem("关闭", 0); [self.interval.addItem(f"每 {n} 分钟", n) for n in (10, 30, 60, 120)]; self.interval.setCurrentIndex(max(0, [0,10,30,60,120].index(s.income_interval_minutes)))
-        self.privacy = QCheckBox("隐私模式（隐藏所有金额）"); self.privacy.setChecked(s.privacy_mode)
-        self.workdays = QSpinBox(); self.workdays.setRange(0, 31); self.workdays.setSpecialValueText("按日历自动计算"); self.workdays.setValue(s.manual_workday_count or 0)
-        for label, widget in (("月工资", self.salary), ("上班时间", self.work_start), ("午休开始", self.lunch_start), ("午休结束", self.lunch_end), ("收入提示", self.interval), ("工资计算工作日数", self.workdays)):
-            form.addRow(label, widget)
-        form.addRow("", self.privacy); root.addLayout(form); root.addWidget(QLabel("规则：17:30 后加班；20:00 及以后下班确认餐补。"))
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel); buttons.accepted.connect(self._save); buttons.rejected.connect(self.reject); root.addWidget(buttons)
+        self.service = service
+        super().__init__("工资与工作时间", "自动按中国节假日与调休计算每日收入", parent, min_width=520)
+        self.resize(560, 540)
+        self._build_ui()
+
+    def _build_ui(self):
+        settings = self.service.settings
+        form_card = Card(); form = QFormLayout(form_card); form.setContentsMargins(16, 14, 16, 14); form.setVerticalSpacing(10)
+        self.enabled = QCheckBox("启用收入统计"); self.enabled.setChecked(settings.enabled); form.addRow("状态", self.enabled)
+        self.salary = QDoubleSpinBox(); self.salary.setRange(0, 99999999); self.salary.setDecimals(2); self.salary.setValue(float(settings.monthly_salary)); self.salary.setSuffix(" 元/月"); form.addRow("月工资", self.salary)
+        self.work_start = _time(settings.work_start); form.addRow("上班时间", self.work_start)
+        self.lunch_start = _time(settings.lunch_start); form.addRow("午休开始", self.lunch_start)
+        self.lunch_end = _time(settings.lunch_end); form.addRow("午休结束", self.lunch_end)
+        self.interval = QComboBox(); [(self.interval.addItem(label, value)) for label, value in (("关闭", 0), ("每 10 分钟", 10), ("每 30 分钟", 30), ("每 60 分钟", 60), ("每 120 分钟", 120))]; idx = self.interval.findData(settings.income_interval_minutes); self.interval.setCurrentIndex(max(0, idx)); form.addRow("收入提示", self.interval)
+        self.privacy = QCheckBox("隐私模式（隐藏所有金额）"); self.privacy.setChecked(settings.privacy_mode); form.addRow("隐私", self.privacy)
+        self.add_body(form_card)
+
+        calendar_card = Card(); cal_layout = QVBoxLayout(calendar_card); cal_layout.setContentsMargins(16, 13, 16, 13); cal_layout.addWidget(SectionTitle("本月工作日"))
+        row = QHBoxLayout(); self.workdays_label = QLabel(); self.workdays_label.setStyleSheet("font-size:22px;font-weight:700;"); row.addWidget(self.workdays_label); self.auto_badge = QLabel("自动"); self.auto_badge.setStyleSheet("background:#dcfce7;color:#047857;padding:4px 8px;border-radius:10px;font-weight:600;"); row.addWidget(self.auto_badge); row.addStretch(); self.calendar_button = SecondaryButton("查看工作日历"); self.calendar_button.clicked.connect(self._open_calendar); row.addWidget(self.calendar_button); cal_layout.addLayout(row)
+        self.migration_banner = InlineBanner(); self.migration_banner.set_level("info"); cal_layout.addWidget(self.migration_banner)
+        if settings.legacy_manual_workday_count is not None and self.service.consume_legacy_migration_notice():
+            self.migration_banner.label.setText(f"已保留旧版手工天数 {settings.legacy_manual_workday_count} 作为审计记录，当前计算以工作日历为准。")
+        else:
+            self.migration_banner.hide()
+        self.add_body(calendar_card)
+
+        info = QLabel("规则：17:30 后计入加班；累计加班前 25 小时按 15 元/小时，之后按 25 元/小时；20:00 及以后下班并确认可计餐补。")
+        info.setWordWrap(True); info.setObjectName("muted"); self.add_body(info)
+        now = self.service._now().date(); notes = []
+        for day in self.service.calendar.month_days(now.year, now.month):
+            detail = self.service.calendar.status_detail_for(day)
+            if detail.get("holiday_name"):
+                notes.append(f"{day.month}月{day.day}日 {detail['display_label']}")
+        self.calendar_note = QLabel("；".join(notes) + f"。本月自动计算应出勤 {self.service.calendar.workday_count(now.year, now.month)} 天。" if notes else f"本月自动计算应出勤 {self.service.calendar.workday_count(now.year, now.month)} 天。")
+        self.calendar_note.setWordWrap(True); self.calendar_note.setObjectName("muted"); self.add_body(self.calendar_note)
+        cancel = SecondaryButton("取消"); cancel.clicked.connect(self.reject); save = PrimaryButton("保存"); save.clicked.connect(self._save); self.add_footer(cancel); self.add_footer(save)
+        self._refresh_workdays()
+
+    def _refresh_workdays(self):
+        now = self.service._now().date(); self.workdays_label.setText(f"{self.service.calendar.workday_count(now.year, now.month)} 天")
+
+    def _open_calendar(self):
+        from .ui_calendar import WorkCalendarDialog
+        WorkCalendarDialog(self.service, self).exec_(); self._refresh_workdays()
 
     def _save(self):
-        self.service.update_settings(enabled=self.enabled.isChecked(), monthly_salary=str(self.salary.value()), work_start=self.work_start.time().toString("HH:mm"), lunch_start=self.lunch_start.time().toString("HH:mm"), lunch_end=self.lunch_end.time().toString("HH:mm"), income_interval_minutes=self.interval.currentData(), privacy_mode=self.privacy.isChecked(), manual_workday_count=(self.workdays.value() or None))
+        self.service.update_settings(enabled=self.enabled.isChecked(), monthly_salary=str(self.salary.value()), work_start=self.work_start.time().toString("HH:mm"), lunch_start=self.lunch_start.time().toString("HH:mm"), lunch_end=self.lunch_end.time().toString("HH:mm"), income_interval_minutes=self.interval.currentData(), privacy_mode=self.privacy.isChecked())
         self.accept()
 
+
+def _time(value):
+    edit = QTimeEdit(); edit.setDisplayFormat("HH:mm"); edit.setTime(QTime(value.hour, value.minute)); return edit
