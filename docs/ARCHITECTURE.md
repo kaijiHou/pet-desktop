@@ -453,3 +453,9 @@ PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面�
 `ui/modern/` 提供无标题栏 `ModernDialog`、按钮、卡片、输入框和非阻塞 Banner/Toast。WorkCalendarDialog、WageSettingsDialog、SettingsDialog、CharacterGalleryDialog 均通过该组件层保持统一圆角、间距和中文操作文案。
 
 动态角色预览和桌面角色均由 `CharacterRegistry → CodexPetManifest → SpritesheetAtlas` 解析；默认图集在生成阶段 4× supersampling。Renderer teardown 同时停止 AnimationPlayer 与 PetStateMachine idle timer，避免预览切换泄漏后台计时器。
+
+## 34. V4.8 UI 与预览边界
+
+`ui/modern/dialog.py` 负责无边框窗口的标题栏、resize hit-test、最大化/还原和可用屏幕约束；业务窗口只声明 `resizable`，不各自实现几何逻辑。`SettingsRow/ToggleRow` 和 Card 是设置页的统一骨架。
+
+角色预览只依赖 `DynamicPackRenderer.current_pixmap()` 公共 API；单图由 `SingleCharacterImportService` 统一写入 `data/character_images/` 并以相对路径持久化。`CharacterRegistry` 将 builtin、installed、Codex read-only 三类来源区分，Codex 角色在使用前必须复制进 data/characters。

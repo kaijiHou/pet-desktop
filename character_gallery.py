@@ -7,8 +7,8 @@ from typing import Optional
 
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QFont, QPixmap, QImage
-from PyQt5.QtWidgets import QLabel, QListWidget, QListWidgetItem, QFileDialog, QGroupBox, QVBoxLayout, QHBoxLayout
-from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, DangerButton, InlineBanner
+from PyQt5.QtWidgets import QLabel, QListWidget, QListWidgetItem, QFileDialog, QVBoxLayout, QHBoxLayout
+from ui.modern import ModernDialog, ModernConfirmDialog, PrimaryButton, SecondaryButton, DangerButton, InlineBanner, Card, SectionTitle, CharacterPreviewWidget
 
 from character_v4.registry import CharacterRegistry, CharacterEntry
 
@@ -17,9 +17,10 @@ LOGGER = logging.getLogger("pet.character.gallery")
 
 class CharacterGalleryDialog(ModernDialog):
     """Modal dialog for character selection and management."""
+    image_imported = pyqtSignal(str)
 
     def __init__(self, registry: CharacterRegistry, current_id: str, parent=None):
-        super().__init__("角色管理", "统一管理动态角色包与单图角色", parent, min_width=560, min_height=520)
+        super().__init__("角色管理", "统一管理动态角色包与单图角色", parent, min_width=560, min_height=520, resizable=True)
         self.registry = registry
         self.current_id = current_id
         self.selected_id = current_id
@@ -37,12 +38,12 @@ class CharacterGalleryDialog(ModernDialog):
         layout.addWidget(self.list_widget)
 
         # Preview
-        preview_group = QGroupBox("预览")
-        preview_layout = QVBoxLayout()
-        self.preview_label = QLabel("选择一个角色")
-        self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setFixedHeight(120)
-        preview_layout.addWidget(self.preview_label)
+        preview_group = Card()
+        preview_layout = QVBoxLayout(preview_group); preview_layout.setContentsMargins(16, 13, 16, 13)
+        preview_layout.addWidget(SectionTitle("预览"))
+        self.preview_label = CharacterPreviewWidget(self.registry, self.current_id, self)
+        self.preview_label.setMinimumSize(180, 160); self.preview_label.setMaximumHeight(220)
+        preview_layout.addWidget(self.preview_label, 1)
         self.info_label = QLabel("")
         self.info_label.setAlignment(Qt.AlignCenter)
         preview_layout.addWidget(self.info_label)
@@ -67,7 +68,7 @@ class CharacterGalleryDialog(ModernDialog):
 
         self.notice = InlineBanner(); self.notice.hide(); layout.addWidget(self.notice)
         btn_cancel = SecondaryButton("取消"); btn_cancel.clicked.connect(self.reject); self.add_footer(btn_cancel)
-        btn_ok = PrimaryButton("确定"); btn_ok.clicked.connect(self.accept); self.add_footer(btn_ok)
+        btn_ok = PrimaryButton("确定"); btn_ok.clicked.connect(self._on_use); self.add_footer(btn_ok)
 
     def _notify(self, text, level="info"):
         self.notice.label.setText(text); self.notice.set_level(level); self.notice.show()
@@ -76,7 +77,8 @@ class CharacterGalleryDialog(ModernDialog):
         self._entries = self.registry.all()
         self.list_widget.clear()
         for entry in self._entries:
-            item = QListWidgetItem(f"[{entry.source}] {entry.display_name}")
+            source_label = {"builtin": "内置", "installed": "已安装", "codex": "Codex 可导入"}.get(entry.source, entry.source)
+            item = QListWidgetItem(f"{entry.display_name} · {source_label}")
             item.setData(Qt.UserRole, entry.id)
             self.list_widget.addItem(item)
 
@@ -96,30 +98,27 @@ class CharacterGalleryDialog(ModernDialog):
         entry = self.registry.resolve(char_id)
         if entry:
             self.info_label.setText(f"{entry.display_name}\n{entry.description}")
-            # Load first frame as preview
             self._load_preview(entry)
 
     def _load_preview(self, entry: CharacterEntry):
         if not entry.pack_root:
             return
         try:
-            from character_v4.atlas import SpritesheetAtlas
-            m = entry.pack_root / "pet.json"
-            if not m.exists():
-                return
-            from character_v4.manifest import CodexPetManifest
-            manifest = CodexPetManifest.load(entry.pack_root)
-            atlas = SpritesheetAtlas(manifest, entry.pack_root)
-            if atlas.load():
-                frame = atlas.get_frame("idle", 0)
-                if frame:
-                    self.preview_label.setPixmap(frame.scaled(
-                        100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.preview_label.set_character_id(entry.id)
         except Exception:
-            self.preview_label.setText("无法加载预览")
+            self.info_label.setText("无法加载预览")
 
     def _on_use(self):
         """Select the current character and close."""
+        entry = self.registry.resolve(self.selected_id)
+        if entry and entry.source == "codex":
+            installed = self.registry.install(entry.pack_root)
+            if installed:
+                self._load_entries(); self.current_id = self.selected_id = installed.id; self._select_current()
+                self._notify("已导入到本机角色库，请再次点击使用", "success")
+            else:
+                self._notify("角色包无效或导入失败", "warning")
+            return
         self.accept()
 
     def _on_import_dynamic(self):
@@ -148,8 +147,7 @@ class CharacterGalleryDialog(ModernDialog):
 
     def _on_import_image(self):
         """Import a single image as a character."""
-        from character import import_character_image
-        from paths import PROJECT_ROOT
+        from paths import DATA_DIR
         path, _ = QFileDialog.getOpenFileName(
             self, "选择角色图片", "",
             "图片 (*.png *.webp *.jpg *.jpeg)"
@@ -157,8 +155,12 @@ class CharacterGalleryDialog(ModernDialog):
         if not path:
             return
         try:
-            name = import_character_image(Path(path), PROJECT_ROOT / "assets")
-            self._notify(f"已导入图片：{name}", "success")
+            from character_import import SingleCharacterImportService
+            importer = SingleCharacterImportService(DATA_DIR)
+            stored = importer.import_image(Path(path))
+            relative = importer.relative_path(stored)
+            self.image_imported.emit(relative)
+            self._notify(f"已导入图片：{stored.name}", "success")
         except ValueError as exc:
             self._notify(str(exc), "warning")
 
@@ -172,9 +174,21 @@ class CharacterGalleryDialog(ModernDialog):
         if entry and entry.is_builtin:
             self._notify("内置角色不能删除", "warning")
             return
+        if entry and entry.source != "installed":
+            self._notify("该角色需先导入到本机角色库", "warning")
+            return
         if char_id == self.current_id:
             self._notify("当前正在使用的角色不能删除，请先切换角色", "warning")
+            return
+        confirm = ModernConfirmDialog("删除角色", f"删除角色“{entry.display_name if entry else char_id}”？角色文件将从本应用中移除，此操作不可撤销。", self)
+        confirm.confirm_button.setText("删除"); confirm.confirm_button.setObjectName("danger"); confirm.confirm_button.style().unpolish(confirm.confirm_button); confirm.confirm_button.style().polish(confirm.confirm_button)
+        if confirm.exec_() != confirm.Accepted:
             return
         self.registry.remove(char_id)
         self._load_entries()
         self._notify(f"已删除：{entry.display_name if entry else char_id}", "success")
+
+    def closeEvent(self, event):
+        if hasattr(self, "preview_label"):
+            self.preview_label.close()
+        super().closeEvent(event)

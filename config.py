@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
     # "sheet" = legacy sprite sheet mode.
     "character_mode": "dynamic_pack",
     "selected_character_id": "default_dynamic_ghost",
-    "character_image": "",      # file name inside assets/, "" = built-in buddy
+    "character_image": "",      # portable path under data/character_images/, "" = dynamic pack
 
     # Behavior (V2)
     "always_on_top": True,

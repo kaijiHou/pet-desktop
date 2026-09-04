@@ -9,8 +9,7 @@ from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QSize, pyqtSignal, QThread, 
 from PyQt5.QtGui import (QPainter, QPixmap, QImage, QFont, QColor, QPen, QBrush,
     QPainterPath, QFontMetrics, QCursor, QIcon, QTransform)
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QSystemTrayIcon,
-    QInputDialog, QMessageBox, QDialog, QVBoxLayout, QLabel, QPushButton,
-    QHBoxLayout, QSlider, QCheckBox, QSpinBox, QFormLayout, QGroupBox, QDialogButtonBox)
+    QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSlider)
 from config import Config
 from character import CharacterController, STEP_MS
 from pet_sprite import ANIMATIONS, ASSETS_DIR, PetSpriteLoader, SPRITE_W, SPRITE_H
@@ -24,7 +23,7 @@ from wage.service import WageService
 from wage.model import WORKDAY, ADJUSTED_WORKDAY, REST, LEAVE
 from bubble_window import BubbleWindow
 import sounds, theme
-from ui.modern import ModernDialog, PrimaryButton, SecondaryButton
+from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, SectionTitle, ToggleRow, CharacterPreviewWidget
 
 
 LOGGER = logging.getLogger("pet.window")
@@ -38,14 +37,15 @@ class SettingsDialog(ModernDialog):
     """
 
     def __init__(self, config, parent=None):
-        super().__init__("设置", "角色、行为、提醒和数据", parent, min_width=470)
+        super().__init__("设置", "角色、行为、提醒和数据", parent, min_width=470, resizable=True)
         self.config = config
         self._work = dict(config.data)
         self._original_scale = float(config.get("pet_scale", 3))
         layout = self.body
 
         # ── 角色 ──
-        box = QGroupBox("角色"); form = QVBoxLayout(box)
+        box = Card(); form = QVBoxLayout(box); form.setContentsMargins(16, 13, 16, 13)
+        form.addWidget(SectionTitle("角色"))
         row_img = QHBoxLayout()
         from character_v4.registry import CharacterRegistry
         from paths import ASSETS_DIR, DATA_DIR
@@ -61,11 +61,12 @@ class SettingsDialog(ModernDialog):
         role_info.addWidget(self.character_name_label); role_info.addWidget(self.character_source_label); role_info.addStretch()
         row_img.addLayout(role_info)
         col_btn = QVBoxLayout()
-        self.import_button = QPushButton("选择图片...")
-        self.reset_button = QPushButton("恢复默认角色")
-        self.gallery_button = QPushButton("管理角色...")
-        col_btn.addWidget(self.import_button); col_btn.addWidget(self.reset_button)
-        col_btn.addWidget(self.gallery_button)
+        self.gallery_button = PrimaryButton("管理角色")
+        self.import_button = SecondaryButton("导入单图")
+        self.reset_button = QPushButton("恢复默认")
+        self.reset_button.setObjectName("linkButton")
+        col_btn.addWidget(self.gallery_button); col_btn.addWidget(self.import_button)
+        col_btn.addWidget(self.reset_button)
         col_btn.addStretch(); row_img.addLayout(col_btn); row_img.addStretch()
         form.addLayout(row_img)
         row_scale = QHBoxLayout(); row_scale.addWidget(QLabel("大小"))
@@ -80,42 +81,38 @@ class SettingsDialog(ModernDialog):
         self.scale_pct_label.setFixedWidth(48)
         row_scale.addWidget(self.scale_pct_label)
         form.addLayout(row_scale)
-        self.name_check = QCheckBox("显示角色名称")
-        self.name_check.setChecked(self._work.get("show_pet_name", False))
-        form.addWidget(self.name_check); layout.addWidget(box)
+        name_row = ToggleRow("显示角色名称", self._work.get("show_pet_name", False))
+        self.name_check = name_row.toggle
+        form.addWidget(name_row); layout.addWidget(box)
         self.notice_label = QLabel(""); self.notice_label.setObjectName("muted"); self.notice_label.setWordWrap(True); self.notice_label.hide(); layout.addWidget(self.notice_label)
 
         # ── 行为 ──
-        box2 = QGroupBox("行为"); bl = QVBoxLayout(box2)
-        self.top_check = QCheckBox("始终置顶")
-        self.top_check.setChecked(self._work.get("always_on_top", True))
-        self.wheel_check = QCheckBox("允许滚轮调整角色大小")
-        self.wheel_check.setChecked(self._work.get("wheel_zoom_enabled", True))
-        self.anim_check = QCheckBox("文件操作时播放动画")
-        self.anim_check.setChecked(self._work.get("file_event_animations_enabled", True))
-        self.badge_check = QCheckBox("口袋数量角标")
-        self.badge_check.setChecked(self._work.get("pocket_badge_enabled", True))
-        for w in (self.top_check, self.wheel_check, self.anim_check, self.badge_check):
-            bl.addWidget(w)
+        box2 = Card(); bl = QVBoxLayout(box2); bl.setContentsMargins(16, 13, 16, 13); bl.addWidget(SectionTitle("行为"))
+        self._behavior_rows = [
+            ToggleRow("始终置顶", self._work.get("always_on_top", True)),
+            ToggleRow("滚轮调整角色大小", self._work.get("wheel_zoom_enabled", True)),
+            ToggleRow("文件操作动画", self._work.get("file_event_animations_enabled", True)),
+            ToggleRow("口袋数量角标", self._work.get("pocket_badge_enabled", True)),
+        ]
+        self.top_check, self.wheel_check, self.anim_check, self.badge_check = [row.toggle for row in self._behavior_rows]
+        for row in self._behavior_rows: bl.addWidget(row)
         layout.addWidget(box2)
 
         # ── 提醒 ──
-        box3 = QGroupBox("提醒"); rl = QVBoxLayout(box3)
-        self.sound_check = QCheckBox("提醒声音")
-        self.sound_check.setChecked(self._work.get("reminder_sound_enabled", True))
-        self.bubble_check = QCheckBox("桌宠气泡")
-        self.bubble_check.setChecked(self._work.get("reminder_bubble_enabled", True))
-        rl.addWidget(self.sound_check); rl.addWidget(self.bubble_check); layout.addWidget(box3)
+        box3 = Card(); rl = QVBoxLayout(box3); rl.setContentsMargins(16, 13, 16, 13); rl.addWidget(SectionTitle("提醒"))
+        sound_row = ToggleRow("提醒声音", self._work.get("reminder_sound_enabled", True)); bubble_row = ToggleRow("桌宠气泡", self._work.get("reminder_bubble_enabled", True))
+        self.sound_check, self.bubble_check = sound_row.toggle, bubble_row.toggle
+        rl.addWidget(sound_row); rl.addWidget(bubble_row); layout.addWidget(box3)
 
         # ── 数据 ──
-        box4 = QGroupBox("数据"); dl = QHBoxLayout(box4)
-        self.open_data_button = QPushButton("打开数据目录")
+        box4 = Card(); dl = QVBoxLayout(box4); dl.setContentsMargins(16, 13, 16, 13); dl.addWidget(SectionTitle("数据")); buttons = QHBoxLayout()
+        self.open_data_button = SecondaryButton("打开数据目录")
         self.open_data_button.clicked.connect(self._open_data_dir)
-        self.open_log_button = QPushButton("打开日志目录")
+        self.open_log_button = SecondaryButton("打开日志目录")
         self.open_log_button.clicked.connect(self._open_log_dir)
-        self.wage_button = QPushButton("工资与工时")
+        self.wage_button = SecondaryButton("工资与工作时间")
         self.wage_button.clicked.connect(lambda: self.parent()._open_wage_settings() if self.parent() else None)
-        dl.addWidget(self.open_data_button); dl.addWidget(self.open_log_button); dl.addWidget(self.wage_button); dl.addStretch()
+        buttons.addWidget(self.open_data_button); buttons.addWidget(self.open_log_button); buttons.addWidget(self.wage_button); buttons.addStretch(); dl.addLayout(buttons)
         layout.addWidget(box4)
 
         cancel = SecondaryButton("取消"); save = PrimaryButton("保存")
@@ -137,11 +134,12 @@ class SettingsDialog(ModernDialog):
             self.parent()._update_scale_preview(scale)
 
     def _refresh_preview(self):
-        from paths import PROJECT_ROOT
+        from paths import DATA_DIR
+        from character_import import SingleCharacterImportService
         name = self._work.get("character_image", ""); img = None
         if name:
-            path = PROJECT_ROOT / "assets" / name
-            if path.exists():
+            path = SingleCharacterImportService(DATA_DIR).resolve(name)
+            if path and path.exists():
                 try:
                     from PIL import Image as PILImage
                     img = PILImage.open(path).convert("RGBA")
@@ -161,26 +159,25 @@ class SettingsDialog(ModernDialog):
             self.character_source_label.setText("动态角色 · " + ("内置" if entry and entry.is_builtin else "已安装" if entry else "资源加载失败"))
 
     def _import_image(self):
-        from character import import_character_image
         from paths import DATA_DIR
         from PyQt5.QtWidgets import QFileDialog
         from PIL import Image
         path, _ = QFileDialog.getOpenFileName(self, "选择角色图片", "", "图片 (*.png *.webp *.jpg *.jpeg)")
         if not path:
             return
-        img_dir = DATA_DIR / "character_images"
-        img_dir.mkdir(parents=True, exist_ok=True)
         try:
-            name = import_character_image(Path(path), img_dir)
+            from character_import import SingleCharacterImportService
+            importer = SingleCharacterImportService(DATA_DIR)
+            stored = importer.import_image(Path(path)); name = stored.name
         except ValueError as exc:
             self.notice_label.setText(str(exc)); self.notice_label.show()
             return
-        self._work["character_image"] = str(img_dir / name)
+        self._work["character_image"] = importer.relative_path(stored)
         self._work["character_mode"] = "single"
         self._work["selected_character_id"] = ""
         self._refresh_preview()
         try:
-            img = Image.open(img_dir / name).convert("RGBA")
+            img = Image.open(stored).convert("RGBA")
         except OSError:
             img = None
         if self.parent() and hasattr(self.parent(), "_reload_character_preview"):
@@ -221,6 +218,8 @@ class SettingsDialog(ModernDialog):
         registry = CharacterRegistry(ASSETS_DIR, DATA_DIR)
         current_id = self._work.get("selected_character_id", "")
         dlg = CharacterGalleryDialog(registry, current_id, self)
+        if hasattr(dlg, "image_imported"):
+            dlg.image_imported.connect(self._on_gallery_image)
         if dlg.exec_() == QDialog.Accepted:
             self._work["selected_character_id"] = dlg.selected_id
             self._work["character_mode"] = "dynamic_pack"
@@ -228,6 +227,12 @@ class SettingsDialog(ModernDialog):
             self._refresh_preview()
             if self.parent() and hasattr(self.parent(), "preview_dynamic_character"):
                 self.parent().preview_dynamic_character(dlg.selected_id)
+
+    def _on_gallery_image(self, relative_path):
+        self._work["character_image"] = relative_path
+        self._work["character_mode"] = "single"
+        self._work["selected_character_id"] = ""
+        self._refresh_preview()
 
     def _save(self):
         c = self.config
@@ -247,11 +252,18 @@ class SettingsDialog(ModernDialog):
             c.set("character_image", "")
         else:
             if "character_image" in self._work:
-                c.set("character_image", self._work["character_image"])
+                from character_import import SingleCharacterImportService
+                from paths import DATA_DIR
+                c.set("character_image", SingleCharacterImportService(DATA_DIR).relative_path(self._work["character_image"]))
         # Apply character config to pet window
         if self.parent() and hasattr(self.parent(), "_apply_character_config"):
             self.parent()._apply_character_config()
         self.accept()
+
+    def closeEvent(self, event):
+        if hasattr(self, "preview_widget"):
+            self.preview_widget.close()
+        super().closeEvent(event)
 
 
 class PetWindow(QWidget):
@@ -382,10 +394,13 @@ class PetWindow(QWidget):
             if not pack_dir.exists():
                 LOGGER.warning("Pack dir not found: %s", pack_dir)
                 return
-            renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3))
+            renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3), parent=self)
             if renderer.load():
                 if self.dynamic_renderer is not None:
-                    self.dynamic_renderer.stop()
+                    old = self.dynamic_renderer; old.stop()
+                    try: old.frame_changed.disconnect(self.update)
+                    except (TypeError, RuntimeError): pass
+                    old.setParent(None); old.deleteLater()
                 self.dynamic_renderer = renderer
                 renderer.frame_changed.connect(self.update)
                 LOGGER.info("Dynamic renderer loaded: %s", renderer.display_name)
@@ -418,7 +433,7 @@ class PetWindow(QWidget):
         m = QMenu()
         m.addAction("显示/隐藏角色").triggered.connect(self._toggle_visibility)
         m.addAction("今日收入").triggered.connect(self._open_today_wage)
-        m.addAction("工时日历").triggered.connect(self._open_calendar)
+        m.addAction("工作日历").triggered.connect(self._open_calendar)
         m.addSeparator()
         m.addAction("文件口袋").triggered.connect(self._open_pocket)
         m.addAction("新建提醒").triggered.connect(self._open_add_reminder)
@@ -1155,7 +1170,7 @@ class PetWindow(QWidget):
     def _show_context_menu(self, pos):
         m = QMenu(self)
         wa = m.addAction("今日收入")
-        ca = m.addAction("工时日历")
+        ca = m.addAction("工作日历")
         m.addSeparator()
         pa = m.addAction("文件口袋")
         aa = m.addAction("新建提醒")
@@ -1237,7 +1252,10 @@ class PetWindow(QWidget):
         else:
             # Switch away from dynamic
             if self.dynamic_renderer:
-                self.dynamic_renderer.stop()
+                old = self.dynamic_renderer; old.stop()
+                try: old.frame_changed.disconnect(self.update)
+                except (TypeError, RuntimeError): pass
+                old.setParent(None); old.deleteLater()
                 self.dynamic_renderer = None
             self.character.reload()
         self._set_character_scale(float(self.config.get("pet_scale", 3)))
@@ -1258,10 +1276,13 @@ class PetWindow(QWidget):
         old_mode = self.config.get("character_mode")
         old_id = self.config.get("selected_character_id")
         try:
-            renderer = DynamicPackRenderer(entry.pack_root, scale=self.config.get("pet_scale", 3))
+            renderer = DynamicPackRenderer(entry.pack_root, scale=self.config.get("pet_scale", 3), parent=self)
             if renderer.load():
                 if old_renderer:
                     old_renderer.stop()
+                    try: old_renderer.frame_changed.disconnect(self.update)
+                    except (TypeError, RuntimeError): pass
+                    old_renderer.setParent(None); old_renderer.deleteLater()
                 self.dynamic_renderer = renderer
                 renderer.frame_changed.connect(self.update)
                 self._resize_to_character()

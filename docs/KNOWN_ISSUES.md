@@ -227,3 +227,7 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - 动态角色预览错用旧蓝色伙伴：设置、角色库和桌面均按 selected character ID 加载同一动态包。
 - 工资/日历原生旧式布局：已迁移到 ModernDialog、StatCard 和 42 格自绘日历。
 - 节假日名称与调休来源不可见：详情区现在显示节日、补班文案、来源、官方年份和文件链接。
+
+### KI-28 🟡 V4.8 真机视觉验收未执行
+- 代码层已完成 ModernDialog resize hit-test、现代设置卡片、角色预览比例/生命周期、工资输入与日历月度覆盖。
+- 真实 Windows EXE 的窗口截图、DPI 100%/125%/150%、鼠标拖拽 resize、Explorer RMDIR 仍为 `NOT TESTED`，原因是本轮明确不使用电脑控制。清单见 `V48_REAL_ACCEPTANCE.md`。

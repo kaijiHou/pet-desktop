@@ -119,6 +119,13 @@ class DynamicPackRenderer(QObject):
             return
         painter.drawPixmap(x, y, w, h, frame)
 
+    def current_frame(self) -> Optional[QPixmap]:
+        """Return the current frame without exposing the animation player."""
+        return self._player.current_frame if self._player is not None else None
+
+    def current_pixmap(self) -> Optional[QPixmap]:
+        return self.current_frame()
+
     def play_semantic(self, semantic: str):
         """Trigger an animation by business semantic."""
         if self._state_machine is None:

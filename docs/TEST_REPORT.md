@@ -379,3 +379,20 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 - `scripts/verify_release.ps1`：全新解压副本 **PASS**（running/responding、单进程、动画目录、用户素材目录、日志、WebEngine 文件 0）。
 - ZIP：`release/DesktopPet-windows-x64.zip`，48,547,454 bytes；SHA-256 `1478b043d1d69543b43a6edbe839604b1267eac0980f655aa61971e68b6a94f6`。
 - 真实 Windows 视觉、Explorer 和鼠标清单仍为 **NOT TESTED**。
+
+## V4.8（2026-09-04，代码验收）
+
+| 套件 | 结果 |
+|---|---|
+| ModernDialog / Preview / Calendar / Wage / Settings / import contracts | **5 passed** |
+| V4.7 targeted regressions | **PASS** |
+| 真实 Windows 视觉、DPI、鼠标 resize、Explorer RMDIR | **NOT TESTED** |
+
+| Full suite | **358 passed** |
+
+### V4.8 fresh release
+
+- `scripts/build_release.ps1`：clean build + 358 tests **PASS**。
+- `scripts/verify_release.ps1`：全新解压副本 **PASS**（running/responding、单进程、动画目录、用户素材目录、日志、WebEngine 文件 0）。
+- ZIP：`release/DesktopPet-windows-x64.zip`，48,564,251 bytes；SHA-256 `e890abeb90dd0c4b87eb0e24ce04931bbb4adad4543cde0e94385da474ba9bee`；`release/manifest.json` 一致。
+- 真实 Windows 视觉、DPI、鼠标 resize、Explorer RMDIR：**NOT TESTED**。

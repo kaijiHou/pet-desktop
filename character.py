@@ -13,7 +13,7 @@ Modes
 from pathlib import Path
 from PIL import Image, ImageDraw
 
-from paths import PROJECT_ROOT
+from paths import PROJECT_ROOT, DATA_DIR
 
 USER_ASSETS_DIR = PROJECT_ROOT / "assets"
 DEFAULT_CHARACTER_NAME = "default_buddy.png"
@@ -95,7 +95,16 @@ class CharacterController:
     def _character_path(self) -> Path:
         name = self.config.get("character_image", "")
         if name:
-            return USER_ASSETS_DIR / name
+            path = Path(name)
+            if path.is_absolute():
+                return path
+            data_path = DATA_DIR / path
+            if data_path.exists():
+                return data_path
+            image_path = DATA_DIR / "character_images" / path.name
+            if image_path.exists():
+                return image_path
+            return USER_ASSETS_DIR / path.name
         return USER_ASSETS_DIR / DEFAULT_CHARACTER_NAME
 
     def _reload(self):

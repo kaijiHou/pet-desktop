@@ -948,3 +948,13 @@ pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixe
 - 动态角色预览与桌面渲染统一 CharacterRegistry→Manifest→Atlas；默认小幽灵使用 4× supersampling，renderer 停止时同时关闭 state-machine idle timer。
 - 自动化新增 V4.7 日历契约、动态 UI、默认图集测试；完整套件 `pytest tests -q` 为 **352 passed**；真实 Windows 视觉与 Explorer 验收仍为 `NOT TESTED`，详见 `V47_REAL_ACCEPTANCE.md`。
 - Fresh release：`scripts/build_release.ps1` 和 `scripts/verify_release.ps1` 均 PASS；ZIP 48,547,454 bytes，SHA-256 `1478b043d1d69543b43a6edbe839604b1267eac0980f655aa61971e68b6a94f6`，解压副本单进程、日志生成、WebEngine 0。
+
+## 2026-09-04 - V4.8 现代 UI 与角色预览收尾
+
+- 基线：`V48_BASELINE_HEAD=e0692349bf2937f6328fe00745dad492c7fa4bc5`，仓库 `kaijiHou/pet-desktop`，分支 `master`，开始前已与 origin 同步。
+- `ModernDialog` 增加可选 resize、7px 边缘/角落 hit-test、最小尺寸/屏幕可用区域约束、最大化/还原和标题栏双击；工作日历与角色管理启用。
+- Settings 四个区域改为 Card/SectionTitle/ToggleRow，角色操作收敛为“管理角色 / 导入单图 / 恢复默认”；Wage 输入隐藏原生箭头，自动/手动工作日徽标与日历同步。
+- CharacterPreview 使用公开 renderer API 和 KeepAspectRatio；切换/关闭时停止并清理 renderer。Gallery 删除使用现代危险确认，Codex 角色需导入后使用；单图只写 `data/character_images/`，配置保存相对路径。
+- 工作日历增加右上角规则入口、月度覆盖/恢复自动、星期与记录摘要；未知年份 fallback 文案固定为“当前仅按周一至周五估算”。
+- 真实 Windows 截图、DPI、鼠标 resize、Explorer RMDIR：`NOT TESTED`，详见 `V48_REAL_ACCEPTANCE.md`；不以离屏测试冒充真机验收。
+- 完整套件：`pytest tests -q` → **358 passed**。Fresh release 与黑盒校验均 PASS；ZIP 48,564,251 bytes，SHA-256 `e890abeb90dd0c4b87eb0e24ce04931bbb4adad4543cde0e94385da474ba9bee`，manifest 一致。
