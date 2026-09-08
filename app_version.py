@@ -24,7 +24,8 @@ def build_info() -> dict:
     for candidate in (_ROOT / "build_info.json", Path(__file__).resolve().parent / "build_info.json"):
         try:
             if candidate.exists():
-                with open(candidate, "r", encoding="utf-8") as f:
+                # utf-8-sig: PowerShell's UTF8 encoding writes a BOM.
+                with open(candidate, "r", encoding="utf-8-sig") as f:
                     raw = json.load(f)
                 return {
                     "version": str(raw.get("version", APP_VERSION)),

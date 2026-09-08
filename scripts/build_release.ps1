@@ -43,7 +43,9 @@ if (-not $SkipTests) {
 $gitSha = (& git rev-parse HEAD).Trim()
 $buildTime = (Get-Date).ToString("o")
 $buildInfo = [ordered]@{ version = "V5.0"; git_sha = $gitSha; build_time = $buildTime }
-$buildInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $projectRoot "build_info.json") -Encoding UTF8
+# Write WITHOUT BOM (PowerShell 5 'UTF8' adds one; json.load chokes on it).
+[System.IO.File]::WriteAllText((Join-Path $projectRoot "build_info.json"),
+    ($buildInfo | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
 
 & $pyinstaller --noconfirm --clean `
     --workpath $buildDir `
