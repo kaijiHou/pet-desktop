@@ -231,3 +231,9 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 ### KI-28 🟡 V4.8 真机视觉验收未执行
 - 代码层已完成 ModernDialog resize hit-test、现代设置卡片、角色预览比例/生命周期、工资输入与日历月度覆盖。
 - 真实 Windows EXE 的窗口截图、DPI 100%/125%/150%、鼠标拖拽 resize、Explorer RMDIR 仍为 `NOT TESTED`，原因是本轮明确不使用电脑控制。清单见 `V48_REAL_ACCEPTANCE.md`。
+
+## V4.9 状态更新（2026-09-08）
+
+- **KI-27（已修复）**：`selected_character_id` 指向已删除角色时启动回落 single 而非内置 ghost，且无日志、每次启动重复失败。已改为回退 `default_dynamic_ghost` + warning + effective id 持久化（tests/smoke/test_v49_contracts.py）。
+- **KI-28（已修复）**：QuickPanel"工时日历"命名残留，与全局"工作日历"统一要求冲突；已改名并全仓归零。
+- **视觉验收债务（继承 V4.8）**：Settings/Wage/Calendar/Gallery 截图、DPI 125%、日历鼠标 resize、Explorer 真实 RMDIR 仍 NOT TESTED；本轮无电脑控制，清单与回填流程见 `V49_REAL_ACCEPTANCE.md`。

@@ -33,7 +33,7 @@ class QuickPanel(QWidget):
         self.wage_detail = QLabel(""); self.wage_detail.setWordWrap(True)
         self.wage_setup_btn = QPushButton("设置工资与工作时间"); self.wage_setup_btn.setObjectName("primary"); self.wage_setup_btn.clicked.connect(self._open_wage_settings)
         layout.addWidget(self.wage_status); layout.addWidget(self.wage_amount); layout.addWidget(self.wage_detail); layout.addWidget(self.wage_setup_btn)
-        wage_buttons = QHBoxLayout(); self.clock_out_btn = QPushButton("下班打卡"); self.clock_out_btn.setObjectName("primary"); self.clock_out_btn.clicked.connect(self._clock_out); self.calendar_btn = QPushButton("工时日历"); self.calendar_btn.clicked.connect(self._open_calendar)
+        wage_buttons = QHBoxLayout(); self.clock_out_btn = QPushButton("下班打卡"); self.clock_out_btn.setObjectName("primary"); self.clock_out_btn.clicked.connect(self._clock_out); self.calendar_btn = QPushButton("工作日历"); self.calendar_btn.clicked.connect(self._open_calendar)
         wage_buttons.addWidget(self.clock_out_btn); wage_buttons.addWidget(self.calendar_btn); layout.addLayout(wage_buttons)
 
         self._section_line(layout)

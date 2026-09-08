@@ -958,3 +958,39 @@ pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixe
 - 工作日历增加右上角规则入口、月度覆盖/恢复自动、星期与记录摘要；未知年份 fallback 文案固定为“当前仅按周一至周五估算”。
 - 真实 Windows 截图、DPI、鼠标 resize、Explorer RMDIR：`NOT TESTED`，详见 `V48_REAL_ACCEPTANCE.md`；不以离屏测试冒充真机验收。
 - 完整套件：`pytest tests -q` → **358 passed**。Fresh release 与黑盒校验均 PASS；ZIP 48,564,251 bytes，SHA-256 `e890abeb90dd0c4b87eb0e24ce04931bbb4adad4543cde0e94385da474ba9bee`，manifest 一致。
+
+---
+
+## 2026-09-08 - V4.9 真机验收准备轮（无电脑控制边界）
+
+### 基线与环境
+
+- `V49_BASELINE_HEAD = 0e9394509d26339967c70641525c9421309170b7`（v4.8 finish modern ui and preview consistency），fetch 后与 origin/master 同步，工作区干净。
+- Full pytest：**358 passed**（3:21）。
+- Fresh build（clean build/dist/release）：manifest built_at `2026-09-08T17:24:43+08:00`，ZIP SHA256 `851a843cff09025af5ff21425a0d0c92de1ccd6eabd98177546c48d767be4d7c`。
+- `verify_release.ps1`：running/responding、单进程、动画 catalog、日志、WebEngine=0 全 PASS。
+- 验收 EXE 为 verify 脚本全新解压副本（非开发目录 build），config 为副本旁 `data\config.json`。
+
+### 本轮边界（用户明确禁止 Computer Use）
+
+- 8 张真机截图、DPI 125%、日历 resize 手感、Explorer 真实 RMDIR：如实 NOT TESTED，已在 `V49_REAL_ACCEPTANCE.md` 给出用户手动清单与回填流程；不以离屏/代码截图冒充。
+
+### 审计与修复
+
+1. **item 55 角色 fallback 缺口**：`selected_character_id` 指向不存在的 pack 时旧代码只回落 single 模式且不记日志。修复：回退内置 `default_dynamic_ghost`，warning 记录 requested/effective，并持久化 effective id 避免每次启动重复报错。测试 `test_stale_character_id_falls_back_to_builtin_ghost`。
+2. **item 36 命名残留**：QuickPanel 按钮仍是"工时日历"，与 V4.7 起统一的"工作日历"冲突。改名 + 全仓 grep 归零。测试 `test_quick_panel_uses_work_calendar_naming`。
+3. **item 17/58 timer 泄漏契约**：新增 20 次动态渲染器重载后动画 timer 数不增长的回归（`test_gallery_switch_20x_no_timer_leak`）。
+
+### 契约复核（全部 PASS）
+
+- 日历/工资：9 月 22 天、10 月 18 天、9/20 与 10/10 补班（adjusted_workday）、9/25-27 中秋与 10/1-7 国庆（rest）、日薪 509.09/622.22 与 UI 口径一致。
+- fallback 年份文案、数据源文案（无 raw URL）、英文按钮零残留、隐私遮罩 `••••••`、单图相对路径解析、内联下班/备注编辑器（无 QInputDialog/QMessageBox）。
+
+### 回归与性能
+
+- Reminder/Pocket/Shell/integration 定向 39 passed；工资套件 55 passed；修复后 full suite **361 passed**。
+- Fresh EXE 10 分钟观察：RSS 79.9→68.2→36.2MB（无增长），CPU 累计 7.3s，单进程，无 crash。
+
+### 已知限制
+
+- 视觉/DPI/resize/Explorer RMDIR 待用户截图回填；若截图暴露问题，按 KNOWN_ISSUES→修复→contract test→rebuild 流程处理。

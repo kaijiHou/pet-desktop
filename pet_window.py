@@ -383,17 +383,22 @@ class PetWindow(QWidget):
             from character_v4.renderer import DynamicPackRenderer
             from paths import ASSETS_DIR, DATA_DIR
             BUILTIN_ID = "default_dynamic_ghost"
-            pack_id = self.config.get("selected_character_id", "") or "default_dynamic_ghost"
-            if not pack_id:
-                return
+            pack_id = self.config.get("selected_character_id", "") or BUILTIN_ID
             # Resolve path by id
             if pack_id == BUILTIN_ID:
                 pack_dir = ASSETS_DIR / BUILTIN_ID
             else:
                 pack_dir = DATA_DIR / "characters" / pack_id
             if not pack_dir.exists():
-                LOGGER.warning("Pack dir not found: %s", pack_dir)
-                return
+                # A stale/removed character id must never break startup —
+                # fall back to the builtin ghost and persist the effective
+                # id so the warning doesn't repeat on every launch.
+                LOGGER.warning("Requested character %r missing (dir=%s); fallback %s",
+                               pack_id, pack_dir, BUILTIN_ID)
+                pack_id = BUILTIN_ID
+                pack_dir = ASSETS_DIR / BUILTIN_ID
+                if self.config.get("selected_character_id") != BUILTIN_ID:
+                    self.config.set("selected_character_id", BUILTIN_ID)
             renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3), parent=self)
             if renderer.load():
                 if self.dynamic_renderer is not None:

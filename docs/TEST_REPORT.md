@@ -396,3 +396,19 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 - `scripts/verify_release.ps1`：全新解压副本 **PASS**（running/responding、单进程、动画目录、用户素材目录、日志、WebEngine 文件 0）。
 - ZIP：`release/DesktopPet-windows-x64.zip`，48,564,251 bytes；SHA-256 `e890abeb90dd0c4b87eb0e24ce04931bbb4adad4543cde0e94385da474ba9bee`；`release/manifest.json` 一致。
 - 真实 Windows 视觉、DPI、鼠标 resize、Explorer RMDIR：**NOT TESTED**。
+
+---
+
+## 2026-09-08 V4.9
+
+| 套件 | 结果 |
+|---|---|
+| V4.8 基线 `pytest tests -q` | 358 passed |
+| 新增 `tests/smoke/test_v49_contracts.py` | 3 passed（missing-id 回退持久化 / 工作日历命名 / 20×重载无 timer 泄漏） |
+| 修复后全量 | **361 passed** |
+| Reminder/Pocket/Shell/integration 定向 | 39 passed |
+| 工资 + 法定日历套件 | 55 passed |
+| 数据契约脚本 | 9月22天 / 10月18天 / 9-20与10-10 adjusted / 9-25~27、10-1~7 rest / 日薪 509.09、622.22 |
+| Fresh EXE verify | PASS（单进程/响应/无 WebEngine） |
+| Fresh EXE 10min | RSS 79.9→36.2MB 无增长，CPU 7.3s/10min，单进程 |
+| 真机截图 / DPI / resize / Explorer RMDIR | NOT TESTED（无电脑控制，见 V49_REAL_ACCEPTANCE） |

@@ -459,3 +459,22 @@ PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面�
 `ui/modern/dialog.py` 负责无边框窗口的标题栏、resize hit-test、最大化/还原和可用屏幕约束；业务窗口只声明 `resizable`，不各自实现几何逻辑。`SettingsRow/ToggleRow` 和 Card 是设置页的统一骨架。
 
 角色预览只依赖 `DynamicPackRenderer.current_pixmap()` 公共 API；单图由 `SingleCharacterImportService` 统一写入 `data/character_images/` 并以相对路径持久化。`CharacterRegistry` 将 builtin、installed、Codex read-only 三类来源区分，Codex 角色在使用前必须复制进 data/characters。
+
+---
+
+## V4.9 追加（2026-09-08）
+
+### 角色解析回退链（pet_window._load_dynamic_renderer）
+```
+selected_character_id
+  ├─ "default_dynamic_ghost" → assets/default_dynamic_ghost/
+  ├─ 其他 id → data/characters/<id>/
+  │     └─ 目录不存在 → WARNING(requested/effective) → 回退内置 ghost
+  │        并 config.set 持久化 effective id（启动不白屏、不重复报错）
+  └─ renderer.load() 失败 → single 模式（CharacterController 兜底）
+```
+
+### 验收证据分层
+- 行为/数据契约：离屏 pytest + 独立脚本（日历天数、工资口径、timer 泄漏、fallback）。
+- 视觉/手感：真机截图 + DPI + 鼠标 resize（本轮 NOT TESTED，见 V49_REAL_ACCEPTANCE 回填流程）。
+- 两者不许互相冒充。
