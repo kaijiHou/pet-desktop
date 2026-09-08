@@ -90,7 +90,10 @@ class ModernMonthCalendar(QWidget):
     def refresh(self):
         while self.grid.count():
             item = self.grid.takeAt(0); widget = item.widget()
-            if widget: widget.deleteLater()
+            if widget:
+                # hide() first: deleteLater needs an event-loop turn, and a
+                # deferred cell must never paint at its stale position.
+                widget.hide(); widget.deleteLater()
         self.cells = []
         offset = self._month.weekday()
         last = calendar.monthrange(self._month.year, self._month.month)[1]
@@ -145,11 +148,15 @@ class WorkCalendarDialog(ModernDialog):
         for label in (self.weekday_label, self.holiday_label, self.status_label, self.source_label): detail.addWidget(label)
         detail.addSpacing(5)
         self.clock_out_edit = ModernTimeField(QTime(0, 0)); self.clock_out_edit.setSpecialValueText("未记录"); detail.addWidget(QLabel("下班时间")); detail.addWidget(self.clock_out_edit)
-        self.record_out_button = SecondaryButton("记录下班"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; detail.addWidget(self.record_out_button)
-        self.cancel_clock_button = SecondaryButton("取消"); self.cancel_clock_button.clicked.connect(self._cancel_clock_out); detail.addWidget(self.cancel_clock_button)
+        clock_row = QHBoxLayout()
+        self.record_out_button = SecondaryButton("记录下班"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
+        self.cancel_clock_button = SecondaryButton("取消"); self.cancel_clock_button.clicked.connect(self._cancel_clock_out); self.cancel_clock_button.hide(); clock_row.addWidget(self.cancel_clock_button); detail.addLayout(clock_row)
+        self.clock_out_edit.timeChanged.connect(lambda _t: self.cancel_clock_button.show())
         self.note_edit = ModernLineEdit(); self.note_edit.setPlaceholderText("给这一天写备注"); detail.addWidget(self.note_edit)
-        self.note_button = SecondaryButton("添加备注"); self.note_button.clicked.connect(self._save_note); self.save_note_button = self.note_button; detail.addWidget(self.note_button)
-        self.cancel_note_button = SecondaryButton("取消"); self.cancel_note_button.clicked.connect(self._cancel_note); detail.addWidget(self.cancel_note_button)
+        note_row = QHBoxLayout()
+        self.note_button = SecondaryButton("添加备注"); self.note_button.clicked.connect(self._save_note); self.save_note_button = self.note_button; note_row.addWidget(self.note_button)
+        self.cancel_note_button = SecondaryButton("取消"); self.cancel_note_button.clicked.connect(self._cancel_note); self.cancel_note_button.hide(); note_row.addWidget(self.cancel_note_button); detail.addLayout(note_row)
+        self.note_edit.textChanged.connect(lambda _t: self.cancel_note_button.show())
         self.record_metrics_label = QLabel(); self.record_metrics_label.setObjectName("muted"); self.record_metrics_label.setWordWrap(True); detail.addWidget(self.record_metrics_label)
         self.status = ModernComboBox(); [(self.status.addItem(label, value)) for label, value in (("恢复自动判断", "auto"), ("工作日", WORKDAY), ("休息日", REST), ("调休上班", ADJUSTED_WORKDAY), ("请假", LEAVE))]; detail.addWidget(self.status)
         self.apply_status_button = SecondaryButton("应用日期状态"); self.apply_status_button.clicked.connect(self._apply_status); detail.addWidget(self.apply_status_button)
@@ -196,7 +203,8 @@ class WorkCalendarDialog(ModernDialog):
         source_names = {"official": "官方离线数据", "user": "用户数据", "manual": "手动覆盖", "weekday_fallback": "工作日规则兜底"}
         source_text = f"来源：{source_names.get(detail['source'], detail['source'])}" + (f"（{detail['official_year']}）" if detail.get("official_year") else "")
         if detail.get("holiday_name") and detail.get("paper_url"):
-            source_text += f"\n文件：{detail['paper_url']}"
+            # §29: never surface raw paper URLs in the UI — name the source.
+            source_text += " · 国务院办公厅放假安排"
         self.source_label.setText(source_text)
         if record and record.actual_clock_out:
             self.clock_out_edit.setTime(QTime(record.actual_clock_out.hour, record.actual_clock_out.minute))

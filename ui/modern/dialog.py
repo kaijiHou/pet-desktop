@@ -3,6 +3,22 @@ from PyQt5.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, Q
 from .tokens import BASE_QSS
 
 
+def detect_resize_edge(pos, rect, margin):
+    """Pure hit-test: which resize edges (if any) does *pos* touch?
+
+    Module-level so tests can exercise all 8 directions without constructing
+    a dialog. Returns Qt.Edges() (possibly empty).
+    """
+    edges = Qt.Edges()
+    if margin <= 0 or rect.width() <= 0 or rect.height() <= 0:
+        return edges
+    if pos.x() <= rect.left() + margin: edges |= Qt.LeftEdge
+    if pos.x() >= rect.right() - margin: edges |= Qt.RightEdge
+    if pos.y() <= rect.top() + margin: edges |= Qt.TopEdge
+    if pos.y() >= rect.bottom() - margin: edges |= Qt.BottomEdge
+    return edges
+
+
 class ModernDialog(QDialog):
     """Frameless rounded dialog with one shared title bar and footer."""
     def __init__(self, title="", subtitle="", parent=None, *, min_width=520, min_height=0,
@@ -29,12 +45,12 @@ class ModernDialog(QDialog):
         self.title_label = QLabel(title); self.title_label.setObjectName("title"); title_col.addWidget(self.title_label)
         self.subtitle_label = QLabel(subtitle); self.subtitle_label.setObjectName("subtitle"); self.subtitle_label.setVisible(bool(subtitle)); title_col.addWidget(self.subtitle_label)
         title_layout.addLayout(title_col); title_layout.addStretch()
-        self.max_button = QPushButton("□"); self.max_button.setFixedSize(30, 30)
+        self.max_button = QPushButton("□"); self.max_button.setObjectName("titleButton"); self.max_button.setFixedSize(30, 30)
         self.max_button.setToolTip("最大化")
         self.max_button.setVisible(self.resizable)
         self.max_button.clicked.connect(self._toggle_maximize)
         title_layout.addWidget(self.max_button)
-        self.close_button = QPushButton("×"); self.close_button.setFixedSize(30, 30); self.close_button.clicked.connect(self.reject); title_layout.addWidget(self.close_button)
+        self.close_button = QPushButton("×"); self.close_button.setObjectName("titleButton"); self.close_button.setFixedSize(30, 30); self.close_button.clicked.connect(self.reject); title_layout.addWidget(self.close_button)
         root.addWidget(self.title_bar)
         self.body = QVBoxLayout(); self.body.setSpacing(10); root.addLayout(self.body, 1)
         self.footer = QHBoxLayout(); self.footer.addStretch(); root.addLayout(self.footer)
@@ -85,13 +101,7 @@ class ModernDialog(QDialog):
     def _hit_test(self, pos):
         if not self.resizable:
             return Qt.Edges()
-        r, m = self.rect(), self._resize_margin
-        edges = Qt.Edges()
-        if pos.x() <= r.left() + m: edges |= Qt.LeftEdge
-        if pos.x() >= r.right() - m: edges |= Qt.RightEdge
-        if pos.y() <= r.top() + m: edges |= Qt.TopEdge
-        if pos.y() >= r.bottom() - m: edges |= Qt.BottomEdge
-        return edges
+        return detect_resize_edge(pos, self.rect(), self._resize_margin)
 
     @staticmethod
     def _cursor_for(edges):

@@ -37,3 +37,4 @@ Thumbs.db
 .tmp/
 logs/
 data/
+build_info.json

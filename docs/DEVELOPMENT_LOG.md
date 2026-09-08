@@ -999,3 +999,12 @@ pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixe
 
 - `scripts/build_release.ps1` clean rebuild → **ZIP SHA256 `692f6facda8801abe0e9a9903ca7121830997811ca434a1d7da64e71a42c6b75`**。
 - `scripts/verify_release.ps1`：running/responding、单进程、动画 catalog、日志、WebEngine=0 全 PASS。
+
+---
+
+## 永久项目规则（2026-09-08，V5.0 起生效）
+
+**每个大版本必须有独立 Change Summary**：以后 V51、V52、V60……每轮开始即复制
+`docs/CHANGE_SUMMARY_TEMPLATE.md` 为 `docs/Vxx_CHANGE_SUMMARY.md`，随开发实时更新，
+与代码同一轮 commit/push。没有该文件的版本视为交付不完整，不允许写 DONE。
+Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA"这类模糊叫法。

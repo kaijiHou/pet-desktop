@@ -38,6 +38,13 @@ if (-not $SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw "Tests failed; release build aborted." }
 }
 
+# Build identity (V5.0): write build_info.json BEFORE PyInstaller so the
+# spec packs it; app_version.py reads it at runtime, never invoking git.
+$gitSha = (& git rev-parse HEAD).Trim()
+$buildTime = (Get-Date).ToString("o")
+$buildInfo = [ordered]@{ version = "V5.0"; git_sha = $gitSha; build_time = $buildTime }
+$buildInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $projectRoot "build_info.json") -Encoding UTF8
+
 & $pyinstaller --noconfirm --clean `
     --workpath $buildDir `
     --distpath $distDir `
@@ -71,8 +78,12 @@ $manifest = [ordered]@{
     format = "windows-x64-one-folder"
     entrypoint = "DesktopPet\DesktopPet.exe"
     zip = "DesktopPet-windows-x64.zip"
+    version = "V5.0"
+    git_sha = $gitSha
+    zip_sha256 = $hash
     sha256 = $hash
-    built_at = (Get-Date).ToString("o")
+    build_time = $buildTime
+    built_at = $buildTime
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $releaseDir "manifest.json") -Encoding UTF8
 

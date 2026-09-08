@@ -25,6 +25,8 @@ QPushButton#primary {{ background: {PRIMARY}; color: white; font-weight: 600; }}
 QPushButton#primary:hover {{ background: {PRIMARY_HOVER}; }}
 QPushButton#secondary {{ background: #eef2f7; color: {TEXT}; }}
 QPushButton#danger {{ background: #fee2e2; color: {DANGER}; }}
+QPushButton#titleButton {{ background: transparent; color: {TEXT}; font-size: 15px; padding: 0; }}
+QPushButton#titleButton:hover {{ background: #eef2f7; }}
 QLineEdit, QComboBox, QTimeEdit, QDoubleSpinBox, QSpinBox {{ background: #fbfcfe; border: 1px solid {BORDER}; border-radius: 8px; padding: 7px 9px; min-height: 22px; }}
 QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus {{ border: 1px solid {PRIMARY}; }}
 QCheckBox {{ spacing: 8px; }}

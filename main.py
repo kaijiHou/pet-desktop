@@ -22,7 +22,11 @@ import applog
 
 def _run():
     log = applog.setup_logging()
+    import app_version
+    info = app_version.build_info()
     log.info("startup: pet-desktop launching (python %s)", sys.version.split()[0])
+    log.info("startup: app_version=%s git_sha=%s build_time=%s",
+             info["version"], info["git_sha"], info["build_time"])
     try:
         code = main()
     except Exception:

@@ -113,6 +113,9 @@ class SettingsDialog(ModernDialog):
         self.wage_button = SecondaryButton("工资与工作时间")
         self.wage_button.clicked.connect(lambda: self.parent()._open_wage_settings() if self.parent() else None)
         buttons.addWidget(self.open_data_button); buttons.addWidget(self.open_log_button); buttons.addWidget(self.wage_button); buttons.addStretch(); dl.addLayout(buttons)
+        version_label = QLabel(f"版本 {__import__('app_version').display_id()}")
+        version_label.setObjectName("muted")
+        dl.addWidget(version_label)
         layout.addWidget(box4)
 
         cancel = SecondaryButton("取消"); save = PrimaryButton("保存")
@@ -378,39 +381,50 @@ class PetWindow(QWidget):
         self.update()
 
     def _load_dynamic_renderer(self):
-        """Load dynamic pack renderer. On failure, fallback to single/default."""
+        """Load dynamic pack renderer with a three-level fallback chain:
+
+        requested pack → builtin default_dynamic_ghost → emergency single.
+        A stale/removed id persists the effective builtin id so the warning
+        fires exactly once, not on every restart (V5.0 §20).
+        """
         try:
             from character_v4.renderer import DynamicPackRenderer
             from paths import ASSETS_DIR, DATA_DIR
             BUILTIN_ID = "default_dynamic_ghost"
+
+            def _try_load(pack_id):
+                if pack_id == BUILTIN_ID:
+                    pack_dir = ASSETS_DIR / BUILTIN_ID
+                else:
+                    pack_dir = DATA_DIR / "characters" / pack_id
+                if not pack_dir.exists():
+                    return None
+                renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3), parent=self)
+                return renderer if renderer.load() else None
+
             pack_id = self.config.get("selected_character_id", "") or BUILTIN_ID
-            # Resolve path by id
-            if pack_id == BUILTIN_ID:
-                pack_dir = ASSETS_DIR / BUILTIN_ID
-            else:
-                pack_dir = DATA_DIR / "characters" / pack_id
-            if not pack_dir.exists():
-                # A stale/removed character id must never break startup —
-                # fall back to the builtin ghost and persist the effective
-                # id so the warning doesn't repeat on every launch.
-                LOGGER.warning("Requested character %r missing (dir=%s); fallback %s",
-                               pack_id, pack_dir, BUILTIN_ID)
+            renderer = _try_load(pack_id)
+            if renderer is None and pack_id != BUILTIN_ID:
+                LOGGER.warning("custom character %r failed or missing; fallback %s",
+                               pack_id, BUILTIN_ID)
                 pack_id = BUILTIN_ID
-                pack_dir = ASSETS_DIR / BUILTIN_ID
-                if self.config.get("selected_character_id") != BUILTIN_ID:
+                renderer = _try_load(pack_id)
+                if renderer is not None and self.config.get("selected_character_id") != BUILTIN_ID:
+                    # Persist the effective id so restarts don't re-warn.
                     self.config.set("selected_character_id", BUILTIN_ID)
-            renderer = DynamicPackRenderer(pack_dir, scale=self.config.get("pet_scale", 3), parent=self)
-            if renderer.load():
-                if self.dynamic_renderer is not None:
-                    old = self.dynamic_renderer; old.stop()
-                    try: old.frame_changed.disconnect(self.update)
-                    except (TypeError, RuntimeError): pass
-                    old.setParent(None); old.deleteLater()
-                self.dynamic_renderer = renderer
-                renderer.frame_changed.connect(self.update)
-                LOGGER.info("Dynamic renderer loaded: %s", renderer.display_name)
-            else:
-                LOGGER.warning("Dynamic renderer failed to load, using single mode")
+            if renderer is None:
+                LOGGER.warning("builtin fallback failed; emergency fallback to single mode")
+                return
+            if self.dynamic_renderer is not None:
+                old = self.dynamic_renderer; old.stop()
+                try: old.frame_changed.disconnect(self.update)
+                except (TypeError, RuntimeError): pass
+                old.setParent(None); old.deleteLater()
+            self.dynamic_renderer = renderer
+            renderer.frame_changed.connect(self.update)
+            LOGGER.info("Dynamic renderer loaded: %s", renderer.display_name)
+            LOGGER.info("startup: selected_character_id=%s effective_mode=%s",
+                        self.config.get("selected_character_id"), self.config.get("character_mode"))
         except Exception:
             LOGGER.exception("Dynamic renderer init failed, using single mode")
 
