@@ -994,3 +994,8 @@ pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixe
 ### 已知限制
 
 - 视觉/DPI/resize/Explorer RMDIR 待用户截图回填；若截图暴露问题，按 KNOWN_ISSUES→修复→contract test→rebuild 流程处理。
+
+### 最终 candidate（审计修复后复建）
+
+- `scripts/build_release.ps1` clean rebuild → **ZIP SHA256 `692f6facda8801abe0e9a9903ca7121830997811ca434a1d7da64e71a42c6b75`**。
+- `scripts/verify_release.ps1`：running/responding、单进程、动画 catalog、日志、WebEngine=0 全 PASS。

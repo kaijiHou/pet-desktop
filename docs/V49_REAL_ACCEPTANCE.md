@@ -11,7 +11,7 @@
 | V49_BASELINE_HEAD | `0e9394509d26339967c70641525c9421309170b7`（v4.8 finish modern ui and preview consistency） |
 | Final HEAD | 见 DEVELOPMENT_LOG 本轮条目 |
 | Build | `scripts/build_release.ps1`（clean build/dist/release），manifest built_at `2026-09-08T17:24:43+08:00` |
-| ZIP SHA256 | `851a843cff09025af5ff21425a0d0c92de1ccd6eabd98177546c48d767be4d7c`（首轮候选；修复后复建值见 DEVELOPMENT_LOG） |
+| ZIP SHA256 | 首轮 `851a843c…`；**最终 candidate `692f6facda8801abe0e9a9903ca7121830997811ca434a1d7da64e71a42c6b75`**（审计修复后复建，verify 全 PASS） |
 | EXE（验收用） | `.tmp\tests\phase18-extracted-e0da4568…\DesktopPet\DesktopPet.exe`（verify_release.ps1 全新解压副本，非开发目录 build） |
 | Config path | 解压副本旁 `data\config.json`（frozen 态 PathManager） |
 | verify_release | running=true responding=true process_count=1 animation_catalog=true log_created=true webengine_files=0 |
