@@ -10,11 +10,11 @@ widget.grab() 证明真实渲染，不证明鼠标 resize 手感 / 系统 DPI / 
 | 项 | 值 |
 |---|---|
 | V50_BASELINE_HEAD | `8ac41a74c3733cf55bdb3de93341e25d81d8b945`（经 ghfast.top 镜像 fetch 确认与远端一致） |
-| Release built from Git HEAD | （commit 3 冻结后回填） |
-| Final repository HEAD | （最终 docs commit 后回填） |
-| Artifact ZIP SHA256 | （build 后回填） |
-| Build time | （回填） |
-| verify_release | （回填） |
+| Release built from Git HEAD | **7f9374904a24631ba5cdf1acf6b61260205035c8**（A'，代码+测试冻结，370 passed） |
+| Final repository HEAD | 本文件所在 docs commit（B；git log 首行，只改文档不含代码） |
+| Artifact ZIP SHA256 | **d8c6573882b4c7b36ad68f41d631f9f82d3285c500541448acccf338448e2b4e** |
+| Build time | 2026-09-08T18:46:22+08:00（pwsh 7 构建） |
+| verify_release | PASS（running/responding/单进程/动画 catalog/日志/WebEngine=0） |
 
 ## 截图（真实渲染，6/6 sanity PASS）
 
@@ -61,5 +61,5 @@ widget.grab() 证明真实渲染，不证明鼠标 resize 手感 / 系统 DPI / 
 |---|---|
 | clean build + verify（running/responding/单进程/无 WebEngine） | （回填） |
 | 启动日志 build identity（app_version/git_sha/build_time） | PASS（代码契约；EXE 日志回填） |
-| Settings 版本行 | PASS（截图为 dev 态 `V5.0 · dev`；EXE 态回填） |
-| soak ≥15 分钟 | （回填，见 V50_SOAK_REPORT.md） |
+| Settings 版本行 | PASS（EXE 启动日志实测 `app_version=V5.0 git_sha=7f9374…`；Settings 显示 版本 V5.0 · <short sha>） |
+| soak ≥15 分钟 | PASS（15min 同 PID 零崩溃，RSS 79→18MB 无增长，CPU 9.9s；idle 场景如实记录，见 V50_SOAK_REPORT.md） |

@@ -412,3 +412,18 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 | Fresh EXE verify | PASS（单进程/响应/无 WebEngine） |
 | Fresh EXE 10min | RSS 79.9→36.2MB 无增长，CPU 7.3s/10min，单进程 |
 | 真机截图 / DPI / resize / Explorer RMDIR | NOT TESTED（无电脑控制，见 V49_REAL_ACCEPTANCE） |
+
+---
+
+## 2026-09-08 V5.0
+
+| 套件 | 结果 |
+|---|---|
+| `pytest tests -q`（A'=7f93749） | **370 passed**（4m05s） |
+| 新增 test_v50_fallback.py | 3 passed（restart×2 警告/自定义不覆盖/emergency 不白屏） |
+| 新增 test_v50_resize_and_docs.py | 6 passed（detect_resize_edge 8向/layout 大小两档/Settings×20+Gallery×20 timer/docs contract） |
+| 截图 sanity（r2） | 6/6 PASS |
+| 9月22天/10月18天/补班/日薪契约 | PASS |
+| verify_release（pwsh） | PASS（单进程/无 WebEngine） |
+| EXE 15min soak | 见 docs/V50_SOAK_REPORT.md |
+| 鼠标 resize / 真实 DPI / Explorer RMDIR | NOT TESTED（无 GUI 自动化，诚实记录） |

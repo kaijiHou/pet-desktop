@@ -237,3 +237,10 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - **KI-27（已修复）**：`selected_character_id` 指向已删除角色时启动回落 single 而非内置 ghost，且无日志、每次启动重复失败。已改为回退 `default_dynamic_ghost` + warning + effective id 持久化（tests/smoke/test_v49_contracts.py）。
 - **KI-28（已修复）**：QuickPanel"工时日历"命名残留，与全局"工作日历"统一要求冲突；已改名并全仓归零。
 - **视觉验收债务（继承 V4.8）**：Settings/Wage/Calendar/Gallery 截图、DPI 125%、日历鼠标 resize、Explorer 真实 RMDIR 仍 NOT TESTED；本轮无电脑控制，清单与回填流程见 `V49_REAL_ACCEPTANCE.md`。
+
+## V5.0 状态更新（2026-09-08）
+
+- **KI-29（已修复）**：PowerShell 5 `Set-Content -Encoding UTF8` 写 BOM，导致 EXE 内 build_info.json 被 json.load 拒读、EXE 回落 git_sha=dev。修复：读取 utf-8-sig + 写入 noBOM；全局规则升级为"必须 pwsh 7"。
+- **KI-30（已修复）**：日历月格 refresh 依赖 DeferredDelete，未销毁旧 cell 在旧位置继续绘制（叠影）。修复：takeAt 后立即 hide()。r1/r2 截图留证。
+- **视觉债务（继承）**：鼠标 resize 手感、真实 DPI、Explorer 真实 RMDIR 仍 NOT TESTED（无 GUI 自动化；回填清单在 V50_REAL_ACCEPTANCE）。
+- ActiveExplorerWatcher 保持 disabled。

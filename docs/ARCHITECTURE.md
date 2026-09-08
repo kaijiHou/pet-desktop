@@ -478,3 +478,26 @@ selected_character_id
 - 行为/数据契约：离屏 pytest + 独立脚本（日历天数、工资口径、timer 泄漏、fallback）。
 - 视觉/手感：真机截图 + DPI + 鼠标 resize（本轮 NOT TESTED，见 V49_REAL_ACCEPTANCE 回填流程）。
 - 两者不许互相冒充。
+
+---
+
+## V5.0 追加（2026-09-08）
+
+### Build identity
+```
+git rev-parse HEAD ──(build_release.ps1, noBOM)──▶ build_info.json
+                                                    │ spec datas 打包
+EXE 运行时 app_version.build_info() ◀── utf-8-sig 只读（绝不调 git）
+  ├─ 启动日志: app_version=V5.0 git_sha=<sha> build_time=<iso>
+  └─ Settings 数据区: 版本 V5.0 · <short sha>
+release/manifest.json: version / git_sha（代码 commit）/ zip_sha256（artifact 哈希）/ build_time
+```
+
+### 验收基础设施
+- scripts/capture_v50_ui.py：真实 windows 平台 + 隔离数据目录 + 固定时钟 → 6 张真实渲染 PNG。
+- scripts/validate_v50_screenshots.py：sanity（尺寸/透明/单色/大小）。
+- scripts/soak_v50.py：EXE 每 60s RSS/CPU/进程采样 → V50_SOAK_REPORT.md。
+
+### Release A/B/Z 模型（§48/49）
+代码+测试冻结 commit A' → 从 A' 构建 → ZIP SHA256 Z → 文档 commit B 只改文档。
+Vxx_CHANGE_SUMMARY §11 必须同时写明：Release built from Git HEAD=A'、Final repository HEAD=B、Artifact ZIP SHA256=Z。

@@ -1008,3 +1008,37 @@ pytest tests -q → 299 passed（V3.1 新增 35 项：scale/panel 11 + wage fixe
 `docs/CHANGE_SUMMARY_TEMPLATE.md` 为 `docs/Vxx_CHANGE_SUMMARY.md`，随开发实时更新，
 与代码同一轮 commit/push。没有该文件的版本视为交付不完整，不允许写 DONE。
 Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA"这类模糊叫法。
+
+---
+
+## 2026-09-08 - V5.0 真实视觉闭环 + Change Summary 规范 + Release Candidate
+
+### 规范（commit 65a4eb9）
+
+- 新增 docs/CHANGE_SUMMARY_TEMPLATE.md 与 docs/V50_CHANGE_SUMMARY.md；DEVELOPMENT_LOG 写入永久规则：每个大版本必须有独立 Vxx_CHANGE_SUMMARY.md 并与代码同轮 commit/push。
+
+### Build identity（65a4eb9 + 7f93749）
+
+- 构建期生成 build_info.json（version/git_sha/build_time）随 spec 打包；app_version.py 运行时只读；启动日志与 Settings 数据区（版本 V5.0 · <short sha>）双暴露；manifest 增加 version/git_sha/zip_sha256/build_time，git_sha 与 zip_sha256 明确分离。
+- **真实 Bug（V50-08）**：PS5 UTF8 BOM 使 EXE 内 build_info.json 被 json.load 拒读（解压副本实测 git_sha=dev）→ 读取端 utf-8-sig + 写入端 noBOM 双修；构建/verify 全部迁移 pwsh 7（用户全局规则）。
+
+### 真实渲染截图链（65a4eb9，V50_UI_REVIEW）
+
+- scripts/capture_v50_ui.py：真实 windows 平台（非 offscreen）、隔离数据目录（测试月薪 11200，永不读用户数据）、--date 固定时钟；Settings/Wage/Calendar 9月/10月/Gallery/一致性 6 张 widget.grab PNG。
+- scripts/validate_v50_screenshots.py：存在/尺寸/非全透明/非单色/大小下限；r1 因校验器颜色语义反了误报，修正后 6/6。
+- 逐张人工审查（V50_UI_REVIEW）发现并修复：**月格叠影**（deleteLater 的 DeferredDelete 时序，takeAt 后立即 hide()）、详情裸 gov.cn URL（改"国务院办公厅放假安排"）、标题栏 □/× 不可见（titleButton QSS）、待机"取消"按钮噪音（编辑时才出现）。r2 复拍 6/6 全部 PASS。
+
+### fallback/resize/timer 契约（f6062b4）
+
+- fallback 三级链（custom→builtin→emergency）：restart×2 警告恰一次、有效自定义不覆盖、双层失败不白屏（保留现有渲染）；detect_resize_edge 纯函数 8 方向单测；WorkCalendar 1200×800/最小尺寸 layout 契约；Settings×20/Gallery×20 timer 泄漏契约。
+
+### Release Candidate（§49 A/B/Z 模型）
+
+- Release built from Git HEAD: **7f9374904a24631ba5cdf1acf6b61260205035c8**（A'，代码+测试冻结，full suite 370 passed）
+- Artifact ZIP SHA256: **d8c6573882b4c7b36ad68f41d631f9f82d3285c500541448acccf338448e2b4e**（pwsh 构建）
+- verify_release（pwsh）：单进程/响应/动画 catalog/日志/WebEngine=0 全 PASS；解压副本启动日志 `app_version=V5.0 git_sha=7f9374…` 实证。
+- EXE soak ≥15 分钟：见 docs/V50_SOAK_REPORT.md（idle 场景，无 GUI 自动化，如实记录）。
+
+### 文档 HEAD 关系说明
+
+- 本 commit（B）只改文档；EXE 属 A'。两者关系以 V50_CHANGE_SUMMARY §11 为准。
