@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from PyQt5.QtCore import Qt, QUrl, QFileInfo, pyqtSignal
-from PyQt5.QtGui import QDesktopServices, QFontMetrics
+from PyQt5.QtGui import QDesktopServices, QFontMetrics, QIcon
 from PyQt5.QtWidgets import (
     QApplication, QFileDialog, QFileIconProvider, QFrame, QHBoxLayout,
     QLabel, QMenu, QPushButton, QVBoxLayout, QScrollArea, QWidget,
@@ -20,7 +20,8 @@ class FavoriteFoldersDialog(ModernDialog):
 
     favorites_changed = pyqtSignal()
 
-    def __init__(self, destinations=None, parent=None, *, focus_id=None, focus_action=None):
+    def __init__(self, destinations=None, parent=None, *, focus_id=None, focus_action=None,
+                 focus_message=None):
         super().__init__(
             "常用文件夹", "固定常用位置；移除只取消固定，不会删除实际文件夹。",
             parent=parent, min_width=600, min_height=380, resizable=True,
@@ -68,24 +69,35 @@ class FavoriteFoldersDialog(ModernDialog):
         self.add_footer(close_button)
 
         self.rows_by_id = {}
+        self.exists_by_id = {}
         self.refresh()
+        favorite = self.destinations.get_favorite(focus_id) if focus_id else None
+        if focus_message:
+            self._notify(focus_message, "warning")
+        elif favorite and not self.exists_by_id.get(focus_id, False):
+            self._notify("该路径不存在，可通过“修改路径”重新关联。", "warning")
 
     def refresh(self):
         self._clear_rows()
         favorites = self.destinations.list_favorites()
+        self.exists_by_id = {}
         self.count_label.setText(f"{len(favorites)} / {MAX_FAVORITES}")
         self.add_button.setEnabled(len(favorites) < MAX_FAVORITES)
         self.empty_label.setVisible(not favorites)
         self.list_scroll.setVisible(bool(favorites))
         provider = QFileIconProvider()
-        for index, favorite in enumerate(favorites):
+        for favorite in favorites:
+            exists = favorite.exists
+            self.exists_by_id[favorite.id] = exists
             card = Card()
             row = QHBoxLayout(card)
             row.setContentsMargins(12, 9, 10, 9)
             row.setSpacing(10)
 
             icon = QLabel()
-            icon.setPixmap(provider.icon(QFileInfo(str(favorite.path))).pixmap(28, 28))
+            folder_icon = (provider.icon(QFileInfo(str(favorite.path))) if exists
+                           else provider.icon(QFileIconProvider.Folder))
+            icon.setPixmap(folder_icon.pixmap(28, 28))
             row.addWidget(icon)
 
             details = QVBoxLayout()
@@ -101,7 +113,7 @@ class FavoriteFoldersDialog(ModernDialog):
             path.setWordWrap(False)
             details.addWidget(name)
             details.addWidget(path)
-            if not favorite.exists:
+            if not exists:
                 missing = QLabel("路径失效")
                 missing.setStyleSheet("color: #c2410c; font-size: 11px;")
                 details.addWidget(missing)
@@ -109,25 +121,9 @@ class FavoriteFoldersDialog(ModernDialog):
 
             open_button = QPushButton("打开")
             open_button.setObjectName("secondary")
-            open_button.setEnabled(favorite.exists)
+            open_button.setEnabled(exists)
             open_button.clicked.connect(lambda _=False, fid=favorite.id: self._open_favorite(fid))
             row.addWidget(open_button)
-
-            up_button = QPushButton("↑")
-            up_button.setObjectName("secondary")
-            up_button.setFixedWidth(34)
-            up_button.setToolTip("上移")
-            up_button.setEnabled(index > 0)
-            up_button.clicked.connect(lambda _=False, fid=favorite.id: self._move_favorite(fid, -1))
-            row.addWidget(up_button)
-
-            down_button = QPushButton("↓")
-            down_button.setObjectName("secondary")
-            down_button.setFixedWidth(34)
-            down_button.setToolTip("下移")
-            down_button.setEnabled(index < len(favorites) - 1)
-            down_button.clicked.connect(lambda _=False, fid=favorite.id: self._move_favorite(fid, 1))
-            row.addWidget(down_button)
 
             menu_button = QPushButton("⋯")
             menu_button.setObjectName("secondary")
@@ -171,22 +167,30 @@ class FavoriteFoldersDialog(ModernDialog):
         if path:
             self._add_path(path)
 
-    def _add_path(self, path):
+    def _add_path(self, path, name=None):
         before = self.destinations.list_favorites()
         normalized = Path(path).expanduser().resolve()
-        duplicate = next((item for item in before if item.path == normalized), None)
+        path_key = str(normalized).casefold()
+        duplicate = next((item for item in before if str(item.path).casefold() == path_key), None)
+        if duplicate:
+            self.selected_favorite_id = duplicate.id
+            self.refresh()
+            self._notify("已经是常用文件夹", "info")
+            return duplicate
+        if name is not None and (not str(name).strip() or len(str(name).strip()) > 40):
+            self._notify("名称必须为 1 到 40 个字符", "warning")
+            return None
         try:
             favorite = self.destinations.add_favorite(normalized)
         except (NotADirectoryError, ValueError) as exc:
             self._notify(str(exc), "warning")
             return None
+        if name is not None:
+            favorite = self.destinations.rename_favorite(favorite.id, name)
         self.selected_favorite_id = favorite.id
         self.refresh()
-        if duplicate:
-            self._notify("已经是常用文件夹", "info")
-        else:
-            self._notify("已添加常用文件夹", "success")
-            self.favorites_changed.emit()
+        self._notify("已添加常用文件夹", "success")
+        self.favorites_changed.emit()
         return favorite
 
     def _prompt_rename(self, favorite_id):

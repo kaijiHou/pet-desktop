@@ -26,6 +26,7 @@ class ExplorerService:
         self._foreground_hwnd = foreground_hwnd_provider or self._get_foreground_hwnd
         # (directory, timestamp) cached whenever Explorer is foreground
         self._last_active: tuple[Path, float] | None = None
+        self.last_directory_status = "no_explorer"
 
     @staticmethod
     def _get_foreground_hwnd():
@@ -94,16 +95,21 @@ class ExplorerService:
         action still targets the folder the user was just working in.
         """
         hwnd = self._foreground_hwnd()
+        self.last_directory_status = "no_explorer"
         if hwnd:
             directory = self._directory_for_hwnd(hwnd)
             if directory is not None:
                 if self._foreground_is_explorer(hwnd):
                     self._last_active = (directory, time.time())
+                self.last_directory_status = "ok"
                 return directory
+            if self._foreground_is_explorer(hwnd):
+                self.last_directory_status = "not_filesystem"
         # Fall back to cached last-active Explorer folder.
         if self._last_active is not None:
             directory, _ = self._last_active
             if directory.is_dir():
+                self.last_directory_status = "ok"
                 return directory
         return None
 

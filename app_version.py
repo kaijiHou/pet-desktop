@@ -1,4 +1,4 @@
-"""Application build identity (V5.2).
+"""Application build identity (V5.3).
 
 Read-only at runtime: the build script writes build_info.json next to the
 executable (and packs it via PyInstaller); we never invoke git at runtime
@@ -11,7 +11,7 @@ has not been generated yet.
 import json
 from pathlib import Path
 
-APP_VERSION = "V5.2"
+APP_VERSION = "V5.3"
 
 try:
     from paths import BUNDLE_ROOT as _ROOT

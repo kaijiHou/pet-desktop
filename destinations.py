@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 from datetime import datetime
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -141,8 +142,10 @@ class DestinationService:
     def _load(self):
         if not self.storage_path.exists():
             return [], []
+        raw = None
         try:
-            data = json.loads(self.storage_path.read_text(encoding="utf-8"))
+            raw = self.storage_path.read_bytes()
+            data = json.loads(raw.decode("utf-8"))
             if not isinstance(data, dict):
                 raise ValueError("destination data must be an object")
             favorites = data.get("favorites", [])
@@ -151,7 +154,7 @@ class DestinationService:
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
             LOGGER.warning("Could not load destinations from %s; preserving the original file: %s",
                            self.storage_path, exc)
-            self._backup_corrupt_file()
+            self._backup_corrupt_file(raw)
             return [], []
         favorite_items = self._parse_items(favorites, preserve_order=version != 1)
         favorite_items.sort(key=lambda item: item.order)
@@ -173,14 +176,17 @@ class DestinationService:
                 continue
         return result
 
-    def _backup_corrupt_file(self):
+    def _backup_corrupt_file(self, raw):
+        if raw is None:
+            return
+        digest = hashlib.sha256(raw).hexdigest()
+        backup = self.storage_path.with_name(f"{self.storage_path.name}.corrupt-{digest}.bak")
         try:
-            raw = self.storage_path.read_bytes()
-            stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-            backup = self.storage_path.with_name(f"{self.storage_path.name}.corrupt-{stamp}.bak")
             with backup.open("xb") as stream:
                 stream.write(raw)
             LOGGER.warning("Preserved corrupt destination data at %s", backup)
+        except FileExistsError:
+            pass
         except OSError:
             LOGGER.exception("Could not back up corrupt destination data at %s", self.storage_path)
 

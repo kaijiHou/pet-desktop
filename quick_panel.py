@@ -1,12 +1,15 @@
 """Today's assistant panel: wage snapshot first, pocket and reminders below."""
 
 from PyQt5.QtCore import Qt, QTimer, QEvent, QUrl, QFileInfo
-from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtGui import QDesktopServices, QFontMetrics
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QFrame,
-    QApplication, QToolButton, QFileIconProvider, QMenu,
+    QApplication, QToolButton, QFileIconProvider, QMenu, QFileDialog, QLineEdit,
+    QSizePolicy,
 )
-from destinations import DestinationService
+from destinations import DestinationService, display_default_name
+from ui.modern.dialog import ModernDialog
+from ui.modern.message import InlineBanner
 import theme
 
 
@@ -48,7 +51,18 @@ class QuickPanel(QWidget):
         self.favorite_manage_btn = QPushButton("管理")
         self.favorite_manage_btn.setObjectName("flat")
         self.favorite_manage_btn.clicked.connect(lambda: self._manage_favorites())
-        favorite_header.addWidget(self.favorite_title); favorite_header.addStretch(); favorite_header.addWidget(self.favorite_manage_btn)
+        self.favorite_pin_btn = QToolButton()
+        self.favorite_pin_btn.setText("＋")
+        self.favorite_pin_btn.setToolTip("固定当前文件夹或选择其他文件夹")
+        self.favorite_pin_menu = QMenu(self.favorite_pin_btn)
+        self.favorite_pin_menu.addAction("固定当前文件夹", self._pin_current_folder)
+        self.favorite_pin_menu.addAction("选择其他文件夹", self._choose_other_folder)
+        self.favorite_pin_btn.setMenu(self.favorite_pin_menu)
+        self.favorite_pin_btn.setPopupMode(QToolButton.InstantPopup)
+        favorite_header.addWidget(self.favorite_title); favorite_header.addStretch(); favorite_header.addWidget(self.favorite_manage_btn); favorite_header.addWidget(self.favorite_pin_btn)
+        self.favorite_banner = InlineBanner()
+        self.favorite_banner.hide()
+        layout.addWidget(self.favorite_banner)
         layout.addLayout(favorite_header)
         self.favorite_empty = QLabel("还没有常用文件夹")
         self.favorite_empty.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 8pt;")
@@ -122,11 +136,17 @@ class QuickPanel(QWidget):
         self.favorite_view_all_btn.setText(f"查看全部（{len(favorites)}）")
         provider = QFileIconProvider()
         for index, favorite in enumerate(favorites[:6]):
+            exists = favorite.exists
             button = QToolButton()
             button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-            button.setIcon(provider.icon(QFileInfo(str(favorite.path))))
-            button.setText(f"{favorite.name if favorite.exists else favorite.name + ' · 路径失效'}  ›")
-            button.setToolTip(str(favorite.path))
+            button.setIcon(provider.icon(QFileInfo(str(favorite.path))) if exists
+                           else provider.icon(QFileIconProvider.Folder))
+            button.setFixedWidth(max(96, (self.width() - 36) // 2))
+            button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            label = f"{favorite.name}  ›" if exists else f"{favorite.name}  ⚠"
+            text_width = max(24, button.width() - button.iconSize().width() - 26)
+            button.setText(QFontMetrics(button.font()).elidedText(label, Qt.ElideRight, text_width))
+            button.setToolTip(f"{favorite.name}\n{favorite.path}" + ("\n路径失效" if not exists else ""))
             button.setEnabled(True)  # keep the context menu available for repairing a missing path
             button.setFixedHeight(25)
             button.setStyleSheet(
@@ -134,7 +154,7 @@ class QuickPanel(QWidget):
                 f"QToolButton:hover {{ background:{theme.BG}; }}"
                 "QToolButton:disabled { color:#9ca3af; }"
             )
-            if not favorite.exists:
+            if not exists:
                 button.setStyleSheet(
                     f"QToolButton {{ text-align:left; color:#9ca3af; padding:3px 5px; border-radius:5px; }}"
                 )
@@ -148,25 +168,87 @@ class QuickPanel(QWidget):
 
     def _open_favorite(self, favorite_id):
         favorite = self.destinations.get_favorite(favorite_id)
-        if favorite and favorite.exists:
-            return QDesktopServices.openUrl(QUrl.fromLocalFile(str(favorite.path)))
-        return False
+        if not favorite:
+            return False
+        if not favorite.exists:
+            self._manage_favorites(
+                favorite_id, focus_message=f"“{favorite.name}”的路径已经失效。可通过“修改路径”重新关联。",
+            )
+            return False
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(favorite.path)))
 
-    def _manage_favorites(self, focus_id=None, action=None):
+    def _manage_favorites(self, focus_id=None, action=None, *, focus_message=None,
+                          initial_path=None, initial_name=None):
         if hasattr(self.pet, "_manage_favorite_folders"):
-            return self.pet._manage_favorite_folders(focus_id, action)
+            return self.pet._manage_favorite_folders(
+                focus_id, action, focus_message=focus_message,
+                initial_path=initial_path, initial_name=initial_name,
+            )
         from favorite_folders_ui import FavoriteFoldersDialog
-        dialog = FavoriteFoldersDialog(self.destinations, self, focus_id=focus_id, focus_action=action)
+        dialog = FavoriteFoldersDialog(
+            self.destinations, self, focus_id=focus_id, focus_action=action,
+            focus_message=focus_message,
+        )
         dialog.favorites_changed.connect(self._refresh_favorites)
+        if initial_path:
+            dialog._add_path(initial_path, initial_name)
         return dialog.exec_()
+
+    def _choose_other_folder(self):
+        path = QFileDialog.getExistingDirectory(self, "选择常用文件夹")
+        if path:
+            self._manage_favorites(initial_path=path)
+
+    def _pin_current_folder(self):
+        explorer = getattr(self.pet, "explorer_service", None)
+        path = explorer.current_directory() if explorer is not None else None
+        if path is None:
+            status = getattr(explorer, "last_directory_status", "no_explorer")
+            message = ("当前资源管理器位置不是普通文件夹。" if status == "not_filesystem"
+                       else "没有检测到当前资源管理器文件夹。")
+            self._manage_favorites(focus_message=message)
+            return False
+
+        favorite = next((item for item in self.destinations.list_favorites()
+                         if str(item.path).casefold() == str(path).casefold()), None)
+        if favorite:
+            self._manage_favorites(favorite.id, focus_message="已经是常用文件夹。")
+            return favorite
+
+        dialog = ModernDialog("固定当前文件夹", "确认将这个位置加入常用文件夹。", self, min_width=440)
+        path_label = QLabel(f"路径\n{path}")
+        path_label.setWordWrap(True)
+        path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        name_label = QLabel("名称")
+        name_input = QLineEdit(display_default_name(path))
+        name_input.setMaxLength(40)
+        dialog.add_body(path_label)
+        dialog.add_body(name_label)
+        dialog.add_body(name_input)
+        cancel = QPushButton("取消")
+        cancel.clicked.connect(dialog.reject)
+        pin = QPushButton("固定")
+        pin.setObjectName("primary")
+        pin.clicked.connect(dialog.accept)
+        dialog.add_footer(cancel)
+        dialog.add_footer(pin)
+        if dialog.exec_() != ModernDialog.Accepted:
+            return False
+        name = name_input.text().strip()
+        if not name:
+            self._manage_favorites(focus_message="名称不能为空，请输入 1 到 40 个字符。")
+            return False
+        self._manage_favorites(initial_path=path, initial_name=name)
+        return True
 
     def _show_favorite_menu(self, favorite_id, button, pos):
         favorite = self.destinations.get_favorite(favorite_id)
         if not favorite:
             return
         menu = QMenu(self)
+        exists = favorite.exists
         open_action = menu.addAction("打开")
-        open_action.setEnabled(favorite.exists)
+        open_action.setEnabled(exists)
         copy_action = menu.addAction("复制路径")
         menu.addSeparator()
         rename_action = menu.addAction("重命名")

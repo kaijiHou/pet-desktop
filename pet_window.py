@@ -8,6 +8,7 @@ from pathlib import Path
 from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QSize, pyqtSignal, QThread, QUrl
 from PyQt5.QtGui import (QPainter, QPixmap, QImage, QFont, QColor, QPen, QBrush,
     QPainterPath, QFontMetrics, QCursor, QIcon, QTransform)
+from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QSystemTrayIcon,
     QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSlider)
 from config import Config
@@ -15,6 +16,7 @@ from character import CharacterController, STEP_MS
 from pet_sprite import ANIMATIONS, ASSETS_DIR, PetSpriteLoader, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
 from destinations import DestinationService
+from explorer import ExplorerService
 from pocket_ui import PocketDialog
 from file_watch import FileWatchService
 from events import AnimationController, AppEvent, EventDispatcher
@@ -292,6 +294,7 @@ class PetWindow(QWidget):
         self.wage.on_progress = self._on_wage_progress
         self.pocket = PocketService()
         self.destination_service = DestinationService()
+        self.explorer_service = ExplorerService()
         self.file_watch = FileWatchService()
         self.events = EventDispatcher(self)
         self.animation_controller = AnimationController(set(AnimationController.MAPPING.values()) - {None})
@@ -455,6 +458,7 @@ class PetWindow(QWidget):
         m.addAction("显示/隐藏角色").triggered.connect(self._toggle_visibility)
         m.addAction("今日收入").triggered.connect(self._open_today_wage)
         m.addAction("工作日历").triggered.connect(self._open_calendar)
+        self._add_favorite_context_menu(m)
         m.addSeparator()
         m.addAction("文件口袋").triggered.connect(self._open_pocket)
         m.addAction("新建提醒").triggered.connect(self._open_add_reminder)
@@ -1176,20 +1180,49 @@ class PetWindow(QWidget):
         if self._pocket_window is None:
             self._pocket_window = PocketWindow(
                 self.pocket, destinations=self.destination_service, event_dispatcher=self.events,
-                favorite_manager=self._manage_favorite_folders,
+                explorer_service=self.explorer_service, favorite_manager=self._manage_favorite_folders,
             )
         self._pocket_window.refresh()
         self._pocket_window.show_near(self.visible_pet_global_rect())
         if self._quick_panel is not None:
             self._quick_panel.hide()
 
-    def _manage_favorite_folders(self, focus_id=None, action=None):
+    def _manage_favorite_folders(self, focus_id=None, action=None, *, focus_message=None,
+                                 initial_path=None, initial_name=None):
         from favorite_folders_ui import FavoriteFoldersDialog
         dialog = FavoriteFoldersDialog(
             self.destination_service, self, focus_id=focus_id, focus_action=action,
+            focus_message=focus_message,
         )
         dialog.favorites_changed.connect(self._refresh_destination_surfaces)
-        return dialog.exec_()
+        if initial_path:
+            dialog._add_path(initial_path, initial_name)
+        result = dialog.exec_()
+        self._refresh_destination_surfaces()
+        return result
+
+    def _add_favorite_context_menu(self, menu):
+        submenu = menu.addMenu("常用文件夹")
+        favorites = self.destination_service.list_favorites()
+        if not favorites:
+            empty = submenu.addAction("暂无常用文件夹")
+            empty.setEnabled(False)
+        else:
+            for favorite in favorites[:8]:
+                exists = favorite.exists
+                label = favorite.name if exists else f"{favorite.name}（路径失效）"
+                action = submenu.addAction(label)
+                action.setEnabled(exists)
+                if exists:
+                    action.triggered.connect(
+                        lambda _=False, path=favorite.path:
+                            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+                    )
+            if len(favorites) > 8:
+                submenu.addAction(f"查看全部（{len(favorites)}）", self._manage_favorite_folders)
+        submenu.addSeparator()
+        submenu.addAction("管理常用文件夹", self._manage_favorite_folders)
+        return submenu
 
     def _refresh_destination_surfaces(self):
         if self._quick_panel is not None:
@@ -1209,6 +1242,7 @@ class PetWindow(QWidget):
         m = QMenu(self)
         wa = m.addAction("今日收入")
         ca = m.addAction("工作日历")
+        self._add_favorite_context_menu(m)
         m.addSeparator()
         pa = m.addAction("文件口袋")
         aa = m.addAction("新建提醒")

@@ -1,6 +1,7 @@
 """Phase 11 favorite destination tests."""
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -143,6 +144,40 @@ class TestFavoriteDestinations:
 
     def test_root_drive_default_name(self):
         assert display_default_name(Path("D:/")) == "D盘"
+
+    def test_v1_over_limit_records_are_preserved_and_reorderable(self, destinations, test_temp_root):
+        folder = test_temp_root / "new"; folder.mkdir()
+        raw = {"favorites": [
+            {"id": str(index), "path": str(test_temp_root / f"old-{index}"),
+             "name": f"旧目录 {index}", "added_at": "2026-01-01T00:00:00"}
+            for index in range(25)
+        ], "recents": []}
+        destinations.storage_path.write_text(json.dumps(raw), encoding="utf-8")
+        loaded = DestinationService(destinations.storage_path)
+        assert len(loaded.list_favorites()) == 25
+        with pytest.raises(ValueError, match="最多"):
+            loaded.add_favorite(folder)
+        reordered = loaded.reorder_favorites([item.id for item in reversed(loaded.list_favorites())])
+        assert len(reordered) == 25 and reordered[0].id == "24"
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows paths are case-insensitive")
+    def test_windows_case_variant_path_is_not_added_twice(self, destinations, test_temp_root):
+        folder = test_temp_root / "Project"; folder.mkdir()
+        first = destinations.add_favorite(folder)
+        second = destinations.add_favorite(Path(str(folder).swapcase()))
+        assert second.id == first.id
+        assert len(destinations.list_favorites()) == 1
+
+    def test_corrupt_file_backup_is_idempotent(self, test_temp_root):
+        path = test_temp_root / "destinations.json"
+        original = b"{ this is not json\xff"
+        path.write_bytes(original)
+        for _ in range(3):
+            assert DestinationService(path).list_favorites() == []
+        backups = list(test_temp_root.glob("destinations.json.corrupt-*.bak"))
+        assert len(backups) == 1
+        assert backups[0].read_bytes() == original
+        assert path.read_bytes() == original
 
 
 @pytest.mark.unit

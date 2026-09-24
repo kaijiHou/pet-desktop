@@ -2,6 +2,10 @@ param(
     [int]$WaitSeconds = 5
 )
 
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    throw "PowerShell 7+ is required. Run scripts/verify_release.ps1 with pwsh."
+}
+
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $projectRoot ".venv\Scripts\python.exe"
@@ -9,7 +13,7 @@ $releaseTools = Join-Path $PSScriptRoot "release_artifacts.py"
 $zipPath = Join-Path $projectRoot "release\DesktopPet-windows-x64.zip"
 $manifestPath = Join-Path $projectRoot "release\manifest.json"
 $testRoot = Join-Path $projectRoot ".tmp\tests"
-$extractDir = Join-Path $testRoot ("phase18-extracted-" + [guid]::NewGuid().ToString("N"))
+$extractDir = Join-Path $testRoot ("v53-extracted-" + [guid]::NewGuid().ToString("N"))
 
 if (-not (Test-Path -LiteralPath $zipPath)) {
     throw "Release ZIP not found: $zipPath"
@@ -22,7 +26,7 @@ $extractNote = Join-Path $extractDir "目录说明.md"
     [System.Text.UTF8Encoding]::new($false))
 & $python -B $releaseTools extract --zip-path $zipPath --destination $extractDir
 if ($LASTEXITCODE -ne 0) { throw "Could not extract release ZIP safely." }
-& $python -B $releaseTools verify --manifest $manifestPath --zip-path $zipPath --version "V5.2"
+& $python -B $releaseTools verify --manifest $manifestPath --zip-path $zipPath --version "V5.3"
 if ($LASTEXITCODE -ne 0) { throw "Release manifest or ZIP SHA256 verification failed." }
 
 $packageDir = Join-Path $extractDir "DesktopPet"

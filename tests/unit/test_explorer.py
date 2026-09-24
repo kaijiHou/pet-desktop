@@ -26,12 +26,20 @@ class TestExplorerService:
                                   foreground_hwnd_provider=lambda: 0)
         assert service.current_directory() is None
         assert called == []
+        assert service.last_directory_status == "no_explorer"
 
     def test_non_explorer_or_shell_error_returns_none(self):
         result = SimpleNamespace(returncode=0, stdout="", stderr="")
         service = ExplorerService(runner=lambda *a, **k: result,
                                   foreground_hwnd_provider=lambda: 1)
         assert service.current_directory() is None
+
+    def test_foreground_shell_location_is_reported_as_non_filesystem(self):
+        service = ExplorerService(foreground_hwnd_provider=lambda: 1)
+        service._foreground_is_explorer = lambda hwnd: True
+        service._directory_for_hwnd = lambda hwnd: None
+        assert service.current_directory() is None
+        assert service.last_directory_status == "not_filesystem"
 
     def test_nonexistent_output_is_not_reported_as_directory(self, test_temp_root):
         result = SimpleNamespace(returncode=0, stdout=str(test_temp_root / "missing"), stderr="")

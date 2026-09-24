@@ -73,6 +73,7 @@ class PocketWindow(QWidget):
         self.explorer = explorer_service or ExplorerService()
         self.events = event_dispatcher
         self.favorite_manager = favorite_manager
+        self._favorite_exists_by_id = {}
 
         self.setWindowTitle("文件口袋")
         self.setMinimumSize(480, 380)
@@ -327,12 +328,15 @@ class PocketWindow(QWidget):
         self.favorite_combo.blockSignals(True)
         self.favorite_combo.clear()
         favorites = self.destinations.list_favorites()
+        self._favorite_exists_by_id = {}
         if favorites:
             for favorite in favorites:
-                label = favorite.name if favorite.exists else f"{favorite.name}（路径失效）"
+                exists = favorite.exists
+                self._favorite_exists_by_id[favorite.id] = exists
+                label = favorite.name if exists else f"{favorite.name}（路径失效）"
                 self.favorite_combo.addItem(label, favorite.id)
                 row = self.favorite_combo.count() - 1
-                if not favorite.exists:
+                if not exists:
                     self.favorite_combo.model().item(row).setEnabled(False)
                 self.favorite_combo.setItemData(row, str(favorite.path), Qt.ToolTipRole)
             preferred = self.favorite_combo.findData(favorite_id)
@@ -366,8 +370,9 @@ class PocketWindow(QWidget):
         has_selection = bool(self._selected_items()) if hasattr(self, "item_list") else False
         favorite = self.destinations.get_favorite(self.favorite_combo.currentData()) if getattr(self, "favorite_combo", None) else None
         recent_path = self.recent_combo.currentData() if getattr(self, "recent_combo", None) else None
-        self.copy_favorite_btn.setEnabled(has_selection and bool(favorite and favorite.exists))
-        self.move_favorite_btn.setEnabled(has_selection and bool(favorite and favorite.exists))
+        favorite_exists = self._favorite_exists_by_id.get(favorite.id, False) if favorite else False
+        self.copy_favorite_btn.setEnabled(has_selection and favorite_exists)
+        self.move_favorite_btn.setEnabled(has_selection and favorite_exists)
         recent_valid = bool(recent_path and Path(recent_path).is_dir())
         self.copy_recent_btn.setEnabled(has_selection and recent_valid)
         self.move_recent_btn.setEnabled(has_selection and recent_valid)
