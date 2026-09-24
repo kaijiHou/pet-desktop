@@ -479,6 +479,19 @@ FileOperationService successful copy/move ──record_recent──────�
 
 Favorite 是用户手动固定和排序的列表；Recent 是成功文件操作的目标历史，两者可以包含同一路径但各自维护。无效目录保留并禁用打开/执行，允许复制旧路径、更新路径或移除引用。Pocket 的 copy/move 继续由 `FileOperationService` 执行，成功 move 以 source→destination 映射更新 Pocket 引用。`ActiveExplorerWatcher` 仍 disabled。
 
+## 36. V5.3 Favorite Folder 入口、状态与验收边界
+
+favorite 数据仍只有 `DestinationService` 一份。QuickPanel、FavoriteFoldersDialog、PocketWindow、Pet 右键菜单和托盘菜单都从 `PetWindow.destination_service` 读取；管理窗 `favorites_changed` 信号直接刷新仍打开的面板，不存在第二套收藏缓存。
+
+- QuickPanel refresh 与管理窗 refresh 各自缓存本轮 `favorite.exists` 结果；右键动作执行时仍再次校验路径，避免沿用过期状态。
+- 失效项目保留 id/path/name 并可定位修复。QuickPanel 标签按按钮剩余宽度 elide；工具提示保留完整名称和路径。
+- “固定当前文件夹”只调用 `ExplorerService.current_directory()`，随后显示确认与名称输入；不启用持续监听。`ActiveExplorerWatcher` 保持 disabled。
+- Pet 右键/托盘收藏菜单复用同一个 service，最多显示前 8 项；额外项通过管理入口访问，失效项不能直接打开。
+- `destinations.json` 损坏备份按原始字节 SHA-256 命名并以独占创建方式落盘；相同损坏内容不会重复备份，也不覆盖原文件。旧数据超过新增上限时完整读取保留。
+- 审计脚本将 `git diff --name-status -z -M` 的路径/status 与 V53 Summary 双向对账；release 流程先做路径/status 预审，构建后写入真实 Release HEAD 和 ZIP SHA256 并重新全审。
+
+Qt 控件 `render()` 图只证明隔离合成状态的渲染结果，不等同真实 Explorer、显示器 DPI、鼠标行为或人工桌面验收。
+
 ---
 
 ## V4.9 追加（2026-09-08）

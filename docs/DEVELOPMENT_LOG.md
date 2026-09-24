@@ -1055,3 +1055,14 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 - **真实验收边界**：用户正在操作电脑，本轮不使用 Computer Use；目录打开的 `QDesktopServices.openUrl` 调用合同与 Qt UI 行为由测试覆盖，真实 Explorer、屏幕视觉、鼠标和 DPI 均如实标 `NOT TESTED`，见 `V52_REAL_ACCEPTANCE.md`。
 - 完整回归 **390 passed / 270.36s**；定向服务/UI 合同 **49 passed / 1.52s**；release 文档审计 **Missing=0**。
 - Fresh Release 启动黑盒验收 PASS（running/responding、animation catalog、user assets、build identity log；WebEngine 文件 0）。Release 源 commit 与 Artifact ZIP SHA256 分开记录于 `V52_CHANGE_SUMMARY.md` §11；真实 Explorer/视觉/鼠标/DPI 仍 NOT TESTED。
+
+## 2026-09-24 - V5.3 常用文件夹体验收口
+
+- 继续复用 `DestinationService`：QuickPanel 失效路径点击进入定位修复，名称按控件宽度 elide；当前 Explorer 固定入口只调用 `ExplorerService.current_directory()` 并二次确认，未启用 `ActiveExplorerWatcher`。
+- Pet 右键与托盘菜单共享 `self.destination_service`，最多列出 8 项；失效项禁用打开并标出状态，超出部分进入管理页。
+- Favorite 管理列表精简为“打开/更多”，排序移入更多菜单；QuickPanel 与管理页每次 refresh 对每个 favorite 最多探测一次 `exists`。
+- 同一份损坏 `destinations.json` 以原始字节 SHA-256 命名备份，重复启动不重复写同内容备份；旧 V1 超过 20 项原样保留。
+- 增加 Pocket 多选 Copy/Move、混合成功/失败引用、右键/托盘入口、当前 Explorer 状态、实时同步、根盘和审计 A/M/D/R 合同。
+- 新增 `docs/screenshots/v53/` 四张隔离演示数据渲染图及 `V53_UI_REVIEW.md`；图片用 Qt Windows 平台控件 render 生成，不是用户桌面截图。真实 Explorer、人工屏幕/DPI 验收仍如实记录为 `NOT TESTED`。
+- `audit_release_docs.py` 对照 Git `diff --name-status -z -M` 并核验路径与状态；正式 release 在构建前审计，包生成后回填实际 Release Git HEAD/ZIP SHA256 并再做全量审计。
+- V5.2 文档误记的 `ARCHITECTURE.md` `A` 状态保留纠错说明；V5.2 验收文案去除无依据的用户归因。版本历史维持 V5.0 → V5.2，V5.1 未形成 release。

@@ -441,3 +441,17 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 | 真实 Windows Explorer 打开、截图、鼠标、DPI | **NOT TESTED** | 不将 Qt 控件合同等同于真实桌面验收；见 `V52_REAL_ACCEPTANCE.md` |
 
 Fresh Release 构建与黑盒验证结果由 `docs/V52_CHANGE_SUMMARY.md` §9–11 记录。
+
+## V5.3（2026-09-24）
+
+| 命令 / 套件 | 结果 | 覆盖 |
+|---|---:|---|
+| `.venv\Scripts\python.exe -B -m pytest tests -q`（初始完整回归；最终树在正式构建内重跑） | **410 passed / 266.76s** | 常用文件夹服务、QuickPanel/管理窗/Pocket 交互、Explorer pin 状态、托盘与右键子菜单、多选 Copy/Move/混合结果、既有工资/日历/Reminder/角色/Gallery/Settings/ShellWatcher/build identity 回归；之后增加了 2 项审计字段合同 |
+| `.venv\Scripts\python.exe -B -m pytest tests/unit/test_destinations.py tests/unit/test_explorer.py tests/unit/test_audit_release_docs.py tests/smoke/test_favorite_folders_gui.py tests/smoke/test_pocket_favorites_multi.py -q` | **53 passed / 2.75s** | 目标服务/UI、实时刷新、多选文件操作和发布审计合同 |
+| `scripts/capture_v53_screenshots.py` | **4 张渲染图** | QuickPanel、管理窗、失效修复、Pocket 目标区；使用 `.tmp/v53-demo/` 合成数据，不访问用户目录 |
+| `.venv\Scripts\python.exe -B scripts/audit_release_docs.py ...`（prebuild + 产物生成后严格审计） | 正式构建尚未运行 | Git name-status A/M/D/R 与 V53 Change Summary 双向核对；正式构建后校验真实 Git/ZIP 标识 |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_release.ps1` | 正式构建尚未运行 | PowerShell 7 门禁、文档审计、全量回归、PyInstaller clean build |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/verify_release.ps1` | 尚未运行 | fresh 解压启动、进程响应、动画目录、素材目录、启动身份日志、WebEngine=0 |
+| 真实 Explorer/人工屏幕视觉/DPI/鼠标 | **NOT TESTED** | Qt 控件渲染截图不冒充真实桌面验收；详见 `docs/V53_REAL_ACCEPTANCE.md` |
+
+正式 release 的全量结果、时间与实际产物摘要见 `docs/V53_CHANGE_SUMMARY.md`。

@@ -60,6 +60,7 @@ if (-not $SkipDocAudit) {
         "--summary", "docs/V53_CHANGE_SUMMARY.md",
         "--acceptance", "docs/V53_REAL_ACCEPTANCE.md",
         "--ui-review", "docs/V53_UI_REVIEW.md",
+        "--extra-required", "docs/V53_UI_REVIEW.md",
         "--extra-required", "docs/screenshots/v53/目录说明.md",
         "--extra-required", "docs/screenshots/v53/quick-panel-favorites.png",
         "--extra-required", "docs/screenshots/v53/favorite-folders.png",

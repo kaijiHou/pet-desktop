@@ -8,7 +8,7 @@ Baseline HEAD: `1f73669ec879f024e288f9463e688d8780b127f7`
 Branch: `master`
 Date: `2026-09-24`
 Environment: Windows 10.0.19045 x64 / Python 3.11.15 / PyQt5 5.15.11 / Qt 5.15.2
-GUI automation availability: available；遵循用户明确要求，不使用电脑控制工具，也未操作屏幕或鼠标。
+GUI automation availability: available；本轮未执行真实桌面控制，因此相应验收保持 NOT TESTED。
 
 ## 2. 本轮目标
 
@@ -154,7 +154,7 @@ M tests/unit/test_test_environment.py
 ## 13. 本轮未完成项
 
 - 真实 Windows Explorer/视觉/鼠标/DPI/网络盘手工验收未执行；没有生成或伪造截图。
-- 真实 Explorer 打开、屏幕视觉/鼠标/DPI/网络盘拔插人工验收仍待用户手动完成；本轮依用户要求未操作桌面。
+- 真实 Explorer 打开、屏幕视觉/鼠标/DPI/网络盘拔插人工验收仍保持 `NOT TESTED`。
 
 ## 14. Commit 列表
 
@@ -167,3 +167,7 @@ M tests/unit/test_test_environment.py
 ## 15. 最终状态
 
 DONE（代码、自动化全回归、fresh release 黑盒验证、文档审计均通过；真实 Windows Explorer/视觉/鼠标/DPI/网络盘人工验收明确保留为 NOT TESTED，详见 §10 与验收记录）。
+
+## Post-release audit correction
+
+V5.2 原始人工文件清单将 `docs/ARCHITECTURE.md` 记为 `A`，与 Git 实际状态不符；基线 `1f73669..6f62ca5` 的真实状态是 `M`。原因是当时手工维护 Change Summary，未以 Git name-status 输出校验。V5.3 起由文档审计脚本直接读取 Git 状态并核对 A/M/D/R，避免再次静默改写历史。

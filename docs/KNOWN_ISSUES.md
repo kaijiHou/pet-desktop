@@ -251,3 +251,11 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - `Path.is_dir()` 与平台图标提供器访问离线网络/移动盘时可能等待系统 I/O；本轮保持同步轻量实现，没有做异步网络盘探测（P1 后续优化）。失效项保留，用户可修改路径或移除。
 - 已有 `destinations.json` 若包含超过 20 条 favorites 会原样全部保留并展示；新增操作在达到 20 条后禁用，不会为满足上限而静默删数据。
 - ActiveExplorerWatcher 未改动，仍 disabled。
+
+## V5.3 状态更新（2026-09-24）
+
+- QuickPanel 失效 favorite 左键现进入管理页定位修复；真实 Windows Explorer 打开仍未由本轮自动化触发，`NOT TESTED`。
+- 固定当前 Explorer 只调用 `ExplorerService.current_directory()`；当前 shell 位置与真实 Explorer 行为以 stub 合同覆盖，真机项 `NOT TESTED`；`ActiveExplorerWatcher` 继续 disabled。
+- 低速/断连网络盘仍可能被同步 `Path.is_dir()` 或系统图标查询拖慢；本轮已减少重复探测，未引入异步状态缓存，列为 P1 后续优化。
+- Qt Windows 平台渲染图已静态审查并提交；真实显示器字体、DPI、鼠标操作与人工桌面体验仍 `NOT TESTED`。
+- 版本历史：仓库没有 V5.1 release commit；不补造 V5.1 发行记录，版本序列保持 V5.0 → V5.2 → V5.3。
