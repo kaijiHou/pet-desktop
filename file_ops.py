@@ -58,6 +58,11 @@ class FileOperationService:
                     source, None, "failed", "Destination cannot be inside the source directory"
                 ))
                 continue
+            if source.parent == destination:
+                results.append(OperationItemResult(
+                    source, source, "skipped", "Source is already in the destination folder"
+                ))
+                continue
 
             target = destination / source.name
             if target.exists():

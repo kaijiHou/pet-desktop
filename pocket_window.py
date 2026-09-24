@@ -15,7 +15,7 @@ from PyQt5.QtCore import Qt, QUrl, QTimer, QPoint, QMimeData
 from PyQt5.QtGui import QDesktopServices, QIcon, QDrag
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
-    QListWidgetItem, QMenu, QFileDialog, QFrame, QAbstractItemView,
+    QListWidgetItem, QMenu, QFileDialog, QFrame, QAbstractItemView, QComboBox,
     QApplication,
 )
 import theme
@@ -64,13 +64,15 @@ class PocketWindow(QWidget):
     """Non-modal floating pocket panel (V2.1)."""
 
     def __init__(self, service, parent=None, file_operations=None,
-                 destinations=None, explorer_service=None, event_dispatcher=None):
+                 destinations=None, explorer_service=None, event_dispatcher=None,
+                 favorite_manager=None):
         super().__init__(parent)
         self.service = service
         self.file_ops = file_operations or FileOperationService()
-        self.destinations = destinations or DestinationService()
+        self.destinations = destinations or getattr(parent, "destination_service", None) or DestinationService()
         self.explorer = explorer_service or ExplorerService()
         self.events = event_dispatcher
+        self.favorite_manager = favorite_manager
 
         self.setWindowTitle("文件口袋")
         self.setMinimumSize(480, 380)
@@ -166,6 +168,59 @@ class PocketWindow(QWidget):
         self.empty_label.setStyleSheet(f"color: {theme.TEXT_MUTED}; padding: 20px;")
         cl.addWidget(self.empty_label)
 
+        # Shared target shortcuts: favorites remain independent from recent history.
+        target_frame = QFrame()
+        target_frame.setObjectName("targetFrame")
+        target_frame.setStyleSheet(f"QFrame#targetFrame {{ background: {theme.BG}; border-radius: {theme.RADIUS_SMALL}px; }}")
+        target_layout = QVBoxLayout(target_frame)
+        target_layout.setContentsMargins(8, 7, 8, 7)
+        target_layout.setSpacing(4)
+
+        favorite_header = QHBoxLayout()
+        favorite_header.addWidget(QLabel("常用文件夹"))
+        favorite_header.addStretch()
+        self.manage_favorites_btn = QPushButton("管理常用文件夹")
+        self.manage_favorites_btn.setObjectName("flat")
+        self.manage_favorites_btn.clicked.connect(self._manage_favorites)
+        favorite_header.addWidget(self.manage_favorites_btn)
+        target_layout.addLayout(favorite_header)
+
+        favorite_row = QHBoxLayout()
+        self.favorite_combo = QComboBox()
+        self.favorite_combo.setObjectName("favoriteDestinationCombo")
+        self.favorite_combo.currentIndexChanged.connect(self._on_target_changed)
+        self.copy_favorite_btn = QPushButton("复制到这里")
+        self.copy_favorite_btn.clicked.connect(lambda: self._operate_on_selected_target("copy", self.favorite_combo, favorite=True))
+        self.move_favorite_btn = QPushButton("移动到这里")
+        self.move_favorite_btn.clicked.connect(lambda: self._operate_on_selected_target("move", self.favorite_combo, favorite=True))
+        favorite_row.addWidget(self.favorite_combo, 1)
+        favorite_row.addWidget(self.copy_favorite_btn)
+        favorite_row.addWidget(self.move_favorite_btn)
+        target_layout.addLayout(favorite_row)
+
+        recent_header = QHBoxLayout()
+        recent_header.addWidget(QLabel("最近使用"))
+        recent_header.addStretch()
+        self.clear_recents_btn = QPushButton("清空最近使用")
+        self.clear_recents_btn.setObjectName("flat")
+        self.clear_recents_btn.clicked.connect(self._clear_recents)
+        recent_header.addWidget(self.clear_recents_btn)
+        target_layout.addLayout(recent_header)
+
+        recent_row = QHBoxLayout()
+        self.recent_combo = QComboBox()
+        self.recent_combo.setObjectName("recentDestinationCombo")
+        self.recent_combo.currentIndexChanged.connect(self._on_target_changed)
+        self.copy_recent_btn = QPushButton("复制到这里")
+        self.copy_recent_btn.clicked.connect(lambda: self._operate_on_selected_target("copy", self.recent_combo))
+        self.move_recent_btn = QPushButton("移动到这里")
+        self.move_recent_btn.clicked.connect(lambda: self._operate_on_selected_target("move", self.recent_combo))
+        recent_row.addWidget(self.recent_combo, 1)
+        recent_row.addWidget(self.copy_recent_btn)
+        recent_row.addWidget(self.move_recent_btn)
+        target_layout.addLayout(recent_row)
+        cl.addWidget(target_frame)
+
         # Explorer section (V2.1: refresh button)
         exp_frame = QFrame()
         exp_frame.setStyleSheet(f"QFrame {{ background: {theme.BG}; border-radius: {theme.RADIUS_SMALL}px; padding: 6px; }}")
@@ -243,7 +298,7 @@ class PocketWindow(QWidget):
             li = QListWidgetItem()
             fi = QFileInfo(str(item.path))
             li.setIcon(provider.icon(fi))
-            suffix = "" if item.exists else " [missing]"
+            suffix = "" if item.exists else "（路径失效）"
             li.setText(f"{item.name}{suffix}")
             li.setToolTip(str(item.path))
             li.setData(Qt.UserRole, item.id)
@@ -252,6 +307,7 @@ class PocketWindow(QWidget):
             self.item_list.addItem(li)
         if self.item_list.count() > 0:
             self.item_list.setCurrentRow(0)
+        self.refresh_destinations()
         self._on_selection_changed()
 
     def _selected_items(self):
@@ -263,6 +319,83 @@ class PocketWindow(QWidget):
         can_explorer = has and self._explorer_snapshot is not None
         self.copy_explorer_btn.setEnabled(can_explorer)
         self.move_explorer_btn.setEnabled(can_explorer)
+        self._refresh_target_action_states()
+
+    def refresh_destinations(self):
+        favorite_id = self.favorite_combo.currentData() if hasattr(self, "favorite_combo") else None
+        recent_path = self.recent_combo.currentData() if hasattr(self, "recent_combo") else None
+        self.favorite_combo.blockSignals(True)
+        self.favorite_combo.clear()
+        favorites = self.destinations.list_favorites()
+        if favorites:
+            for favorite in favorites:
+                label = favorite.name if favorite.exists else f"{favorite.name}（路径失效）"
+                self.favorite_combo.addItem(label, favorite.id)
+                row = self.favorite_combo.count() - 1
+                if not favorite.exists:
+                    self.favorite_combo.model().item(row).setEnabled(False)
+                self.favorite_combo.setItemData(row, str(favorite.path), Qt.ToolTipRole)
+            preferred = self.favorite_combo.findData(favorite_id)
+            self.favorite_combo.setCurrentIndex(preferred if preferred >= 0 else 0)
+        else:
+            self.favorite_combo.addItem("暂无常用文件夹", None)
+            self.favorite_combo.model().item(0).setEnabled(False)
+        self.favorite_combo.blockSignals(False)
+
+        self.recent_combo.blockSignals(True)
+        self.recent_combo.clear()
+        recents = self.destinations.list_recents()
+        if recents:
+            for recent in recents:
+                label = recent.name if recent.exists else f"{recent.name}（路径失效）"
+                self.recent_combo.addItem(label, str(recent.path))
+                row = self.recent_combo.count() - 1
+                if not recent.exists:
+                    self.recent_combo.model().item(row).setEnabled(False)
+                self.recent_combo.setItemData(row, str(recent.path), Qt.ToolTipRole)
+            preferred = self.recent_combo.findData(recent_path)
+            self.recent_combo.setCurrentIndex(preferred if preferred >= 0 else 0)
+        else:
+            self.recent_combo.addItem("暂无最近使用", None)
+            self.recent_combo.model().item(0).setEnabled(False)
+        self.recent_combo.blockSignals(False)
+        self.clear_recents_btn.setEnabled(bool(recents))
+        self._refresh_target_action_states()
+
+    def _refresh_target_action_states(self):
+        has_selection = bool(self._selected_items()) if hasattr(self, "item_list") else False
+        favorite = self.destinations.get_favorite(self.favorite_combo.currentData()) if getattr(self, "favorite_combo", None) else None
+        recent_path = self.recent_combo.currentData() if getattr(self, "recent_combo", None) else None
+        self.copy_favorite_btn.setEnabled(has_selection and bool(favorite and favorite.exists))
+        self.move_favorite_btn.setEnabled(has_selection and bool(favorite and favorite.exists))
+        recent_valid = bool(recent_path and Path(recent_path).is_dir())
+        self.copy_recent_btn.setEnabled(has_selection and recent_valid)
+        self.move_recent_btn.setEnabled(has_selection and recent_valid)
+
+    def _on_target_changed(self, *_):
+        self._refresh_target_action_states()
+
+    def _operate_on_selected_target(self, action, combo, favorite=False):
+        target = combo.currentData()
+        if favorite:
+            item = self.destinations.get_favorite(target)
+            if not item or not item.exists:
+                self._toast("该常用文件夹路径失效，请修改路径后再操作")
+                return None
+            path, label = item.path, item.name
+        else:
+            if not target or not Path(target).is_dir():
+                self._toast("最近使用的位置已失效")
+                return None
+            path = Path(target)
+            recent = self.destinations.get_recent(next((r.id for r in self.destinations.list_recents()
+                                                         if str(r.path) == str(path)), ""))
+            label = recent.name if recent else str(path)
+        return self._run_operation(action, path, sources_desc=label)
+
+    def _clear_recents(self):
+        self.destinations.clear_recents()
+        self.refresh_destinations()
 
     def _toast(self, text, ms=3000):
         self._toast_label.setText(text)
@@ -299,16 +432,36 @@ class PocketWindow(QWidget):
                     dst = src_to_dst.get(item.path)
                     if dst is not None:
                         self.service.replace_path(item.id, dst)
-            verb = "已复制" if action == "copy" else "已移动"
-            self._toast(f"{verb}到 {dest}")
             if self.events:
                 from events import AppEvent
                 self.events.dispatch(AppEvent("file_operation", action, report))
-            self.refresh()
-            return report
+        verb = "复制" if action == "copy" else "移动"
+        target_name = sources_desc or str(dest)
+        summary = (f"{verb}到‘{target_name}’：成功 {report.succeeded} 项，"
+                   f"跳过 {report.skipped} 项，失败 {report.failed} 项")
+        if report.failed and report.items:
+            first_error = next((item.error for item in report.items if item.status == "failed"), "")
+            if first_error:
+                summary += f"；{first_error}"
+        self._toast(summary)
+        self.refresh()
+        return report
+
+    def _manage_favorites(self):
+        if self.favorite_manager is not None:
+            result = self.favorite_manager()
+            self.refresh_destinations()
+            return result
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "_manage_favorite_folders"):
+            result = parent._manage_favorite_folders()
         else:
-            self._toast(f"操作失败: {report.items[0].error if report.items else '未知错误'}")
-            return None
+            from favorite_folders_ui import FavoriteFoldersDialog
+            dialog = FavoriteFoldersDialog(self.destinations, self)
+            dialog.favorites_changed.connect(self.refresh_destinations)
+            result = dialog.exec_()
+        self.refresh_destinations()
+        return result
 
     def _do_explorer(self, action):
         if not self._explorer_snapshot:
@@ -334,15 +487,23 @@ class PocketWindow(QWidget):
         # Favorites + Recents: decouple destination from action.
         for fav in self.destinations.list_favorites()[:5]:
             nm = f"常用  {_elide(fav.name, 24)}"
-            menu.addAction(f"{nm}  [复制]").triggered.connect(lambda checked, p=fav.path: self._run_operation("copy", p))
-            menu.addAction(f"{nm}  [移动]").triggered.connect(lambda checked, p=fav.path: self._run_operation("move", p))
+            copy_action = menu.addAction(f"{nm}  [复制]")
+            move_action = menu.addAction(f"{nm}  [移动]")
+            copy_action.setEnabled(fav.exists)
+            move_action.setEnabled(fav.exists)
+            copy_action.triggered.connect(lambda checked, p=fav.path: self._run_operation("copy", p))
+            move_action.triggered.connect(lambda checked, p=fav.path: self._run_operation("move", p))
         if self.destinations.list_favorites():
             menu.addSeparator()
 
         for rec in self.destinations.list_recents()[:3]:
             nm = f"最近  {_elide(rec.name, 24)}"
-            menu.addAction(f"{nm}  [复制]").triggered.connect(lambda checked, p=rec.path: self._run_operation("copy", p))
-            menu.addAction(f"{nm}  [移动]").triggered.connect(lambda checked, p=rec.path: self._run_operation("move", p))
+            copy_action = menu.addAction(f"{nm}  [复制]")
+            move_action = menu.addAction(f"{nm}  [移动]")
+            copy_action.setEnabled(rec.exists)
+            move_action.setEnabled(rec.exists)
+            copy_action.triggered.connect(lambda checked, p=rec.path: self._run_operation("copy", p))
+            move_action.triggered.connect(lambda checked, p=rec.path: self._run_operation("move", p))
         if self.destinations.list_recents():
             menu.addSeparator()
 

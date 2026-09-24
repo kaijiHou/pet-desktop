@@ -4,7 +4,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$python = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$releaseTools = Join-Path $PSScriptRoot "release_artifacts.py"
 $zipPath = Join-Path $projectRoot "release\DesktopPet-windows-x64.zip"
+$manifestPath = Join-Path $projectRoot "release\manifest.json"
 $testRoot = Join-Path $projectRoot ".tmp\tests"
 $extractDir = Join-Path $testRoot ("phase18-extracted-" + [guid]::NewGuid().ToString("N"))
 
@@ -12,39 +15,57 @@ if (-not (Test-Path -LiteralPath $zipPath)) {
     throw "Release ZIP not found: $zipPath"
 }
 
-New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
-Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir
+$null = New-Item -ItemType Directory -Path $extractDir -Force
+$extractNote = Join-Path $extractDir "目录说明.md"
+[System.IO.File]::WriteAllText($extractNote,
+    "# Release 验证临时目录`r`n`r`n此目录由 scripts/verify_release.ps1 从 release ZIP 解压生成，仅用于新包黑盒启动检查；可重建，不放用户文件。`r`n",
+    [System.Text.UTF8Encoding]::new($false))
+& $python -B $releaseTools extract --zip-path $zipPath --destination $extractDir
+if ($LASTEXITCODE -ne 0) { throw "Could not extract release ZIP safely." }
+& $python -B $releaseTools verify --manifest $manifestPath --zip-path $zipPath --version "V5.2"
+if ($LASTEXITCODE -ne 0) { throw "Release manifest or ZIP SHA256 verification failed." }
 
 $packageDir = Join-Path $extractDir "DesktopPet"
 $exePath = Join-Path $packageDir "DesktopPet.exe"
-$process = Start-Process -FilePath $exePath -WorkingDirectory $packageDir -PassThru
-Start-Sleep -Seconds $WaitSeconds
+$process = Start-Process -FilePath $exePath -WorkingDirectory $packageDir -PassThru -WindowStyle Hidden
 
 try {
-    $live = Get-Process -Id $process.Id -ErrorAction SilentlyContinue
-    $webEngineFiles = @(
-        Get-ChildItem -LiteralPath $packageDir -Recurse -Force |
-            Where-Object { $_.Name -match "WebEngine|QtWebEngine|Chromium" }
-    )
+    [Threading.Thread]::Sleep([TimeSpan]::FromSeconds($WaitSeconds))
+    $process.Refresh()
+    $running = -not $process.HasExited
+    $responding = $running -and $process.Responding
+    $webEngineCount = 0
+    foreach ($file in [IO.Directory]::EnumerateFiles($packageDir, "*", [IO.SearchOption]::AllDirectories)) {
+        if ([IO.Path]::GetFileName($file) -match "WebEngine|QtWebEngine|Chromium") { $webEngineCount++ }
+    }
+    $logPath = Join-Path $packageDir "logs\app.log"
+    $logCreated = [IO.File]::Exists($logPath)
+    $identityLogged = $false
+    if ($logCreated) {
+        & $python -B $releaseTools verify-log --manifest $manifestPath --log $logPath
+        $identityLogged = $LASTEXITCODE -eq 0
+    }
     $result = [ordered]@{
         extract_dir = $extractDir
-        running = [bool]$live
-        responding = [bool]($live -and $live.Responding)
-        process_count = @(Get-Process DesktopPet -ErrorAction SilentlyContinue).Count
+        running = [bool]$running
+        responding = [bool]$responding
         animation_catalog = Test-Path -LiteralPath (Join-Path $packageDir "_internal\assets\animations.json")
         user_assets_dir = Test-Path -LiteralPath (Join-Path $packageDir "assets")
-        log_created = Test-Path -LiteralPath (Join-Path $packageDir "logs\app.log")
-        webengine_files = $webEngineFiles.Count
+        log_created = $logCreated
+        build_identity_logged = $identityLogged
+        webengine_files = $webEngineCount
     }
-    $result | ConvertTo-Json
+    foreach ($key in $result.Keys) { [Console]::WriteLine("{0}={1}", $key, $result[$key]) }
     if (-not $result.running -or -not $result.responding -or
         -not $result.animation_catalog -or -not $result.user_assets_dir -or
-        -not $result.log_created -or $result.webengine_files -ne 0) {
+        -not $result.log_created -or -not $result.build_identity_logged -or $result.webengine_files -ne 0) {
         throw "Release verification failed."
     }
 }
 finally {
-    if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) {
-        Stop-Process -Id $process.Id
+    $process.Refresh()
+    if (-not $process.HasExited) {
+        $process.Kill()
+        $null = $process.WaitForExit(5000)
     }
 }

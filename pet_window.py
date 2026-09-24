@@ -14,6 +14,7 @@ from config import Config
 from character import CharacterController, STEP_MS
 from pet_sprite import ANIMATIONS, ASSETS_DIR, PetSpriteLoader, SPRITE_W, SPRITE_H
 from pocket_service import PocketService
+from destinations import DestinationService
 from pocket_ui import PocketDialog
 from file_watch import FileWatchService
 from events import AnimationController, AppEvent, EventDispatcher
@@ -290,6 +291,7 @@ class PetWindow(QWidget):
         self.wage = WageService()
         self.wage.on_progress = self._on_wage_progress
         self.pocket = PocketService()
+        self.destination_service = DestinationService()
         self.file_watch = FileWatchService()
         self.events = EventDispatcher(self)
         self.animation_controller = AnimationController(set(AnimationController.MAPPING.values()) - {None})
@@ -795,7 +797,7 @@ class PetWindow(QWidget):
             self.set_state(self.STATE_IDLE)
         if self._quick_panel is None:
             from quick_panel import QuickPanel
-            self._quick_panel = QuickPanel(self)
+            self._quick_panel = QuickPanel(self, destinations=self.destination_service)
         if self._quick_panel.isVisible():
             self._quick_panel.hide()
         else:
@@ -1172,11 +1174,28 @@ class PetWindow(QWidget):
     def _open_pocket(self):
         from pocket_window import PocketWindow
         if self._pocket_window is None:
-            self._pocket_window = PocketWindow(self.pocket, event_dispatcher=self.events)
+            self._pocket_window = PocketWindow(
+                self.pocket, destinations=self.destination_service, event_dispatcher=self.events,
+                favorite_manager=self._manage_favorite_folders,
+            )
         self._pocket_window.refresh()
         self._pocket_window.show_near(self.visible_pet_global_rect())
         if self._quick_panel is not None:
             self._quick_panel.hide()
+
+    def _manage_favorite_folders(self, focus_id=None, action=None):
+        from favorite_folders_ui import FavoriteFoldersDialog
+        dialog = FavoriteFoldersDialog(
+            self.destination_service, self, focus_id=focus_id, focus_action=action,
+        )
+        dialog.favorites_changed.connect(self._refresh_destination_surfaces)
+        return dialog.exec_()
+
+    def _refresh_destination_surfaces(self):
+        if self._quick_panel is not None:
+            self._quick_panel.refresh()
+        if self._pocket_window is not None:
+            self._pocket_window.refresh_destinations()
 
     def _tray_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:

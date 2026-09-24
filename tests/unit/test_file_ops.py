@@ -53,6 +53,22 @@ class TestCopyOperations:
 
 @pytest.mark.unit
 class TestMoveAndErrors:
+    def test_copy_to_source_folder_is_skipped_without_duplicate(self, service, test_temp_root):
+        source = test_temp_root / "already-here.txt"
+        source.write_text("keep")
+        report = service.copy([source], test_temp_root)
+        assert report.skipped == 1 and report.succeeded == 0 and report.failed == 0
+        assert source.read_text() == "keep"
+        assert not (test_temp_root / "already-here (1).txt").exists()
+
+    def test_move_to_source_folder_is_skipped_without_duplicate(self, service, test_temp_root):
+        source = test_temp_root / "already-here.txt"
+        source.write_text("keep")
+        report = service.move([source], test_temp_root)
+        assert report.skipped == 1 and report.succeeded == 0 and report.failed == 0
+        assert source.read_text() == "keep"
+        assert not (test_temp_root / "already-here (1).txt").exists()
+
     def test_move_relocates_file(self, service, test_temp_root):
         source = test_temp_root / "move.txt"
         destination = test_temp_root / "dest"

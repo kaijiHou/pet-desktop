@@ -1,16 +1,22 @@
 """Today's assistant panel: wage snapshot first, pocket and reminders below."""
 
-from PyQt5.QtCore import Qt, QTimer, QEvent
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QApplication
+from PyQt5.QtCore import Qt, QTimer, QEvent, QUrl, QFileInfo
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QFrame,
+    QApplication, QToolButton, QFileIconProvider, QMenu,
+)
+from destinations import DestinationService
 import theme
 
 
 class QuickPanel(QWidget):
     ITEM_PREVIEW = 3
 
-    def __init__(self, pet_window, parent=None):
+    def __init__(self, pet_window, parent=None, destinations=None):
         super().__init__(parent)
         self.pet = pet_window
+        self.destinations = destinations or getattr(pet_window, "destination_service", None) or DestinationService()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
@@ -23,7 +29,7 @@ class QuickPanel(QWidget):
     def _build_ui(self):
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         card = QFrame(); card.setObjectName("card"); card.setStyleSheet(f"QFrame#card {{ background: {theme.BG_CARD}; border: 1px solid {theme.BORDER}; border-radius: {theme.RADIUS}px; }}")
-        layout = QVBoxLayout(card); layout.setContentsMargins(14, 12, 14, 12); layout.setSpacing(7)
+        layout = QVBoxLayout(card); layout.setContentsMargins(14, 10, 14, 10); layout.setSpacing(4)
         top = QHBoxLayout(); title = QLabel("今日助手"); title.setObjectName("title")
         close = QPushButton("✕"); close.setObjectName("flat"); close.setFixedSize(24, 24); close.clicked.connect(self.hide); self.panel_close_btn = close
         top.addWidget(title); top.addStretch(); top.addWidget(close); layout.addLayout(top)
@@ -35,6 +41,28 @@ class QuickPanel(QWidget):
         layout.addWidget(self.wage_status); layout.addWidget(self.wage_amount); layout.addWidget(self.wage_detail); layout.addWidget(self.wage_setup_btn)
         wage_buttons = QHBoxLayout(); self.clock_out_btn = QPushButton("下班打卡"); self.clock_out_btn.setObjectName("primary"); self.clock_out_btn.clicked.connect(self._clock_out); self.calendar_btn = QPushButton("工作日历"); self.calendar_btn.clicked.connect(self._open_calendar)
         wage_buttons.addWidget(self.clock_out_btn); wage_buttons.addWidget(self.calendar_btn); layout.addLayout(wage_buttons)
+
+        self._section_line(layout)
+        favorite_header = QHBoxLayout()
+        self.favorite_title = QLabel("常用文件夹"); self.favorite_title.setObjectName("title")
+        self.favorite_manage_btn = QPushButton("管理")
+        self.favorite_manage_btn.setObjectName("flat")
+        self.favorite_manage_btn.clicked.connect(lambda: self._manage_favorites())
+        favorite_header.addWidget(self.favorite_title); favorite_header.addStretch(); favorite_header.addWidget(self.favorite_manage_btn)
+        layout.addLayout(favorite_header)
+        self.favorite_empty = QLabel("还没有常用文件夹")
+        self.favorite_empty.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 8pt;")
+        layout.addWidget(self.favorite_empty)
+        self.favorite_add_btn = QPushButton("+ 添加文件夹")
+        self.favorite_add_btn.setObjectName("flat")
+        self.favorite_add_btn.clicked.connect(lambda: self._manage_favorites())
+        layout.addWidget(self.favorite_add_btn)
+        self.favorite_grid = QGridLayout(); self.favorite_grid.setContentsMargins(0, 0, 0, 0); self.favorite_grid.setHorizontalSpacing(6); self.favorite_grid.setVerticalSpacing(2)
+        layout.addLayout(self.favorite_grid)
+        self.favorite_view_all_btn = QPushButton("查看全部（0）")
+        self.favorite_view_all_btn.setObjectName("flat")
+        self.favorite_view_all_btn.clicked.connect(lambda: self._manage_favorites())
+        layout.addWidget(self.favorite_view_all_btn)
 
         self._section_line(layout)
         hdr = QHBoxLayout(); self.pocket_title = QLabel("文件口袋"); self.pocket_title.setObjectName("title"); self.pocket_count = QLabel("0"); self.pocket_count.setStyleSheet(f"color: {theme.ACCENT}; font-weight: 600;"); hdr.addWidget(self.pocket_title); hdr.addStretch(); hdr.addWidget(self.pocket_count); layout.addLayout(hdr)
@@ -71,7 +99,7 @@ class QuickPanel(QWidget):
     def _refresh(self):
         self._refresh_wage(); items = self.pet.pocket.list_items(); self.pocket_count.setText(str(len(items))); self.empty_label.setVisible(not items); self._clear(self.pocket_items_layout)
         for item in items[: self.ITEM_PREVIEW]:
-            lbl = QLabel(f"  {item.name if item.exists else item.name + ' [missing]'}"); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT}; padding: 1px 0;"); self.pocket_items_layout.addWidget(lbl)
+            lbl = QLabel(f"  {item.name if item.exists else item.name + '（路径失效）'}"); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT}; padding: 1px 0;"); self.pocket_items_layout.addWidget(lbl)
         if len(items) > self.ITEM_PREVIEW:
             lbl = QLabel(f"  还有 {len(items) - self.ITEM_PREVIEW} 项..."); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT_MUTED};"); self.pocket_items_layout.addWidget(lbl)
         reminders = self.pet.reminder.list_reminders(); self._clear(self.remind_items_layout)
@@ -81,8 +109,80 @@ class QuickPanel(QWidget):
                 lbl = QLabel(f"  {rem.due_at:%m-%d %H:%M}  {rem.content}"); lbl.setWordWrap(True); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT}; padding: 1px 0;"); self.remind_items_layout.addWidget(lbl)
         else:
             self.next_reminder_label.setText("暂无提醒"); self.no_remind_label.show()
+        self._refresh_favorites()
 
     refresh = _refresh
+
+    def _refresh_favorites(self):
+        self._clear(self.favorite_grid)
+        favorites = self.destinations.list_favorites()
+        self.favorite_empty.setVisible(not favorites)
+        self.favorite_add_btn.setVisible(not favorites)
+        self.favorite_view_all_btn.setVisible(len(favorites) > 6)
+        self.favorite_view_all_btn.setText(f"查看全部（{len(favorites)}）")
+        provider = QFileIconProvider()
+        for index, favorite in enumerate(favorites[:6]):
+            button = QToolButton()
+            button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            button.setIcon(provider.icon(QFileInfo(str(favorite.path))))
+            button.setText(f"{favorite.name if favorite.exists else favorite.name + ' · 路径失效'}  ›")
+            button.setToolTip(str(favorite.path))
+            button.setEnabled(True)  # keep the context menu available for repairing a missing path
+            button.setFixedHeight(25)
+            button.setStyleSheet(
+                f"QToolButton {{ text-align:left; color:{theme.TEXT}; padding:3px 5px; border-radius:5px; }}"
+                f"QToolButton:hover {{ background:{theme.BG}; }}"
+                "QToolButton:disabled { color:#9ca3af; }"
+            )
+            if not favorite.exists:
+                button.setStyleSheet(
+                    f"QToolButton {{ text-align:left; color:#9ca3af; padding:3px 5px; border-radius:5px; }}"
+                )
+            button.setContextMenuPolicy(Qt.CustomContextMenu)
+            button.customContextMenuRequested.connect(
+                lambda pos, fid=favorite.id, btn=button: self._show_favorite_menu(fid, btn, pos)
+            )
+            button.clicked.connect(lambda _=False, fid=favorite.id: self._open_favorite(fid))
+            self.favorite_grid.addWidget(button, index // 2, index % 2)
+        self.favorite_count = len(favorites)
+
+    def _open_favorite(self, favorite_id):
+        favorite = self.destinations.get_favorite(favorite_id)
+        if favorite and favorite.exists:
+            return QDesktopServices.openUrl(QUrl.fromLocalFile(str(favorite.path)))
+        return False
+
+    def _manage_favorites(self, focus_id=None, action=None):
+        if hasattr(self.pet, "_manage_favorite_folders"):
+            return self.pet._manage_favorite_folders(focus_id, action)
+        from favorite_folders_ui import FavoriteFoldersDialog
+        dialog = FavoriteFoldersDialog(self.destinations, self, focus_id=focus_id, focus_action=action)
+        dialog.favorites_changed.connect(self._refresh_favorites)
+        return dialog.exec_()
+
+    def _show_favorite_menu(self, favorite_id, button, pos):
+        favorite = self.destinations.get_favorite(favorite_id)
+        if not favorite:
+            return
+        menu = QMenu(self)
+        open_action = menu.addAction("打开")
+        open_action.setEnabled(favorite.exists)
+        copy_action = menu.addAction("复制路径")
+        menu.addSeparator()
+        rename_action = menu.addAction("重命名")
+        update_action = menu.addAction("修改路径")
+        remove_action = menu.addAction("移除")
+        chosen = menu.exec_(button.mapToGlobal(pos))
+        if chosen == open_action:
+            self._open_favorite(favorite_id)
+        elif chosen == copy_action:
+            QApplication.clipboard().setText(str(favorite.path))
+        elif chosen == rename_action:
+            self._manage_favorites(favorite_id, "rename")
+        elif chosen == update_action:
+            self._manage_favorites(favorite_id, "update_path")
+        elif chosen == remove_action:
+            self._manage_favorites(favorite_id, "remove")
     def _open_pocket(self): self.pet._open_pocket(); self.hide()
     def _open_add_reminder(self): self.pet._open_add_reminder(); self._refresh()
     def _open_reminders(self): self.pet._open_reminders(); self._refresh()

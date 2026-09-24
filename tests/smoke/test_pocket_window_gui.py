@@ -10,6 +10,7 @@ from PyQt5.QtCore import QUrl
 
 def _mk(pet_window, **kw):
     from pocket_window import PocketWindow
+    kw.setdefault("destinations", pet_window.destination_service)
     return PocketWindow(pet_window.pocket, **kw)
 
 
@@ -61,17 +62,21 @@ class TestPocketWindowGui:
         copy_dest = test_temp_root / "copies"; move_dest = test_temp_root / "moves"
         copy_dest.mkdir(); move_dest.mkdir()
         orig = pet_window.pocket.add(source)
-        pw = _mk(pet_window)
+        from destinations import DestinationService
+        destinations = DestinationService(test_temp_root / "destinations.json")
+        pw = _mk(pet_window, destinations=destinations)
         pw.item_list.item(0).setSelected(True)
         rep = pw._run_operation("copy", copy_dest)
         assert rep and rep.succeeded == 1
         assert source.exists() and (copy_dest / source.name).exists()
         assert pet_window.pocket.get(orig.id).path == source.resolve()
+        assert destinations.list_recents()[0].path == copy_dest.resolve()
         # move updates ref to new location
         rep2 = pw._run_operation("move", move_dest)
         assert rep2 and rep2.succeeded == 1
         assert not source.exists()
         assert pet_window.pocket.get(orig.id).path == (move_dest / source.name).resolve()
+        assert [item.path for item in destinations.list_recents()] == [move_dest.resolve(), copy_dest.resolve()]
         pw.close()
         for i in list(pet_window.pocket.list_items()): pet_window.pocket.remove(i.id)
 
