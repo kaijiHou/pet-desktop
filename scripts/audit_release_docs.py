@@ -120,6 +120,13 @@ def _relative(path, root):
     return resolved
 
 
+def missing_required_files(root, required):
+    return [
+        relative for relative in required
+        if not (root / relative).is_file() or not (root / relative).stat().st_size
+    ]
+
+
 def audit(args):
     root = Path(args.root).resolve()
     summary_path = _relative(args.summary, root)
@@ -129,10 +136,8 @@ def audit(args):
     required = list(BASE_REQUIRED) + [summary_rel, acceptance_rel] + args.extra_required
     errors = []
 
-    for relative in required:
-        target = root / relative
-        if not target.is_file() or not target.read_text(encoding="utf-8").strip():
-            errors.append(f"required file missing or empty: {relative}")
+    errors.extend(f"required file missing or empty: {relative}"
+                  for relative in missing_required_files(root, required))
 
     summary = summary_path.read_text(encoding="utf-8") if summary_path.is_file() else ""
     acceptance = acceptance_path.read_text(encoding="utf-8") if acceptance_path.is_file() else ""

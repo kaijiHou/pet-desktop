@@ -3,8 +3,8 @@
 import pytest
 
 from scripts.audit_release_docs import (
-    artifact_hash_is_valid, compare_changes, parse_name_status_z, release_head_is_valid,
-    summary_changes,
+    artifact_hash_is_valid, compare_changes, missing_required_files, parse_name_status_z,
+    release_head_is_valid, summary_changes,
 )
 
 
@@ -55,3 +55,14 @@ def test_pending_release_head_is_prebuild_only():
     assert release_head_is_valid(pending, allow_pending=True)
     assert not release_head_is_valid(pending)
     assert release_head_is_valid(actual)
+
+
+@pytest.mark.unit
+def test_required_files_accept_binary_screenshots_and_reject_empty(tmp_path):
+    image = tmp_path / "image.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\ncontent")
+    empty = tmp_path / "empty.md"
+    empty.write_bytes(b"")
+    assert missing_required_files(tmp_path, ["image.png", "empty.md", "missing.png"]) == [
+        "empty.md", "missing.png",
+    ]
