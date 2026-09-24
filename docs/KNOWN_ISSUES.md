@@ -244,3 +244,10 @@ TypeError: setGeometry(...): argument 3 has unexpected type 'float'
 - **KI-30（已修复）**：日历月格 refresh 依赖 DeferredDelete，未销毁旧 cell 在旧位置继续绘制（叠影）。修复：takeAt 后立即 hide()。r1/r2 截图留证。
 - **视觉债务（继承）**：鼠标 resize 手感、真实 DPI、Explorer 真实 RMDIR 仍 NOT TESTED（无 GUI 自动化；回填清单在 V50_REAL_ACCEPTANCE）。
 - ActiveExplorerWatcher 保持 disabled。
+
+## V5.2 状态更新（2026-09-24）
+
+- 常用文件夹的自动化服务/UI 与隔离文件操作覆盖通过；真实目录打开、屏幕视觉、DPI、鼠标和实际网络/移动盘仍 `NOT TESTED`，见 `V52_REAL_ACCEPTANCE.md`。
+- `Path.is_dir()` 与平台图标提供器访问离线网络/移动盘时可能等待系统 I/O；本轮保持同步轻量实现，没有做异步网络盘探测（P1 后续优化）。失效项保留，用户可修改路径或移除。
+- 已有 `destinations.json` 若包含超过 20 条 favorites 会原样全部保留并展示；新增操作在达到 20 条后禁用，不会为满足上限而静默删数据。
+- ActiveExplorerWatcher 未改动，仍 disabled。

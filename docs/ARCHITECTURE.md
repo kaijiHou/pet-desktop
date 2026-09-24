@@ -460,6 +460,25 @@ PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面�
 
 角色预览只依赖 `DynamicPackRenderer.current_pixmap()` 公共 API；单图由 `SingleCharacterImportService` 统一写入 `data/character_images/` 并以相对路径持久化。`CharacterRegistry` 将 builtin、installed、Codex read-only 三类来源区分，Codex 角色在使用前必须复制进 data/characters。
 
+## 35. V5.2 Favorite Folder / Destination Subsystem
+
+`DestinationService` 是常用文件夹与最近使用的唯一数据层，使用应用数据目录 `data/destinations.json`；没有第二套 favorite model/service。version 2 为 favorite 保存稳定 ID、路径、名称、添加时间与 `order`，无 version 的旧文件按 v1 原数组顺序读取。写入继续使用临时文件替换；解析失败时 warning 并尽力保留带时间戳的原文备份，不覆写损坏文件。
+
+`PetWindow` 创建并拥有一个 `DestinationService`，将同一个实例注入 QuickPanel、PocketWindow 与 `FavoriteFoldersDialog`。管理窗通过 `favorites_changed` 信号通知 PetWindow，PetWindow 对仍打开的 QuickPanel/Pocket 做直接刷新，不使用全局事件总线。
+
+数据流：
+
+```text
+FavoriteFoldersDialog ──add / rename / update path / reorder / remove──▶ DestinationService
+                                                                       │
+                                      destinations.json ◀───────────────┤
+                                                                       ├──▶ QuickPanel (top 6; open does not record recent)
+                                                                       └──▶ PocketWindow (copy/move targets)
+FileOperationService successful copy/move ──record_recent──────────────▶ Recent (max 10)
+```
+
+Favorite 是用户手动固定和排序的列表；Recent 是成功文件操作的目标历史，两者可以包含同一路径但各自维护。无效目录保留并禁用打开/执行，允许复制旧路径、更新路径或移除引用。Pocket 的 copy/move 继续由 `FileOperationService` 执行，成功 move 以 source→destination 映射更新 Pocket 引用。`ActiveExplorerWatcher` 仍 disabled。
+
 ---
 
 ## V4.9 追加（2026-09-08）

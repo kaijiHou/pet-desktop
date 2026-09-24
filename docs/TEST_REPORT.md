@@ -427,3 +427,17 @@ V3 完整套件、fresh release 和手动清单在本阶段后续 commit 追加�
 | verify_release（pwsh） | PASS（单进程/无 WebEngine） |
 | EXE 15min soak | 见 docs/V50_SOAK_REPORT.md |
 | 鼠标 resize / 真实 DPI / Explorer RMDIR | NOT TESTED（无 GUI 自动化，诚实记录） |
+
+---
+
+## V5.2（2026-09-24）
+
+| 命令 / 套件 | 结果 | 覆盖 |
+|---|---:|---|
+| `.venv\Scripts\python.exe -B -m pytest tests -q`（clean build 内运行） | **390 passed / 270.36s** | 完整现有回归 + 常用文件夹服务、Qt UI 合同、路径安全与同目录 no-op |
+| `.venv\Scripts\python.exe -B -m pytest tests/unit/test_destinations.py tests/unit/test_file_ops.py tests/smoke/test_favorite_folders_gui.py tests/smoke/test_pocket_window_gui.py -q` | **49 passed / 1.52s** | v1→v2、持久化/排序、命名/路径验证、损坏文件备份、Recent 上限、同目录 skip、UI合同、共享服务、Pocket Copy/Move |
+| `.venv\Scripts\python.exe -B scripts/audit_release_docs.py` | **Missing=0 / PASS** | 强制文件、15 节结构及 release identity 字段齐全 |
+| `scripts/build_release.ps1` / `scripts/verify_release.ps1` | **PASS / PASS** | fresh V5.2 package build；独立解压启动、响应、动画/素材目录、build identity log、WebEngine=0，见 `V52_CHANGE_SUMMARY.md` |
+| 真实 Windows Explorer 打开、截图、鼠标、DPI | **NOT TESTED** | 不将 Qt 控件合同等同于真实桌面验收；见 `V52_REAL_ACCEPTANCE.md` |
+
+Fresh Release 构建与黑盒验证结果由 `docs/V52_CHANGE_SUMMARY.md` §9–11 记录。
