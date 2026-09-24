@@ -8,7 +8,7 @@
 
 | 验收项 | 状态 | 证据 / 边界 |
 |---|---|---|
-| `pytest tests -q` 完整回归 | NOT TESTED | 初始完整回归 410 passed；新增两项审计字段测试已单独通过，正式 release build 会对最终树重跑完整套件 |
+| `pytest tests -q` 完整回归 | PASS | 正式 clean release build 内 412 passed / 263.96s |
 | 失效 favorite 左键提示并进入定位修复 | PASS | `tests/smoke/test_favorite_folders_gui.py`；Qt 行为合同，不打开真实桌面 |
 | QuickPanel 长名称、两列、前六项及查看全部 | PASS | 控件状态合同与 `quick-panel-favorites.png`；截图只证明隔离控件渲染 |
 | 固定当前 Explorer 的确认、命名、重复路径、错误状态 | PASS | 注入 `ExplorerService.current_directory()` stub 的合同测试 |
@@ -24,6 +24,6 @@
 | 真实 Windows DPI 100%/125%/150%、鼠标右键/菜单手感 | NOT TESTED | 未进行真实输入设备验收 |
 | 断连网络盘/移动盘卡顿 | NOT TESTED | 未拔除或访问真实网络盘；同步探测的限制记录于 `KNOWN_ISSUES.md` |
 | ActiveExplorerWatcher | PASS | 仍为 disabled；V5.3 只调用一次性 `ExplorerService.current_directory()` |
-| Fresh V5.3 release 启动与身份检查 | NOT TESTED | `scripts/verify_release.ps1` 将在正式构建后从独立解压副本检查进程响应、动画目录、用户素材目录、身份日志和 WebEngine 文件数 |
+| Fresh V5.3 release 启动与身份检查 | PASS | 独立解压启动：running/responding、动画目录、用户素材目录、日志与 build identity 均 true；WebEngine 文件数 0 |
 
 最终 release 源 Git SHA、ZIP SHA256、审计计数及实际测试耗时记录于 `V53_CHANGE_SUMMARY.md`。任何未通过真实桌面操作验证的项目继续标为 `NOT TESTED`。

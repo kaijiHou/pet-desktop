@@ -3,7 +3,7 @@
 ## 1. Baseline
 
 Baseline HEAD: `6f62ca5af962f7485147cb6543e73072a4866471`
-Summary scope implementation HEAD: `b937a9166372025ac436d461a8f122545babea67`
+Summary scope implementation HEAD: `9adb6c05b56f424ed3aedc8a614dfc56e67b1026`
 Branch: `master`
 Date: `2026-09-24`
 Environment: Windows x64; PowerShell 7; Python 3.11.15; Qt 5.15.2 / PyQt 5.15.11
@@ -136,26 +136,28 @@ M tests/unit/test_explorer.py
 
 | 命令 | 结果 | 耗时 | 状态 |
 |---|---:|---:|---|
-| `.venv\Scripts\python.exe -B -m pytest tests -q`（正式 build 内） | 将在正式 build 内运行 | 构建日志记录 | NOT TESTED |
-| 定向收藏服务、Explorer、审计、Qt UI、Pocket 多选 | 53 passed | 2.75s | PASS |
-| `scripts/capture_v53_screenshots.py` | 4 张有效 PNG | 运行结果见最终日志 | PASS |
-| build + fresh `verify_release.ps1` | 运行结果见最终日志 | 运行结果见最终日志 | PASS |
-| 文档审计 | 正式构建前预审与产物后严格审计尚未运行 | build 日志记录 | NOT TESTED |
+| `.venv\Scripts\python.exe -B -m pytest tests -q`（正式 clean build 内） | **412 passed** | **263.96s** | PASS |
+| 定向收藏服务、Explorer、审计、Qt UI、Pocket 多选 | **54 passed** | **1.13s** | PASS |
+| `scripts/capture_v53_screenshots.py` | 4 张 PNG（280×574、660×760、660×560、760×580） | 多次独立生成 | PASS |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_release.ps1` | clean PyInstaller package；ZIP 46,831,450 bytes | build log | PASS |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/verify_release.ps1` | running/responding、目录/日志身份全 true；WebEngine=0 | 约 10s | PASS |
+| 文档审计（构建前 + 构建后） | 29 changed / 29 documented；Missing=0 / Extra=0 / Status mismatches=0 / 未完成标记=0 | build log | PASS |
 
 ## 10. 真实验收
 
 - 4 张隔离 Qt Windows 平台控件渲染图：PASS（静态图已检查）；这不是用户屏幕截图，也不等价于人工视觉质量 PASS。
 - QuickPanel `QDesktopServices.openUrl` 路径合同：PASS；真实 Explorer 打开：NOT TESTED。
 - 当前 Explorer 固定 stub 合同：PASS；真实 Explorer 读取与固定：NOT TESTED。
-- fresh release 解压启动：NOT TESTED（构建完成后运行 `verify_release.ps1`）。
+- fresh release 解压启动：PASS（独立解压副本进程 running/responding；build identity 与 ZIP manifest 一致；WebEngine 文件 0）。
 - 真实 DPI、鼠标、网络盘拔插和人工桌面验收：NOT TESTED。
 - `ActiveExplorerWatcher`：PASS，仍 disabled。
 
 ## 11. Release
 
-Release built from Git HEAD: pending
-Artifact ZIP SHA256: pending
-Build time: 正式 build 完成后记录于 release manifest 与最终报告。
+Release built from Git HEAD: 9adb6c05b56f424ed3aedc8a614dfc56e67b1026
+Artifact ZIP SHA256: d12e28ebcf705b6f4dfccb94bda941c997b4f5ac1767c09ffe8cc1d3740ad0a0
+Build time: `2026-09-24T14:01:15.4833828+08:00`
+Artifact: `release/DesktopPet-windows-x64.zip`（46,831,450 bytes，`windows-x64-one-folder`）。
 
 PowerShell 7 正式构建在 ZIP 创建后自动回填 Release Git HEAD 与 SHA256，再执行完整文档审计。
 
@@ -171,11 +173,15 @@ PowerShell 7 正式构建在 ZIP 创建后自动回填 Release Git HEAD 与 SHA2
 
 ## 14. Commit 列表
 
+代码提交列于下方；摘要文档提交不自引用，完整最终 HEAD 与提交序列见交付报告。
+
 ```text
+9adb6c0 fix: allow binary screenshots in release doc audit
+767da72 fix: require V5.3 UI review in release audit
 b937a91 fix: stamp verified release identity into V5.3 summary
 61567f8 feat: finish v5.3 favorite-folder workflows
 ```
 
 ## 15. 最终状态
 
-PARTIAL（代码、自动化回归与截图已完成；正式 release/verify、最终 Git 审计与远端推送待完成。）
+DONE（代码、自动回归、截图、正式 release、fresh verify 与严格文档审计完成；仍需真实桌面条件的验收项明确保留为 NOT TESTED。）

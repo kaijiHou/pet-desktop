@@ -1052,7 +1052,7 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 - 新增 Modern `FavoriteFoldersDialog`，接入 QuickPanel 常用文件夹（前 6 项）与 Pocket 常用/最近/当前 Explorer 三类目标；PetWindow 持有并注入单个 DestinationService，管理变更同步刷新两处 UI。
 - 文件口袋仍通过 `FileOperationService` 做 Copy/Move；成功才记 Recent，move 成功更新 Pocket 引用；复制/移动到源文件所在目录返回 skipped，不创建冲突副本。
 - 修正 `tests/conftest.py` 将 pytest 数据放在仓库根 `.tmp/tests/`；增加目录用途说明，测试不读写真实用户文件。
-- **真实验收边界**：用户正在操作电脑，本轮不使用 Computer Use；目录打开的 `QDesktopServices.openUrl` 调用合同与 Qt UI 行为由测试覆盖，真实 Explorer、屏幕视觉、鼠标和 DPI 均如实标 `NOT TESTED`，见 `V52_REAL_ACCEPTANCE.md`。
+- **真实验收边界**：本轮未执行真实桌面控制；目录打开的 `QDesktopServices.openUrl` 调用合同与 Qt UI 行为由测试覆盖，真实 Explorer、屏幕视觉、鼠标和 DPI 均如实标 `NOT TESTED`，见 `V52_REAL_ACCEPTANCE.md`。
 - 完整回归 **390 passed / 270.36s**；定向服务/UI 合同 **49 passed / 1.52s**；release 文档审计 **Missing=0**。
 - Fresh Release 启动黑盒验收 PASS（running/responding、animation catalog、user assets、build identity log；WebEngine 文件 0）。Release 源 commit 与 Artifact ZIP SHA256 分开记录于 `V52_CHANGE_SUMMARY.md` §11；真实 Explorer/视觉/鼠标/DPI 仍 NOT TESTED。
 
@@ -1066,3 +1066,4 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 - 新增 `docs/screenshots/v53/` 四张隔离演示数据渲染图及 `V53_UI_REVIEW.md`；图片用 Qt Windows 平台控件 render 生成，不是用户桌面截图。真实 Explorer、人工屏幕/DPI 验收仍如实记录为 `NOT TESTED`。
 - `audit_release_docs.py` 对照 Git `diff --name-status -z -M` 并核验路径与状态；正式 release 在构建前审计，包生成后回填实际 Release Git HEAD/ZIP SHA256 并再做全量审计。
 - V5.2 文档误记的 `ARCHITECTURE.md` `A` 状态保留纠错说明；V5.2 验收文案去除无依据的用户归因。版本历史维持 V5.0 → V5.2，V5.1 未形成 release。
+- 正式 clean build 全量回归 **412 passed / 263.96s**，fresh release verify PASS；ZIP SHA256 `d12e28ebcf705b6f4dfccb94bda941c997b4f5ac1767c09ffe8cc1d3740ad0a0`，Release Git SHA `9adb6c05b56f424ed3aedc8a614dfc56e67b1026`。真实 Explorer、鼠标、DPI 和网络盘物理断连仍为 `NOT TESTED`。
