@@ -172,11 +172,14 @@ if (-not $SkipDocAudit) {
     $summaryPath = Join-Path $projectRoot "docs\V53_CHANGE_SUMMARY.md"
     $summaryText = [System.IO.File]::ReadAllText($summaryPath)
     $pendingPattern = '(?m)^Artifact ZIP SHA256: pending\s*$'
-    if ([regex]::Matches($summaryText, $pendingPattern).Count -ne 1) {
-        throw "Expected exactly one pending Artifact ZIP SHA256 field in $summaryPath."
+    $releaseHeadPattern = '(?m)^Release built from Git HEAD: pending\s*$'
+    if ([regex]::Matches($summaryText, $pendingPattern).Count -ne 1 -or
+        [regex]::Matches($summaryText, $releaseHeadPattern).Count -ne 1) {
+        throw "Expected one generated release HEAD and ZIP hash field in $summaryPath."
     }
     $zipSha = (& $python -B $releaseTools sha256 $zipPath).Trim()
     $summaryText = [regex]::Replace($summaryText, $pendingPattern, "Artifact ZIP SHA256: $zipSha")
+    $summaryText = [regex]::Replace($summaryText, $releaseHeadPattern, "Release built from Git HEAD: $gitSha")
     [System.IO.File]::WriteAllText($summaryPath, $summaryText, [System.Text.UTF8Encoding]::new($false))
     & $python -B (Join-Path $PSScriptRoot "audit_release_docs.py") @auditArgs
     if ($LASTEXITCODE -ne 0) { throw "Final release documentation audit failed; release is not accepted." }

@@ -3,7 +3,8 @@
 import pytest
 
 from scripts.audit_release_docs import (
-    artifact_hash_is_valid, compare_changes, parse_name_status_z, summary_changes,
+    artifact_hash_is_valid, compare_changes, parse_name_status_z, release_head_is_valid,
+    summary_changes,
 )
 
 
@@ -45,3 +46,12 @@ def test_pending_artifact_hash_is_prebuild_only():
     assert artifact_hash_is_valid(pending, allow_pending=True)
     assert not artifact_hash_is_valid(pending)
     assert artifact_hash_is_valid(actual)
+
+
+@pytest.mark.unit
+def test_pending_release_head_is_prebuild_only():
+    pending = "Release built from Git HEAD: pending\n"
+    actual = "Release built from Git HEAD: " + "a" * 40
+    assert release_head_is_valid(pending, allow_pending=True)
+    assert not release_head_is_valid(pending)
+    assert release_head_is_valid(actual)

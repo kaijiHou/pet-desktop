@@ -105,6 +105,14 @@ def artifact_hash_is_valid(summary_text, allow_pending=False):
     ))
 
 
+def release_head_is_valid(summary_text, allow_pending=False):
+    if re.search(r"Release built from Git HEAD:\s*`?[0-9a-f]{40}`?", summary_text, re.IGNORECASE):
+        return True
+    return bool(allow_pending and re.search(
+        r"Release built from Git HEAD:\s*pending\s*$", summary_text, re.IGNORECASE | re.MULTILINE,
+    ))
+
+
 def _relative(path, root):
     resolved = Path(path)
     if not resolved.is_absolute():
@@ -139,10 +147,11 @@ def audit(args):
     for label, pattern in (
         ("baseline SHA", rf"Baseline HEAD:\s*`?[0-9a-f]{{40}}`?"),
         ("implementation scope SHA", r"Summary scope implementation HEAD:\s*`?[0-9a-f]{40}`?"),
-        ("release Git SHA", r"Release built from Git HEAD:\s*`?[0-9a-f]{40}`?"),
     ):
         if not re.search(pattern, summary, re.IGNORECASE):
             errors.append(f"summary field missing or malformed: {label}")
+    if not release_head_is_valid(summary, allow_pending=args.prebuild):
+        errors.append("summary field missing or malformed: release Git SHA")
     if not artifact_hash_is_valid(summary, allow_pending=args.prebuild):
         errors.append("summary field missing or malformed: artifact ZIP SHA256")
 
