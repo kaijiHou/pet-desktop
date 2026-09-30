@@ -1075,3 +1075,26 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 - `audit_release_docs.py` 对照 Git `diff --name-status -z -M` 并核验路径与状态；正式 release 在构建前审计，包生成后回填实际 Release Git HEAD/ZIP SHA256 并再做全量审计。
 - V5.2 文档误记的 `ARCHITECTURE.md` `A` 状态保留纠错说明；V5.2 验收文案去除无依据的用户归因。版本历史维持 V5.0 → V5.2，V5.1 未形成 release。
 - 正式 clean build 全量回归 **412 passed / 263.96s**，fresh release verify PASS；ZIP SHA256 `d12e28ebcf705b6f4dfccb94bda941c997b4f5ac1767c09ffe8cc1d3740ad0a0`，Release Git SHA `9adb6c05b56f424ed3aedc8a614dfc56e67b1026`。真实 Explorer、鼠标、DPI 和网络盘物理断连仍为 `NOT TESTED`。
+
+---
+
+## 2026-09-30 - V5.4 发布收尾与踩坑记录
+
+### 发布
+
+- Release built from Git HEAD: `90e6e8b4649203bff628ca2053a5efca6a6fc19b`（A'，代码+测试+文档表冻结）
+- Artifact ZIP SHA256: `9acf59731d354ef7bb45ebdc3d601d8cca7e93fc6b5c2c12b063a0fbd214bf39`
+- Final repository HEAD: 本节所在 docs commit（B）。
+- verify_release：单进程/响应/动画 catalog/日志/WebEngine=0。
+- LICENSE（MIT，含 holiday-cn 归属）入库；版本号 V5.4（app_version + $releaseVersion）。
+- 桌面启动器：`D:\Desktop\脚本\桌面助手-启动.bat`（防重复启动）与 `桌面助手-停止.bat`。
+
+### 踩坑记录（防复发）
+
+1. **cmd 批处理 + UTF-8 中文 = 行解析错乱**：heredoc 写出的 .bat 含中文注释（UTF-8），cmd 按 GBK 逐字节解析，`title` 被截成 `'top"`。教训：**bat 内容一律纯 ASCII**（文件名可以中文），行尾 CRLF；延时用 `ping -n 3 127.0.0.1`（避免 timeout 被 Git Bash/PATH 抢走）。
+2. **Python 字符串替换静默空转**：`replace("V5.0", "V5.4")` 在目标已被上一会话改成 V5.3/`$releaseVersion` 变量后不报错、不打日志，假装成功。教训：改完必须 grep 回读确认（本次靠 `git diff --name-status` 与预期文件集不符才暴露）。
+3. **build_release.ps1 的审计钉点**：`$auditArgs` 把 --baseline/--summary/--acceptance/--extra-required 钉在具体版本路径；升版本必须同步改，且 `$summaryPath`（post-build 回填目标）是独立的一处，容易漏。
+4. **PowerShell 数组禁止尾逗号**：`@(..., "x",\n)` 抛 ParserError——删行式替换要检查收尾元素。
+5. **summary 回填锚点是顶格 `pending`**：`^Artifact ZIP SHA256: pending\s*$`（MULTILINE）——写成"- Artifact ZIP SHA256: pending"列表项则匹配数=0，构建在最后一步 throw。
+6. **git diff 引号差异**：非 -z 模式把非 ASCII 路径输出为 `"\343..."` 八进制转义；自写校验脚本必须用与审计器相同的 `-z` 语义，否则中文路径文件永远"对不上"。
+7. **审计契约**：Vxx_CHANGE_SUMMARY 的 §5 必须与 `git diff --name-status baseline..HEAD` 逐行一致（摘要自身豁免）；Release 两字段 prebuild 阶段必须是字面 pending，构建后由脚本回填真实值再跑终审。

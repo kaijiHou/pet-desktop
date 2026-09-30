@@ -178,8 +178,8 @@ M wage/ui_calendar.py
 ## 11. Release
 
 - Final repository HEAD: 本文件所在 commit（docs B，仅文档）。
-Release built from Git HEAD: pending
-Artifact ZIP SHA256: pending
+Release built from Git HEAD: 90e6e8b4649203bff628ca2053a5efca6a6fc19b
+Artifact ZIP SHA256: 9acf59731d354ef7bb45ebdc3d601d8cca7e93fc6b5c2c12b063a0fbd214bf39
 - Build time: pending（构建完成后回填）。
 - 版本：V5.4；Git commit SHA 与 Artifact ZIP SHA256 分开标注，禁止混称。
 
