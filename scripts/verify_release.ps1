@@ -26,7 +26,7 @@ $extractNote = Join-Path $extractDir "目录说明.md"
     [System.Text.UTF8Encoding]::new($false))
 & $python -B $releaseTools extract --zip-path $zipPath --destination $extractDir
 if ($LASTEXITCODE -ne 0) { throw "Could not extract release ZIP safely." }
-& $python -B $releaseTools verify --manifest $manifestPath --zip-path $zipPath --version "V5.3"
+& $python -B $releaseTools verify --manifest $manifestPath --zip-path $zipPath --version "V5.4"
 if ($LASTEXITCODE -ne 0) { throw "Release manifest or ZIP SHA256 verification failed." }
 
 $packageDir = Join-Path $extractDir "DesktopPet"
