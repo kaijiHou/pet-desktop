@@ -453,7 +453,7 @@ def test_pet_favorite_submenu_is_shared_capped_and_opens_path(qapp, monkeypatch,
         assert not favorite_actions[2].isEnabled()
         assert all("目录8" not in action.text() and "目录9" not in action.text()
                    for action in favorite_actions)
-        assert actions[-1].text() == "管理常用文件夹"
+        assert actions[-1].text().endswith("管理常用文件夹")
         favorite_actions[0].trigger()
         assert Path(opened[0]) == paths[0].resolve()
         actions[-1].trigger()
@@ -461,3 +461,27 @@ def test_pet_favorite_submenu_is_shared_capped_and_opens_path(qapp, monkeypatch,
     finally:
         pet_window.destination_service = old_service
         menu.deleteLater()
+
+
+@pytest.mark.smoke
+@pytest.mark.gui
+def test_three_favorites_get_room_without_covering_the_pocket_divider(qapp, pet_window, favorite_service, test_temp_root):
+    from quick_panel import QuickPanel
+
+    for name in ("工作", "资料", "项目"):
+        folder = test_temp_root / name
+        folder.mkdir(exist_ok=True)
+        favorite_service.add_favorite(folder)
+
+    panel = QuickPanel(pet_window, destinations=favorite_service)
+    try:
+        assert panel.width() == 320
+        assert panel.favorite_grid.rowCount() == 2
+        assert panel.favorite_grid.verticalSpacing() >= 6
+        assert panel.favorite_grid.itemAt(2).widget().height() >= 31
+        assert panel.favorite_manage_btn.objectName() == "panelManager"
+        assert "QPushButton#panelManager:hover" in panel.scroll_area.widget().styleSheet()
+        assert panel.scroll_area.widget() is not None
+        assert panel.maximumHeight() == 520
+    finally:
+        panel.close()

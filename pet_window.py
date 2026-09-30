@@ -99,6 +99,20 @@ class SettingsDialog(ModernDialog):
         ]
         self.top_check, self.wheel_check, self.anim_check, self.badge_check = [row.toggle for row in self._behavior_rows]
         for row in self._behavior_rows: bl.addWidget(row)
+        speed_row = QHBoxLayout(); speed_label = QLabel("动画速度"); speed_row.addWidget(speed_label); speed_row.addStretch()
+        from ui.modern import ModernComboBox
+        self.speed_combo = ModernComboBox()
+        for label, factor in (("慢", 0.6), ("正常", 1.0), ("快", 1.5), ("很快", 2.0)):
+            self.speed_combo.addItem(label, factor)
+        try:
+            saved_speed = float(self._work.get("animation_speed", 1.0) or 1.0)
+        except (TypeError, ValueError):
+            saved_speed = 1.0
+        # pick the option closest to the stored factor
+        factors = [0.6, 1.0, 1.5, 2.0]
+        self.speed_combo.setCurrentIndex(min(range(len(factors)), key=lambda i: abs(factors[i] - saved_speed)))
+        speed_row.addWidget(self.speed_combo)
+        bl.addLayout(speed_row)
         layout.addWidget(box2)
 
         # ── 提醒 ──
@@ -248,6 +262,7 @@ class SettingsDialog(ModernDialog):
         c.set("wheel_zoom_enabled", self.wheel_check.isChecked())
         c.set("file_event_animations_enabled", self.anim_check.isChecked())
         c.set("pocket_badge_enabled", self.badge_check.isChecked())
+        c.set("animation_speed", float(self.speed_combo.currentData()))
         c.set("reminder_sound_enabled", self.sound_check.isChecked())
         c.set("reminder_bubble_enabled", self.bubble_check.isChecked())
         # Save character config
@@ -426,6 +441,7 @@ class PetWindow(QWidget):
                 except (TypeError, RuntimeError): pass
                 old.setParent(None); old.deleteLater()
             self.dynamic_renderer = renderer
+            renderer.set_speed(self._animation_speed())
             renderer.frame_changed.connect(self.update)
             LOGGER.info("Dynamic renderer loaded: %s", renderer.display_name)
             LOGGER.info("startup: selected_character_id=%s effective_mode=%s",
@@ -455,18 +471,18 @@ class PetWindow(QWidget):
         self.tray_icon.setIcon(QIcon(str(icon_path)) if icon_path.exists() else QIcon(self._draw_tray_icon()))
         self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手")
         m = QMenu()
-        m.addAction("显示/隐藏角色").triggered.connect(self._toggle_visibility)
-        m.addAction("今日收入").triggered.connect(self._open_today_wage)
-        m.addAction("工作日历").triggered.connect(self._open_calendar)
+        m.addAction("👀 显示/隐藏角色").triggered.connect(self._toggle_visibility)
+        m.addAction("💰 今日收入").triggered.connect(self._open_today_wage)
+        m.addAction("📅 工作日历").triggered.connect(self._open_calendar)
         self._add_favorite_context_menu(m)
         m.addSeparator()
-        m.addAction("文件口袋").triggered.connect(self._open_pocket)
-        m.addAction("新建提醒").triggered.connect(self._open_add_reminder)
-        m.addAction("我的提醒").triggered.connect(self._open_reminders)
+        m.addAction("🎒 文件口袋").triggered.connect(self._open_pocket)
+        m.addAction("⏰ 新建提醒").triggered.connect(self._open_add_reminder)
+        m.addAction("🔔 我的提醒").triggered.connect(self._open_reminders)
         m.addSeparator()
-        m.addAction("设置").triggered.connect(self._open_settings)
+        m.addAction("🍬 设置").triggered.connect(self._open_settings)
         m.addSeparator()
-        m.addAction("退出").triggered.connect(self._quit_app)
+        m.addAction("🌙 退出").triggered.connect(self._quit_app)
         self.tray_icon.setContextMenu(m)
         self.tray_icon.show()
         self.tray_icon.activated.connect(self._tray_activated)
@@ -513,9 +529,14 @@ class PetWindow(QWidget):
         self._wage_timer.setSingleShot(True)
         self._wage_timer.timeout.connect(self._on_wage_wake)
         self._schedule_next_wage_wake()
+        # Preload heavy dialog modules off the first click (their import
+        # chains cost ~1s, which the user would otherwise feel as lag the
+        # first time each right-click item is opened).
+        QTimer.singleShot(4000, self._preload_heavy_modules)
 
     def _schedule_next_frame(self):
         dur = self.sprite_loader.get_duration(self._animation, self._frame)
+        dur = int(dur / self._animation_speed())
         self._anim_timer.start(max(16, min(2000, dur)))
 
     def _setup_callbacks(self):
@@ -961,13 +982,13 @@ class PetWindow(QWidget):
         self._sem_steps = steps
         self._sem_idx = 0
         self._sem_active = True
-        self._sem_timer.start(STEP_MS)
+        self._sem_timer.start(int(STEP_MS / self._animation_speed()))
         self.update()
 
     def _sem_tick(self):
         self._sem_idx += 1
         if self._sem_idx < len(self._sem_steps):
-            self._sem_timer.start(STEP_MS)
+            self._sem_timer.start(int(STEP_MS / self._animation_speed()))
         else:
             self._finish_semantic()
         self.update()
@@ -1048,6 +1069,18 @@ class PetWindow(QWidget):
             self.play_semantic("REMINDER")
             self.show_bubble(f"提醒：{reminder.content}", 10000)
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
+
+    def _preload_heavy_modules(self):
+        """Import dialog modules once, off the interaction path."""
+        try:
+            import wage.ui_today        # noqa: F401
+            import wage.ui_settings     # noqa: F401
+            import wage.ui_calendar     # noqa: F401
+            import character_gallery    # noqa: F401
+            import favorite_folders_ui  # noqa: F401
+            import ui_skin_dialog       # noqa: F401
+        except Exception:
+            logging.getLogger("pet.preload").exception("module preload failed")
 
     def _schedule_next_wage_wake(self):
         """Schedule exactly one wake at the next key wage moment.
@@ -1205,7 +1238,7 @@ class PetWindow(QWidget):
         submenu = menu.addMenu("常用文件夹")
         favorites = self.destination_service.list_favorites()
         if not favorites:
-            empty = submenu.addAction("暂无常用文件夹")
+            empty = submenu.addAction("🌸 暂无常用文件夹")
             empty.setEnabled(False)
         else:
             for favorite in favorites[:8]:
@@ -1221,7 +1254,7 @@ class PetWindow(QWidget):
             if len(favorites) > 8:
                 submenu.addAction(f"查看全部（{len(favorites)}）", self._manage_favorite_folders)
         submenu.addSeparator()
-        submenu.addAction("管理常用文件夹", self._manage_favorite_folders)
+        submenu.addAction("✨ 管理常用文件夹", self._manage_favorite_folders)
         return submenu
 
     def _refresh_destination_surfaces(self):
@@ -1240,17 +1273,19 @@ class PetWindow(QWidget):
 
     def _show_context_menu(self, pos):
         m = QMenu(self)
-        wa = m.addAction("今日收入")
-        ca = m.addAction("工作日历")
+        wa = m.addAction("💰 今日收入")
+        ca = m.addAction("📅 工作日历")
         self._add_favorite_context_menu(m)
         m.addSeparator()
-        pa = m.addAction("文件口袋")
-        aa = m.addAction("新建提醒")
-        ra = m.addAction("我的提醒")
+        pa = m.addAction("🎒 文件口袋")
+        aa = m.addAction("⏰ 新建提醒")
+        ra = m.addAction("🔔 我的提醒")
         m.addSeparator()
-        sa = m.addAction("设置")
+        self._add_skin_menu(m)
         m.addSeparator()
-        qa = m.addAction("退出")
+        sa = m.addAction("🍬 设置")
+        m.addSeparator()
+        qa = m.addAction("🌙 退出")
         act = m.exec_(pos)
         if act == wa:
             self._open_today_wage()
@@ -1266,6 +1301,35 @@ class PetWindow(QWidget):
             self._open_settings()
         elif act == qa:
             self._quit_app()
+
+    def _add_skin_menu(self, m):
+        """🎨 皮肤 — presets + user skins (checkable) + custom editor."""
+        import ui_skin
+        skin_menu = m.addMenu("🎨 皮肤")
+        active = ui_skin.active_id()
+        for skin_id, (name, _colors) in ui_skin.all_skins().items():
+            act = skin_menu.addAction(name)
+            act.setCheckable(True)
+            act.setChecked(skin_id == active)
+            act.triggered.connect(lambda _checked=False, sid=skin_id: self._switch_skin(sid))
+        skin_menu.addSeparator()
+        skin_menu.addAction("➕ 自定义皮肤…").triggered.connect(self._add_custom_skin)
+
+    def _switch_skin(self, skin_id):
+        import ui_skin
+        if ui_skin.set_skin(skin_id):
+            # Transient popups cache their stylesheet at build time — close
+            # them so the next open reconstructs with the new palette.
+            for popup in (self._quick_panel, self._pocket_window, self._today_wage):
+                if popup is not None and popup.isVisible():
+                    popup.hide()
+
+    def _add_custom_skin(self):
+        from ui_skin_dialog import SkinEditorDialog
+        dlg = SkinEditorDialog(self)
+        if dlg.exec_() and dlg.saved_id:
+            self._switch_skin(dlg.saved_id)
+            self.show_bubble("新皮肤已换上 ✨", 3000)
 
     def _open_settings(self):
         d = SettingsDialog(self.config, self)
@@ -1386,10 +1450,24 @@ class PetWindow(QWidget):
         self.character.set_scale(float(self.config.get("pet_scale", 3)))
         self.character.reload()
         self._resize_to_character()
+        self._apply_animation_speed()
 
     def _update_scale_preview(self, scale):
         self._scale_debug("settings_preview", old=float(self.config.get("pet_scale", 3)), new=float(scale))
         self._set_character_scale(float(scale))
+
+    def _animation_speed(self) -> float:
+        """Animation playback multiplier from config (0.25~4.0)."""
+        try:
+            return max(0.25, min(4.0, float(self.config.get("animation_speed", 1.0) or 1.0)))
+        except (TypeError, ValueError):
+            return 1.0
+
+    def _apply_animation_speed(self):
+        """Push the configured speed to whichever renderer is active."""
+        factor = self._animation_speed()
+        if self.dynamic_renderer is not None:
+            self.dynamic_renderer.set_speed(factor)
 
     def _scale_debug(self, source, **fields):
         """Optional scaling diagnostics (PET_SCALE_DEBUG=1). Never logs wages."""
@@ -1470,6 +1548,8 @@ def main():
     app.setApplicationName("Desktop Pet")
     app.setQuitOnLastWindowClosed(False)
     app.setFont(theme.font())
+    import ui_skin
+    ui_skin.initialize()          # persist-active skin → theme/tokens globals
     app.setStyleSheet(theme.app_qss())
     config = Config()
     _mlog.info("config loaded, mode=%s", config.get("character_mode"))

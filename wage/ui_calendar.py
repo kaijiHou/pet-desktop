@@ -5,7 +5,7 @@ from __future__ import annotations
 import calendar
 from datetime import date, datetime, timedelta
 
-from PyQt5.QtCore import Qt, pyqtSignal, QTime
+from PyQt5.QtCore import Qt, pyqtSignal, QTime, QTimer
 from PyQt5.QtWidgets import (
     QCalendarWidget, QGridLayout, QHBoxLayout, QLabel,
     QSpinBox, QVBoxLayout, QWidget, QFrame, QAbstractSpinBox,
@@ -31,6 +31,7 @@ class CalendarDayCell(QFrame):
         super().__init__(parent)
         self.day, self.detail, self.record, self.in_month = day, detail, record, in_month
         self.is_today = day == getattr(getattr(parent, "service", None), "_now", lambda: datetime.now)().date() if parent else False
+        self._hovered = False
         self.setObjectName("calendarDayCell")
         self.setMinimumSize(72, 64)
         self.setCursor(Qt.PointingHandCursor)
@@ -50,12 +51,21 @@ class CalendarDayCell(QFrame):
         bg = {REST: "#fff7f7", ADJUSTED_WORKDAY: "#eff6ff", LEAVE: "#fff7ed"}.get(status, "#fbfcfe")
         if not self.in_month: bg = "#f3f4f6"
         if selected: bg = "#dbeafe"
-        border = "#2563eb" if selected or self.is_today else "#e5e7eb"
-        width = 2 if self.is_today else 1
+        elif self._hovered: bg = "#eef5ff"
+        border = "#2563eb" if selected or self.is_today else "#93c5fd" if self._hovered else "#e5e7eb"
+        width = 2 if selected or self.is_today else 1
         self.setStyleSheet(f"QFrame#calendarDayCell{{background:{bg};border:{width}px solid {border};border-radius:9px;}}")
         if not self.in_month: self.day_label.setStyleSheet("color:#9ca3af;font-weight:700;")
 
     def set_selected(self, selected): self._apply_style(selected)
+    def enterEvent(self, event):
+        self._hovered = True
+        self._apply_style(self.day == getattr(self.parent(), "_selected_day", None))
+        super().enterEvent(event)
+    def leaveEvent(self, event):
+        self._hovered = False
+        self._apply_style(self.day == getattr(self.parent(), "_selected_day", None))
+        super().leaveEvent(event)
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton: self.clicked.emit(self.day)
         super().mousePressEvent(event)
@@ -126,9 +136,10 @@ class WorkCalendarDialog(ModernDialog):
     def _build_ui(self):
         nav = QHBoxLayout()
         self.month_label = QLabel(); self.month_label.setStyleSheet("font-size:16px;font-weight:700;")
-        self.prev_button = SecondaryButton("‹"); self.next_button = SecondaryButton("›"); self.today_button = SecondaryButton("今天")
+        self.prev_button = SecondaryButton("上月"); self.next_button = SecondaryButton("下月"); self.today_button = SecondaryButton("今天")
+        self.prev_button.setToolTip("查看上个月"); self.next_button.setToolTip("查看下个月")
         self.prev_button.clicked.connect(lambda: self._change_month(-1)); self.next_button.clicked.connect(lambda: self._change_month(1)); self.today_button.clicked.connect(self._go_today)
-        self.rules_button = SecondaryButton("⋯")
+        self.rules_button = SecondaryButton("排班规则")
         self.rules_button.setToolTip("工作日计算规则")
         self.rules_button.clicked.connect(self._toggle_rules)
         nav.addWidget(self.month_label); nav.addStretch(); nav.addWidget(self.rules_button); nav.addWidget(self.prev_button); nav.addWidget(self.next_button); nav.addWidget(self.today_button)
@@ -162,9 +173,13 @@ class WorkCalendarDialog(ModernDialog):
         self.apply_status_button = SecondaryButton("应用日期状态"); self.apply_status_button.clicked.connect(self._apply_status); detail.addWidget(self.apply_status_button)
         detail.addStretch(); split.addWidget(self.detail_card, 2); self.add_body(_layout_widget(split))
 
-        self.advanced_card = Card(); self._rules_expanded = False; adv = QHBoxLayout(self.advanced_card); adv.addWidget(QLabel("本月工资计算工作日数")); self.month_override_spin = QSpinBox(); self.month_override_spin.setRange(0, 31); self.month_override_spin.setSpecialValueText("自动"); self.month_override_spin.setButtonSymbols(QAbstractSpinBox.NoButtons); self.month_override_spin.setMinimumHeight(38); adv.addWidget(self.month_override_spin); self.save_override = SecondaryButton("保存按月覆盖"); self.save_override.clicked.connect(self._save_manual_count); adv.addWidget(self.save_override); self.restore_override = SecondaryButton("恢复自动"); self.restore_override.clicked.connect(lambda: self._restore_manual_count()); adv.addWidget(self.restore_override); adv.addStretch(); self.advanced_card.setVisible(False); self.add_body(self.advanced_card)
+        self.advanced_card = Card(); self._rules_expanded = False; adv = QVBoxLayout(self.advanced_card)
+        self.cycle_info_label = QLabel("国庆调休周按官方安排；从 2026 年 10 月 12 日这一周起，大周周六上班、小周周六休息，逐周交替。")
+        self.cycle_info_label.setWordWrap(True); self.cycle_info_label.setObjectName("muted"); adv.addWidget(self.cycle_info_label)
+        override_row = QHBoxLayout(); override_row.addWidget(QLabel("本月工资计算工作日数")); self.month_override_spin = QSpinBox(); self.month_override_spin.setRange(0, 31); self.month_override_spin.setSpecialValueText("自动"); self.month_override_spin.setButtonSymbols(QAbstractSpinBox.NoButtons); self.month_override_spin.setMinimumHeight(38); override_row.addWidget(self.month_override_spin); self.save_override = SecondaryButton("保存按月覆盖"); self.save_override.clicked.connect(self._save_manual_count); override_row.addWidget(self.save_override); self.restore_override = SecondaryButton("恢复自动"); self.restore_override.clicked.connect(lambda: self._restore_manual_count()); override_row.addWidget(self.restore_override); override_row.addStretch(); adv.addLayout(override_row)
+        self.advanced_card.setVisible(False); self.add_body(self.advanced_card)
         self.warning_banner = InlineBanner(); self.add_body(self.warning_banner)
-        self.legend_label = QLabel("● 已记录　蓝色：调休上班　红色：休息日　灰色：非本月日期　｜数据源：holiday-cn / 国务院"); self.legend_label.setObjectName("muted"); self.add_body(self.legend_label)
+        self.legend_label = QLabel("● 已记录　蓝色：调休/大周上班　红色：休息日/小周　灰色：非本月日期　｜数据源：holiday-cn / 国务院"); self.legend_label.setObjectName("muted"); self.add_body(self.legend_label)
         cancel = SecondaryButton("关闭"); cancel.clicked.connect(self.reject); self.add_footer(cancel)
         self.summary = _TextCompat(self); self.summary.setVisible(False)
         self.detail = _TextCompat(self); self.detail.setVisible(False)
@@ -176,7 +191,7 @@ class WorkCalendarDialog(ModernDialog):
     def _refresh(self):
         year, month = self._displayed_month(); summary = self.service.month_summary(year, month); self.month_label.setText(f"{year}年{month}月")
         key = f"{year:04d}-{month:02d}"; manual = key in self.service.calendar.workday_count_overrides
-        self.stat_cards["workdays"].set_value(f"{summary['workday_count']} 天", "手动覆盖" if manual else "自动按节假日/调休计算")
+        self.stat_cards["workdays"].set_value(f"{summary['workday_count']} 天", "手动覆盖" if manual else "自动按节假日/大小周计算")
         self.stat_cards["recorded"].set_value(f"{summary['recorded_workdays']} 天")
         self.stat_cards["overtime"].set_value(f"{summary['overtime_minutes']//60}h{summary['overtime_minutes']%60:02d}m")
         card_amount = lambda value: "••••••" if self._privacy() else f"¥{value:.2f}"
@@ -185,24 +200,26 @@ class WorkCalendarDialog(ModernDialog):
         self.month_override_spin.setValue(self.service.calendar.workday_count_overrides.get(f"{year:04d}-{month:02d}", 0))
         source = self.service.calendar.holiday_data_status(year)
         if source == "weekday_fallback":
-            self.warning_banner.label.setText("该年份尚无内置法定节假日数据，当前仅按周一至周五估算。")
+            self.warning_banner.label.setText("该年份暂无官方节假日数据；工作日按工作日规则与大小周推算。")
             self.warning_banner.set_level("warning"); self.warning_banner.show()
         else:
-            self.warning_banner.label.setText("节假日数据已加载：holiday-cn 离线数据；人工修改仅作用于选中日期。")
+            self.warning_banner.label.setText("官方节假日/调休优先；大小周从 2026-10-12 起交替。人工修改仅作用于选中日期。")
             self.warning_banner.set_level("success"); self.warning_banner.show()
         self.calendar.refresh(); self.calendar.set_selected_day(self._selected_day); self._show_day_detail()
         amt = self._amount
         self.summary.setText(f"{year}年{month}月 月度统计\n本月应出勤 {summary['workday_count']} 天 · 已记录工作日 {summary['recorded_workdays']} 天 · 累计加班 {summary['overtime_minutes']//60}h{summary['overtime_minutes']%60:02d}m\n前25h加班费 {amt(summary['first_25h_pay'])} · 超25h加班费 {amt(summary['over_25h_pay'])} · 餐补 {summary['meal_count']} 次 / {amt(summary['meal_allowance'])}\n预计本月总收入 {amt(summary['estimated_total'])}")
 
     def _show_day_detail(self):
+        for button in (self.record_out_button, self.note_button, self.apply_status_button):
+            self._reset_action_feedback(button)
         day = self._selected_day; detail = self.service.calendar.status_detail_for(day); record = self.service.record_for(day)
         self.detail_title.setText(f"{day.month}月{day.day}日")
         self.weekday_label.setText(day.strftime("%Y年%m月%d日 · %A").replace("Monday", "星期一").replace("Tuesday", "星期二").replace("Wednesday", "星期三").replace("Thursday", "星期四").replace("Friday", "星期五").replace("Saturday", "星期六").replace("Sunday", "星期日"))
         self.holiday_label.setText(detail["display_label"] if detail.get("holiday_name") else "无节假日标记")
         self.status_label.setText(f"状态：{detail['label']}" + (" · 手动" if detail["is_manual"] else " · 自动"))
-        source_names = {"official": "官方离线数据", "user": "用户数据", "manual": "手动覆盖", "weekday_fallback": "工作日规则兜底"}
+        source_names = {"official": "官方离线数据", "user": "用户数据", "manual": "手动覆盖", "weekday_fallback": "工作日规则兜底", "work_cycle": "大小周规则"}
         source_text = f"来源：{source_names.get(detail['source'], detail['source'])}" + (f"（{detail['official_year']}）" if detail.get("official_year") else "")
-        if detail.get("holiday_name") and detail.get("paper_url"):
+        if detail["source"] in {"official", "user"} and detail.get("holiday_name") and detail.get("paper_url"):
             # §29: never surface raw paper URLs in the UI — name the source.
             source_text += " · 国务院办公厅放假安排"
         self.source_label.setText(source_text)
@@ -229,15 +246,42 @@ class WorkCalendarDialog(ModernDialog):
     def _go_today(self):
         today = self.service._now().date(); self.calendar.set_month(today.year, today.month); self._selected_day = today; self._refresh()
     def _apply_status(self):
-        value = self.status.currentData(); self.service.restore_day_status_auto(self._selected_day) if value == "auto" else self.service.set_day_status(self._selected_day, value); self._refresh()
+        value = self.status.currentData(); self.service.restore_day_status_auto(self._selected_day) if value == "auto" else self.service.set_day_status(self._selected_day, value); self._refresh(); self._show_action_feedback(self.apply_status_button, "已应用 ✓")
     def _save_clock_out(self):
         qtime = self.clock_out_edit.time(); day = self._selected_day
-        self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, qtime.hour(), qtime.minute())); self._refresh()
+        self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, qtime.hour(), qtime.minute())); self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
     def _cancel_clock_out(self):
         record = self.service.record_for(self._selected_day)
         self.clock_out_edit.setTime(QTime(record.actual_clock_out.hour, record.actual_clock_out.minute) if record and record.actual_clock_out else QTime(0, 0))
     def _save_note(self):
-        day = self._selected_day; record = self.service.record_for(day) or WorkDayRecord(day, self.service.status_for(day)); record.note = self.note_edit.text().strip(); self.service.records[day.isoformat()] = record; self.service._save_records(); self._refresh()
+        day = self._selected_day; record = self.service.record_for(day) or WorkDayRecord(day, self.service.status_for(day)); record.note = self.note_edit.text().strip(); self.service.records[day.isoformat()] = record; self.service._save_records(); self._refresh(); self._show_action_feedback(self.note_button, "备注已保存 ✓")
+
+    def _show_action_feedback(self, button, text):
+        if not hasattr(button, "_idle_text"):
+            button._idle_text = button.text()
+        button._feedback_token = getattr(button, "_feedback_token", 0) + 1
+        token = button._feedback_token
+        button.setText(text); button.setProperty("feedback", "success")
+        button.style().unpolish(button); button.style().polish(button)
+        timer = getattr(button, "_feedback_timer", None)
+        if timer is None:
+            timer = QTimer(button); timer.setSingleShot(True)
+            timer.timeout.connect(lambda b=button: self._reset_action_feedback(b, getattr(b, "_feedback_token", 0)))
+            button._feedback_timer = timer
+        timer.start(1600)
+
+    @staticmethod
+    def _reset_action_feedback(button, token=None):
+        if not hasattr(button, "_idle_text"):
+            return
+        if token is not None and token != getattr(button, "_feedback_token", 0):
+            return
+        timer = getattr(button, "_feedback_timer", None)
+        if timer is not None:
+            timer.stop()
+        button._feedback_token = getattr(button, "_feedback_token", 0) + 1
+        button.setText(button._idle_text); button.setProperty("feedback", "")
+        button.style().unpolish(button); button.style().polish(button)
     def _cancel_note(self):
         record = self.service.record_for(self._selected_day); self.note_edit.setText(record.note if record else "")
     def _save_manual_count(self):

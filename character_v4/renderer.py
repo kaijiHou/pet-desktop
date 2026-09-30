@@ -58,34 +58,31 @@ class DynamicPackRenderer(QObject):
             return False
 
     def _compute_global_bbox(self):
-        """Pre-compute union alpha bbox across all frames for stable anchoring."""
+        """Pre-compute union alpha bbox across all frames for stable anchoring.
+
+        Frames are disjoint grid cells of the sheet, so the union over all
+        frames equals the sheet-wide alpha bbox — computable in one vector
+        pass. (An earlier implementation walked every pixel of every frame
+        via QImage.pixelColor: ~4.5M sip calls ≈ 4s PER renderer load, which
+        made every dialog with a preview take seconds to open.)
+        """
         if self._atlas is None or self._atlas._pil_image is None:
             return
         try:
-            from .manifest import CODEX_CELL_W, CODEX_CELL_H
-            rows = self._atlas._frames
-            min_x, min_y = CODEX_CELL_W, CODEX_CELL_H
-            max_x, max_y = 0, 0
-            found = False
-            for anim_name, frame_list in rows.items():
-                if not frame_list:
-                    continue
-                # Every actual frame participates in the union. Sampling
-                # caused drag/jump frames to clip or shift their anchor.
-                for qpix in frame_list:
-                    if qpix.isNull():
-                        continue
-                    qimg = qpix.toImage()
-                    for y in range(qimg.height()):
-                        for x in range(qimg.width()):
-                            if qimg.pixelColor(x, y).alpha() > 10:
-                                min_x = min(min_x, x); min_y = min(min_y, y)
-                                max_x = max(max_x, x); max_y = max(max_y, y); found = True
-            if found:
-                self._global_bbox = (min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+            import numpy as np
+            alpha = np.asarray(self._atlas._pil_image)[:, :, 3]
+            ys, xs = np.nonzero(alpha > 10)
+            if len(xs):
+                self._global_bbox = (int(xs.min()), int(ys.min()),
+                                     int(xs.max() - xs.min() + 1),
+                                     int(ys.max() - ys.min() + 1))
             else:
                 cw, ch = self._atlas.cell_size
                 self._global_bbox = (0, 0, cw, ch)
+        except Exception:
+            LOGGER.exception("global bbox computation failed; using full cell")
+            cw, ch = self._atlas.cell_size
+            self._global_bbox = (0, 0, cw, ch)
             LOGGER.debug("Global alpha bbox: %s", self._global_bbox)
         except Exception:
             cw, ch = self._atlas.cell_size if self._atlas else (192, 208)
@@ -93,6 +90,16 @@ class DynamicPackRenderer(QObject):
 
     def set_scale(self, scale: float):
         self._scale = max(0.5, min(6.0, scale))
+
+    def set_speed(self, factor: float):
+        """Playback multiplier (>1 = faster); delegates to the player."""
+        self._speed = max(0.25, min(4.0, float(factor or 1.0)))
+        if self._player is not None:
+            self._player.set_speed(self._speed)
+
+    @property
+    def speed(self) -> float:
+        return getattr(self, "_speed", 1.0)
 
     def size(self) -> tuple[int, int]:
         """Return (w, h) at current scale."""

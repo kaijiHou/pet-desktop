@@ -2,7 +2,7 @@
 
 ## 单一权威
 
-`WorkCalendarService` 是工资日数的唯一正常来源：人工日期覆盖 → 用户 `data/holidays.json` → 随程序发布的 holiday-cn 离线数据 → 周一至周五兜底。`WageCalculator.salary_workday_count(day)` 只调用 `calendar.workday_count(day.year, day.month)`。
+`WorkCalendarService` 是工资日数的唯一正常来源：人工日期覆盖 → 用户 `data/holidays.json` → 随程序发布的 holiday-cn 离线数据 → 2026 国庆后大小周周六规则 → 周一至周五兜底。大小周从 2026-10-12 所在周开始，首周大周，此后逐周交替；官方节假日和调休仍优先。`WageCalculator.salary_workday_count(day)` 只调用 `calendar.workday_count(day.year, day.month)`。
 
 旧版 `manual_workday_count` 只迁移到 `legacy_manual_workday_count` 审计字段；正常设置界面不再提供全局 SpinBox。确需公司特殊口径时，在工作日历高级区写入 `workday_count_overrides` 的 `YYYY-MM` 项。
 

@@ -239,11 +239,13 @@ def test_status_change_recalculates_month_tiers(test_temp_root, isolated_config)
     from wage.service import WageService
     from datetime import datetime, date, timedelta
     ws = WageService(test_temp_root / "wage.json")
-    # Create a workday 3 days ago
-    # Find a weekday 3-7 days ago to ensure it is a workday
+    # Find a true workday 3-14 days ago via the service's own calendar —
+    # a naive Mon-Fri walk can land on statutory holidays (e.g. 中秋),
+    # which are rest days and would make this test date-flaky.
     day1 = date.today() - timedelta(days=3)
-    while day1.weekday() >= 5:
+    while day1 > date.today() - timedelta(days=60) and ws.calendar.status_for(day1) != "workday":
         day1 -= timedelta(days=1)
+    assert ws.calendar.status_for(day1) == "workday", "no plain workday found in the last 60 days"
     ws.record_clock_out(datetime(day1.year, day1.month, day1.day, 20, 0))
     r1 = ws.record_for(day1)
     assert r1.overtime_minutes > 0
@@ -343,7 +345,9 @@ def test_month_worked_value_includes_current_day_partial_income(test_temp_root):
     """Bug5: worked_value_to_date should include today's real-time base."""
     from wage.service import WageService
     from datetime import datetime, time, date, timedelta
-    ws = WageService(test_temp_root / "wage.json")
+    from datetime import datetime as _dt
+    fixed_now = lambda: _dt.combine(date.today(), time(10, 0))
+    ws = WageService(test_temp_root / "wage.json", now_provider=fixed_now)
     ws.update_settings(monthly_salary=10000, enabled=True,
                        work_start=time(9, 0), work_end=time(17, 30),
                        overtime_start=time(17, 30))

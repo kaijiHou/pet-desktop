@@ -443,7 +443,7 @@ PetWindow `moveEvent` 统一调用 `_reposition_attached_panels()`。可见面�
 - `prior_overtime_minutes_before(day)`：当月 prior **严格早于目标日**，补录历史不会把未来日期算成已累计。
 - `recalculate_month_records(year, month)`：任何打卡新增/修改后按日期序重算当月每条记录的 overtime_minutes/pay 与 meal_allowance —— 修改早期日期自动重排后续日期的 15/25 元档。
 - `WorkDayRecord.resolved_no_overtime`：显式"未加班"永久解决漏打卡；"稍后"仅会话内存（wage_prompts.json 不再参与判定）。
-- `WorkCalendarService` 数据优先级：manual override > 用户 data/holidays.json > 捆绑 assets/holiday_cn/*.json（holiday-cn，MIT）> 周一~五；`isOffDay=false` 条目=调休上班。
+- `WorkCalendarService` 数据优先级：manual override > 用户 data/holidays.json > 捆绑 assets/holiday_cn/*.json（holiday-cn，MIT）> 2026-10-12 起大小周周六循环 > 周一~五；`isOffDay=false` 条目=官方调休上班。
 - PetWindow 后台工资唤醒：single-shot 定时到下一关键时点（work_start/lunch/17:30/20:00/下一个收入提示槽，≤1h 上限），设置变更后重排；无常驻轮询。
 
 ## 33. V4.7 统一工资日历与 Modern UI

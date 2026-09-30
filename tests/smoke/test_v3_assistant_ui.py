@@ -77,9 +77,9 @@ def test_quick_panel_has_pocket(pet_window, isolated_wage):
         panel = QuickPanel(pet_window)
         pet_window._quick_panel = panel
     panel.refresh()
-    assert panel.pocket_title.text() == "文件口袋"
+    assert "文件口袋" in panel.pocket_title.text()
     assert panel.pocket_count.text().isdigit()
-    assert panel.open_pocket_btn.text() == "打开文件口袋"
+    assert "打开文件口袋" in panel.open_pocket_btn.text()
     panel.close()
 
 

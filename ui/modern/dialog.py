@@ -1,6 +1,6 @@
 from PyQt5.QtCore import Qt, QPoint, QEvent, QRect
 from PyQt5.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QApplication
-from .tokens import BASE_QSS
+from .tokens import base_qss
 
 
 def detect_resize_edge(pos, rect, margin):
@@ -35,7 +35,7 @@ class ModernDialog(QDialog):
         self._resize_geometry = None
         self._normal_geometry = None
         self.setMouseTracking(True)
-        self.setStyleSheet(BASE_QSS)
+        self.setStyleSheet(base_qss())
         outer = QVBoxLayout(self); outer.setContentsMargins(6, 6, 6, 6)
         self.card = QFrame(); self.card.setObjectName("modernCard")
         outer.addWidget(self.card)

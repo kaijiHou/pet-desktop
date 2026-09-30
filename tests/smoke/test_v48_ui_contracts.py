@@ -21,12 +21,29 @@ def test_work_calendar_is_resizable_and_has_rules_entry(qapp, test_temp_root):
     dialog = WorkCalendarDialog(svc)
     try:
         assert dialog.resizable is True
-        assert dialog.rules_button.text() == "⋯"
+        assert dialog.rules_button.text() == "排班规则"
         dialog._toggle_rules()
         assert dialog._rules_expanded
         dialog._toggle_rules()
         assert not dialog._rules_expanded
-        assert "周一至周五" in dialog.warning_banner.label.text()
+        assert "大小周" in dialog.warning_banner.label.text()
+    finally:
+        dialog.close()
+
+
+def test_calendar_actions_show_success_feedback(qapp, test_temp_root):
+    from datetime import date
+    from wage.service import WageService
+    from wage.ui_calendar import WorkCalendarDialog
+    svc = WageService(test_temp_root, now_provider=lambda: datetime(2026, 9, 3, 18, 0))
+    dialog = WorkCalendarDialog(svc)
+    try:
+        dialog._show_action_feedback(dialog.record_out_button, "已记录 ✓")
+        assert dialog.record_out_button.text() == "已记录 ✓"
+        assert dialog.record_out_button.property("feedback") == "success"
+        assert 'QPushButton#secondary[feedback="success"]' in dialog.styleSheet()
+        dialog._on_clicked(date(2026, 9, 4))
+        assert dialog.record_out_button.text() == "记录下班"
     finally:
         dialog.close()
 

@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
 )
 
 from destinations import DestinationService, MAX_FAVORITES
+from ui.modern import tokens
 from ui.modern.cards import Card
 from ui.modern.dialog import ModernConfirmDialog, ModernDialog, ModernTextInputDialog
 from ui.modern.message import InlineBanner
@@ -133,7 +134,7 @@ class FavoriteFoldersDialog(ModernDialog):
                                         self._show_item_menu(fid, button))
             row.addWidget(menu_button)
             if favorite.id == self.selected_favorite_id:
-                card.setStyleSheet("QFrame#modernCard { border: 1px solid #2563eb; }")
+                card.setStyleSheet(f"QFrame#modernCard {{ border: 1px solid {tokens.PRIMARY}; }}")
             self.rows_by_id[favorite.id] = card
             self.list_layout.addWidget(card)
         self.list_layout.addStretch(1)

@@ -11,8 +11,9 @@ V2.1 fixes (per code review):
     no longer a valid directory (reviewer issue #2 partial).
 """
 from pathlib import Path
-from PyQt5.QtCore import Qt, QUrl, QTimer, QPoint, QMimeData
+from PyQt5.QtCore import Qt, QUrl, QTimer, QPoint, QMimeData, pyqtSignal
 from PyQt5.QtGui import QDesktopServices, QIcon, QDrag
+import threading
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
     QListWidgetItem, QMenu, QFileDialog, QFrame, QAbstractItemView, QComboBox,
@@ -63,11 +64,15 @@ class PocketListWidget(QListWidget):
 class PocketWindow(QWidget):
     """Non-modal floating pocket panel (V2.1)."""
 
+    explorer_resolved = pyqtSignal(object)
+
     def __init__(self, service, parent=None, file_operations=None,
                  destinations=None, explorer_service=None, event_dispatcher=None,
                  favorite_manager=None):
         super().__init__(parent)
         self.service = service
+        self._explorer_resolving = False
+        self.explorer_resolved.connect(self._apply_explorer_snapshot)
         self.file_ops = file_operations or FileOperationService()
         self.destinations = destinations or getattr(parent, "destination_service", None) or DestinationService()
         self.explorer = explorer_service or ExplorerService()
@@ -278,7 +283,30 @@ class PocketWindow(QWidget):
         self.raise_()
 
     def _snapshot_explorer(self):
-        d = self.explorer.current_directory()
+        """Refresh the current-Explorer snapshot without blocking the UI.
+
+        A fresh cached resolution applies synchronously; a stale one spawns
+        the ~0.5s PowerShell probe on a worker thread and applies via signal.
+        """
+        fresh = getattr(self.explorer, "resolve_is_fresh", None)
+        if fresh is None or fresh():
+            self._apply_explorer_snapshot(self.explorer.current_directory())
+            return
+        self.explorer_label.setText("正在检测资源管理器文件夹…")
+        if self._explorer_resolving:
+            return
+        self._explorer_resolving = True
+        threading.Thread(target=self._resolve_explorer_async, daemon=True).start()
+
+    def _resolve_explorer_async(self):
+        try:
+            d = self.explorer.current_directory()
+        except Exception:
+            d = None
+        self._explorer_resolving = False
+        self.explorer_resolved.emit(d)
+
+    def _apply_explorer_snapshot(self, d):
         self._explorer_snapshot = d if d and d.is_dir() else None
         if self._explorer_snapshot:
             self.explorer_label.setText(f"当前文件夹\n{self._explorer_snapshot}")

@@ -16,6 +16,7 @@ from .storage import load_json, save_json_atomic
 LOGGER = logging.getLogger("pet.wage.calendar")
 STATUS_LABELS = {WORKDAY: "工作日", REST: "休息日", ADJUSTED_WORKDAY: "调休上班", LEAVE: "请假"}
 PAPER_URL_FALLBACK = "https://www.gov.cn/"
+WORK_CYCLE_START = date(2026, 10, 12)  # Week after the 2026 National Day adjustment week: first large week.
 
 
 @dataclass(frozen=True)
@@ -150,6 +151,19 @@ class WorkCalendarService:
     def _key(self, day) -> str:
         return day.isoformat() if isinstance(day, date) else date.fromisoformat(str(day)).isoformat()
 
+    @staticmethod
+    def _work_cycle_info(day: date) -> Optional[HolidayInfo]:
+        """Return the user's post-National-Day big/small-week Saturday rule."""
+        if day < WORK_CYCLE_START or day.weekday() != 5:
+            return None
+        week_index = (day - WORK_CYCLE_START).days // 7
+        is_big_week = week_index % 2 == 0
+        return HolidayInfo(
+            day, "大周" if is_big_week else "小周",
+            ADJUSTED_WORKDAY if is_big_week else REST,
+            not is_big_week, "work_cycle",
+        )
+
     def status_for(self, day) -> str:
         key = self._key(day)
         if key in self.manual_overrides:
@@ -157,6 +171,9 @@ class WorkCalendarService:
         if key in self.holidays:
             return self.holidays[key]
         day_obj = date.fromisoformat(key)
+        cycle_info = self._work_cycle_info(day_obj)
+        if cycle_info:
+            return cycle_info.status
         return WORKDAY if day_obj.weekday() < 5 else REST
 
     get_status = status_for
@@ -168,6 +185,8 @@ class WorkCalendarService:
         status = self.status_for(day_obj)
         manual = key in self.manual_overrides
         info = self.holiday_info.get(key)
+        if not manual and not info:
+            info = self._work_cycle_info(day_obj)
         if manual:
             source, name = "manual", info.name if info else ""
             year, paper, off = info.official_year if info else None, info.paper_url if info else PAPER_URL_FALLBACK, status == REST
@@ -176,7 +195,10 @@ class WorkCalendarService:
         else:
             source, name, year, paper, off = "weekday_fallback", "", None, PAPER_URL_FALLBACK, status == REST
         label = STATUS_LABELS.get(status, status)
-        if status == ADJUSTED_WORKDAY and name:
+        if source == "work_cycle":
+            label = "大小周上班" if status == ADJUSTED_WORKDAY else "大小周休息"
+            display = f"{name}上班" if status == ADJUSTED_WORKDAY else f"{name}休息"
+        elif status == ADJUSTED_WORKDAY and name:
             display = f"{_short_name(name)}补班"
         elif name and status == REST:
             display = f"{name} · 休息"

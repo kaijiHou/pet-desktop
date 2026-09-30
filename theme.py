@@ -53,6 +53,7 @@ def app_qss() -> str:
         font-family: "{FONT_FAMILY}", "{FONT_FALLBACK}";
         font-size: {FONT_SIZE}pt;
     }}
+    QLabel {{ background: transparent; }}
     QLabel#muted {{ color: {TEXT_MUTED}; }}
     QLabel#title {{ font-size: {FONT_SIZE_LARGE}pt; font-weight: 600; }}
 
@@ -107,14 +108,15 @@ def app_qss() -> str:
     }}
 
     QMenu {{
-        background: {BG_CARD};
-        border: 1px solid {BORDER};
-        border-radius: {RADIUS}px;
-        padding: 4px;
+        background: {MENU_BG};
+        border: 1px solid {MENU_BORDER};
+        border-radius: 14px;
+        padding: 6px;
+        color: {TEXT};
     }}
-    QMenu::item {{ padding: 6px 24px 6px 12px; border-radius: {RADIUS_SMALL}px; }}
-    QMenu::item:selected {{ background: {BG_SELECTED}; }}
-    QMenu::separator {{ height: 1px; background: {BORDER}; margin: 4px 8px; }}
+    QMenu::item {{ padding: 7px 26px 7px 12px; border-radius: 9px; font-size: 10pt; }}
+    QMenu::item:selected {{ background: {MENU_HIGHLIGHT}; color: {MENU_HIGHLIGHT_TEXT}; }}
+    QMenu::separator {{ height: 1px; background: {MENU_BORDER}; margin: 5px 10px; }}
 
     QSlider::groove:horizontal {{
         height: 4px; background: {BORDER_STRONG}; border-radius: 2px;

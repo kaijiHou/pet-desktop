@@ -28,9 +28,22 @@ class AnimationPlayer(QObject):
         self._current_anim: Optional[str] = None
         self._frame_idx = 0
         self._loop = True
+        self._speed: float = 1.0
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._advance_frame)
         self._on_complete = None
+
+    def set_speed(self, factor: float) -> None:
+        """Playback multiplier (>1 = faster). Applies to the running
+        animation immediately without resetting the frame index."""
+        self._speed = max(0.25, min(4.0, float(factor or 1.0)))
+        if self._current_anim is not None and self._timer.isActive():
+            self._timer.start(self._current_interval_ms())
+
+    def _current_interval_ms(self) -> int:
+        if self._current_anim is None:
+            return 150
+        return max(16, round(self.atlas.frame_ms(self._current_anim) / self._speed))
 
     def play(self, animation: str, loop: bool = True, on_complete=None):
         """Start playing an animation."""
@@ -41,8 +54,7 @@ class AnimationPlayer(QObject):
         self._frame_idx = 0
         self._loop = loop
         self._on_complete = on_complete
-        ms = self.atlas.frame_ms(animation)
-        self._timer.start(ms)
+        self._timer.start(self._current_interval_ms())
         self.frame_changed.emit()
 
     def stop(self):

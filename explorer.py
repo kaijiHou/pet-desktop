@@ -21,12 +21,16 @@ import time
 class ExplorerService:
     """Query Shell.Application, tracking the last-active Explorer folder."""
 
+    RESOLVE_TTL_SECONDS = 20   # PowerShell spawn costs ~0.5s; reuse within TTL
+
     def __init__(self, runner=None, foreground_hwnd_provider=None):
         self._runner = runner or subprocess.run
         self._foreground_hwnd = foreground_hwnd_provider or self._get_foreground_hwnd
         # (directory, timestamp) cached whenever Explorer is foreground
         self._last_active: tuple[Path, float] | None = None
         self.last_directory_status = "no_explorer"
+        # (hwnd, directory, timestamp): fresh foreground resolution reuse
+        self._resolve_cache: tuple[int, Path, float] | None = None
 
     @staticmethod
     def _get_foreground_hwnd():
@@ -97,7 +101,18 @@ class ExplorerService:
         hwnd = self._foreground_hwnd()
         self.last_directory_status = "no_explorer"
         if hwnd:
+            now = time.time()
+            if (self._resolve_cache is not None
+                    and self._resolve_cache[0] == hwnd
+                    and now - self._resolve_cache[2] < self.RESOLVE_TTL_SECONDS):
+                directory = self._resolve_cache[1]
+                if self._foreground_is_explorer(hwnd):
+                    self._last_active = (directory, now)
+                self.last_directory_status = "ok"
+                return directory
             directory = self._directory_for_hwnd(hwnd)
+            if directory is not None:
+                self._resolve_cache = (hwnd, directory, now)
             if directory is not None:
                 if self._foreground_is_explorer(hwnd):
                     self._last_active = (directory, time.time())
@@ -112,6 +127,16 @@ class ExplorerService:
                 self.last_directory_status = "ok"
                 return directory
         return None
+
+    def resolve_is_fresh(self) -> bool:
+        """True when a cached foreground resolution can serve without a
+        PowerShell spawn (pocket UI uses this to stay non-blocking)."""
+        if self._resolve_cache is None:
+            return False
+        hwnd = self._foreground_hwnd()
+        if hwnd != self._resolve_cache[0]:
+            return False
+        return time.time() - self._resolve_cache[2] < self.RESOLVE_TTL_SECONDS
 
     def set_last_active(self, directory):
         """Allow the UI to explicitly record a known Explorer folder."""

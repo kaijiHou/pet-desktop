@@ -2,9 +2,15 @@ import sys
 import os
 sys.stderr = os.fdopen(2, 'w')  # redirect stderr
 
-def test_dynamic_renderer_loads():
-    from config import Config
-    c = Config()
+def test_dynamic_renderer_loads(test_temp_root, monkeypatch):
+    """Fresh-config defaults: the user's real config must not be consulted
+    (they may legitimately have selected any installed character)."""
+    import config as config_mod
+    cfg_dir = test_temp_root / "cfg"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(config_mod, "CONFIG_DIR", cfg_dir)
+    monkeypatch.setattr(config_mod, "CONFIG_FILE", cfg_dir / "config.json")
+    c = config_mod.Config()
     assert c.get("character_mode") == "dynamic_pack"
     assert c.get("selected_character_id") == "default_dynamic_ghost"
 

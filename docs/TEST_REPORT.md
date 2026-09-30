@@ -5,6 +5,17 @@
 
 ---
 
+## V5.4（2026-09-24）
+
+| 命令 / 套件 | 结果 | 覆盖 |
+|---|---:|---|
+| `python -m pytest tests -q` | **414 passed / 245.17s** | 全量回归 |
+| `python -m pytest tests/smoke/test_favorite_folders_gui.py tests/smoke/test_v3_assistant_ui.py tests/smoke/test_v48_ui_contracts.py -q` | **33 passed / 3.15s** | QuickPanel、工资助手与日历交互反馈 |
+| `python scripts/capture_v54_quick_panel.py` | **320×480 PNG** | QuickPanel 三条演示收藏隔离渲染 |
+| `git diff --check` | **PASS** | 空白与补丁格式 |
+
+用户桌面鼠标/DPI/Explorer：**NOT TESTED**。渲染图不等价于真实桌面验收，详见 `docs/V54_CHANGE_SUMMARY.md`。
+
 ## 原项目测试现状
 
 **原项目没有自动化测试。**
