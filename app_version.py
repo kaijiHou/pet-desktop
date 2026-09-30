@@ -11,7 +11,7 @@ has not been generated yet.
 import json
 from pathlib import Path
 
-APP_VERSION = "V5.3"
+APP_VERSION = "V5.4"
 
 try:
     from paths import BUNDLE_ROOT as _ROOT

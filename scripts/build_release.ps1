@@ -18,7 +18,7 @@ $tempRoot = Join-Path $projectRoot ".tmp"
 $tempDir = Join-Path $projectRoot ".tmp\pyinstaller"
 $cacheDir = $tempDir
 $testTempDir = Join-Path $projectRoot ".tmp\tests"
-$releaseVersion = "V5.3"
+$releaseVersion = "V5.4"
 if ($SkipDocAudit) {
     $releaseDir = Join-Path $tempRoot ("v53-dev-release-" + [guid]::NewGuid().ToString("N"))
 } else {
@@ -56,16 +56,17 @@ if (-not (Test-Path -LiteralPath $pyinstaller)) {
 if (-not $SkipDocAudit) {
     $auditArgs = @(
         "--version", $releaseVersion,
-        "--baseline", "6f62ca5af962f7485147cb6543e73072a4866471",
-        "--summary", "docs/V53_CHANGE_SUMMARY.md",
-        "--acceptance", "docs/V53_REAL_ACCEPTANCE.md",
-        "--ui-review", "docs/V53_UI_REVIEW.md",
-        "--extra-required", "docs/V53_UI_REVIEW.md",
-        "--extra-required", "docs/screenshots/v53/目录说明.md",
-        "--extra-required", "docs/screenshots/v53/quick-panel-favorites.png",
-        "--extra-required", "docs/screenshots/v53/favorite-folders.png",
-        "--extra-required", "docs/screenshots/v53/favorite-folders-missing.png",
-        "--extra-required", "docs/screenshots/v53/pocket-favorite-targets.png"
+        "--baseline", "3349d7137e5e31b894ab1dd31d656d4728cc1939",
+        "--summary", "docs/V54_CHANGE_SUMMARY.md",
+        "--acceptance", "docs/V54_REAL_ACCEPTANCE.md",
+        
+        "--extra-required", "docs/screenshots/v54/README.md",
+        "--extra-required", "docs/screenshots/v54/目录说明.md",
+        "--extra-required", "docs/screenshots/v54/skin-sakura-panel.png",
+        "--extra-required", "docs/screenshots/v54/skin-cream-panel.png",
+        "--extra-required", "docs/screenshots/v54/skin-mint-panel.png",
+        "--extra-required", "docs/screenshots/v54/skin-sky-panel.png",
+        "--extra-required", "docs/screenshots/v54/skin-taro-panel.png"
     )
     & $python -B (Join-Path $PSScriptRoot "audit_release_docs.py") @auditArgs --prebuild
     if ($LASTEXITCODE -ne 0) { throw "Pre-build release documentation audit failed; build aborted." }
@@ -87,7 +88,7 @@ foreach ($path in @($buildDir, $distDir, $releaseDir)) {
             $backupReleaseDir = Join-Path $backupDir "release"
             $null = New-Item -ItemType Directory -Path $backupReleaseDir
             Copy-Item -Path (Join-Path $resolvedTarget "*") -Destination $backupReleaseDir -Recurse -Force
-            $backupNote = "# Previous release archive`r`n`r`nSource: $resolvedTarget`r`nCopy: $resolvedTarget/* -> $backupReleaseDir/`r`nThis recoverable copy is preserved before the V5.3 clean build. It contains only the previous generated release output.`r`n"
+            $backupNote = "# Previous release archive`r`n`r`nSource: $resolvedTarget`r`nCopy: $resolvedTarget/* -> $backupReleaseDir/`r`nThis recoverable copy is preserved before the V5.4 clean build. It contains only the previous generated release output.`r`n"
             [System.IO.File]::WriteAllText((Join-Path $backupDir "目录说明.md"), $backupNote, [System.Text.UTF8Encoding]::new($false))
             $oldZip = Join-Path $resolvedTarget "DesktopPet-windows-x64.zip"
             $savedZip = Join-Path $backupReleaseDir "DesktopPet-windows-x64.zip"
@@ -108,7 +109,7 @@ if (-not $SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw "Tests failed; release build aborted." }
 }
 
-# Build identity (V5.3): write build_info.json BEFORE PyInstaller so the
+# Build identity (V5.4): write build_info.json BEFORE PyInstaller so the
 # spec packs it; app_version.py reads it at runtime, never invoking git.
 $gitSha = (& git rev-parse HEAD).Trim()
 $buildTime = [DateTimeOffset]::Now.ToString("o")
@@ -170,7 +171,7 @@ $zipPath = Join-Path $releaseDir "DesktopPet-windows-x64.zip"
 if ($LASTEXITCODE -ne 0) { throw "Could not package release artifacts." }
 
 if (-not $SkipDocAudit) {
-    $summaryPath = Join-Path $projectRoot "docs\V53_CHANGE_SUMMARY.md"
+    $summaryPath = Join-Path $projectRoot "docs\V54_CHANGE_SUMMARY.md"
     $summaryText = [System.IO.File]::ReadAllText($summaryPath)
     $pendingPattern = '(?m)^Artifact ZIP SHA256: pending\s*$'
     $releaseHeadPattern = '(?m)^Release built from Git HEAD: pending\s*$'
