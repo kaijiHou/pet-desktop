@@ -24,12 +24,22 @@ class Reminder:
     due_at: datetime
     created_at: datetime
     status: str = "pending"
+    recurrence: str = ""   # "" = one-shot; "monthly" = roll to next month on fire
 
     def to_dict(self) -> dict:
         data = asdict(self)
         data["due_at"] = self.due_at.isoformat(timespec="seconds")
         data["created_at"] = self.created_at.isoformat(timespec="seconds")
         return data
+
+
+def _next_monthly(due_at: datetime) -> datetime:
+    """Same day next month, same wall time; clamps day 29-31 into short
+    months (1月31日 → 2月28/29日) and keeps microseconds off."""
+    import calendar as _cal
+    year, month = (due_at.year + 1, 1) if due_at.month == 12 else (due_at.year, due_at.month + 1)
+    day = min(due_at.day, _cal.monthrange(year, month)[1])
+    return due_at.replace(year=year, month=month, day=day, microsecond=0)
 
 
 class ReminderService:
@@ -45,9 +55,12 @@ class ReminderService:
         self.on_reminder_due: Optional[Callable[[Reminder], None]] = None
         self._reminders = self._load()
 
-    def add_reminder(self, content: str, due_at: datetime) -> Reminder:
+    def add_reminder(self, content: str, due_at: datetime,
+                     recurrence: str = "") -> Reminder:
         if not isinstance(due_at, datetime):
             raise TypeError("due_at must be a datetime")
+        if recurrence not in ("", "monthly"):
+            raise ValueError(f"unsupported recurrence: {recurrence!r}")
         content = content.strip()
         if not content:
             raise ValueError("reminder content cannot be blank")
@@ -57,6 +70,7 @@ class ReminderService:
             content=content,
             due_at=due_at.replace(microsecond=0),
             created_at=self._now().replace(microsecond=0),
+            recurrence=recurrence,
         )
         self._reminders.append(reminder)
         self._save()
@@ -88,15 +102,22 @@ class ReminderService:
         if not due:
             return []
 
+        fired = []
         for reminder in due:
-            reminder.status = "completed"
+            if reminder.recurrence == "monthly":
+                reminder.due_at = _next_monthly(reminder.due_at)
+                LOGGER.info("Reminder rescheduled id=%s next=%s",
+                            reminder.id, reminder.due_at.isoformat())
+            else:
+                reminder.status = "completed"
+            fired.append(reminder)
         self._save()
 
-        for reminder in due:
+        for reminder in fired:
             LOGGER.info("Reminder triggered id=%s", reminder.id)
             if self.on_reminder_due:
                 self.on_reminder_due(reminder)
-        return due
+        return fired
 
     def snooze_reminder(self, reminder_id: str, minutes: int = 10) -> Reminder:
         if minutes < 1:
@@ -133,6 +154,7 @@ class ReminderService:
                     due_at=datetime.fromisoformat(item["due_at"]),
                     created_at=datetime.fromisoformat(item["created_at"]),
                     status=str(item.get("status", "pending")),
+                    recurrence=str(item.get("recurrence", "")),
                 )
                 if not reminder.content or reminder.status not in {"pending", "completed"}:
                     raise ValueError

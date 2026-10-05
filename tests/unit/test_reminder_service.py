@@ -148,3 +148,43 @@ class TestReminderDueSemantics:
         snoozed = svc.snooze_reminder(reminder.id, 10)
         assert snoozed.status == "pending"
         assert snoozed.due_at == current[0] + timedelta(minutes=10)
+
+
+def test_monthly_reminder_rolls_to_next_month(test_temp_root):
+    """V5.4: recurrence="monthly" fires forever, rolling same day/month."""
+    import shutil
+    from datetime import datetime
+    from reminder_service import ReminderService
+
+    now = [datetime(2026, 10, 29, 9, 0, 1)]
+    path = test_temp_root / "rem.json"
+    svc = ReminderService(storage_path=path, now_provider=lambda: now[0])
+    svc.add_reminder("续费 Codex 会员", datetime(2026, 10, 29, 9, 0), recurrence="monthly")
+
+    fired = svc.check_due()
+    assert len(fired) == 1
+    pending = svc.list_reminders()
+    assert len(pending) == 1 and pending[0].due_at == datetime(2026, 11, 29, 9, 0)
+
+    now[0] = datetime(2026, 11, 29, 9, 0, 1)
+    svc.check_due()
+    assert svc.list_reminders()[0].due_at == datetime(2026, 12, 29, 9, 0)
+
+
+def test_monthly_reminder_clamps_short_months(test_temp_root):
+    """1月31日 → 2月28日（非闰年），不跳到 3 月。"""
+    from datetime import datetime
+    from reminder_service import _next_monthly
+
+    assert _next_monthly(datetime(2026, 1, 31, 9, 0)) == datetime(2026, 2, 28, 9, 0)
+    assert _next_monthly(datetime(2026, 12, 31, 9, 0)) == datetime(2027, 1, 31, 9, 0)
+    assert _next_monthly(datetime(2026, 5, 15, 8, 30)) == datetime(2026, 6, 15, 8, 30)
+
+
+def test_invalid_recurrence_rejected(test_temp_root):
+    from datetime import datetime
+    from reminder_service import ReminderService
+    svc = ReminderService(storage_path=test_temp_root / "r.json")
+    import pytest
+    with pytest.raises(ValueError):
+        svc.add_reminder("x", datetime(2026, 10, 29, 9, 0), recurrence="weekly")
