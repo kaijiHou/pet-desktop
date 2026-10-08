@@ -119,3 +119,43 @@ def test_wage_scheduler_is_single_shot_not_polling(pet_window):
     # armed again with a bounded delay (≤1h) instead of a permanent 60s loop
     assert pet_window._wage_timer.isActive()
     assert pet_window._wage_timer.remainingTime() <= 3600 * 1000
+
+
+def test_calendar_clockout_button_stamps_now_and_updates(qapp, test_temp_root):
+    """点一下=当前电脑时间；再点一下=以最新点击为准。"""
+    import shutil
+    from datetime import datetime
+    from wage.service import WageService
+    from wage.ui_calendar import WorkCalendarDialog
+    from tests.conftest import TEST_TEMP_ROOT
+
+    tmp = TEST_TEMP_ROOT / "gui" / "v54_clockout_now"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    NOW = [datetime(2026, 10, 8, 18, 0, 5)]
+    svc = WageService(tmp, now_provider=lambda: NOW[0])
+    svc.update_settings(enabled=True, monthly_salary="14000")
+    dlg = WorkCalendarDialog(svc)
+    try:
+        dlg._selected_day = NOW[0].date()
+        dlg._save_clock_out()                      # 第一击：18:00
+        rec = svc.record_for(NOW[0].date())
+        assert rec.actual_clock_out == datetime(2026, 10, 8, 18, 0)
+        assert dlg.clock_out_edit.time().hour() == 18
+
+        NOW[0] = datetime(2026, 10, 8, 19, 30, 40)
+        dlg._save_clock_out()                      # 第二击：刷新为 19:30
+        rec = svc.record_for(NOW[0].date())
+        assert rec.actual_clock_out == datetime(2026, 10, 8, 19, 30)
+        assert rec.overtime_minutes == 120         # 17:30 起算
+
+        # 历史日期：按时间框补记，不抢今天的时间
+        from datetime import date as _d
+        dlg._selected_day = _d(2026, 10, 5)
+        from PyQt5.QtCore import QTime
+        dlg.clock_out_edit.setTime(QTime(20, 13))
+        dlg._save_clock_out()
+        rec = svc.record_for(_d(2026, 10, 5))
+        assert rec.actual_clock_out == datetime(2026, 10, 5, 20, 13)
+    finally:
+        dlg.close()

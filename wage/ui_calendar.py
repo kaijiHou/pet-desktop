@@ -248,7 +248,15 @@ class WorkCalendarDialog(ModernDialog):
     def _apply_status(self):
         value = self.status.currentData(); self.service.restore_day_status_auto(self._selected_day) if value == "auto" else self.service.set_day_status(self._selected_day, value); self._refresh(); self._show_action_feedback(self.apply_status_button, "已应用 ✓")
     def _save_clock_out(self):
-        qtime = self.clock_out_edit.time(); day = self._selected_day
+        """今天：一键打当前电脑时间，重复点击以最新点击为准；历史日期：
+        按时间框里填的时间补记（今天时间之外才需要手填）。"""
+        day = self._selected_day
+        if day == self.service._now().date():
+            now = self.service._now().time()
+            self.clock_out_edit.setTime(QTime(now.hour, now.minute))
+            qtime = QTime(now.hour, now.minute)
+        else:
+            qtime = self.clock_out_edit.time()
         self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, qtime.hour(), qtime.minute())); self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
     def _cancel_clock_out(self):
         record = self.service.record_for(self._selected_day)
