@@ -1202,8 +1202,12 @@ class PetWindow(QWidget):
         if semantic:
             self._state = self.STATE_TALKING
             self.play_semantic(semantic)
-            self.show_bubble(bubble_map.get(event.action, "检测到文件操作"), 2500)
-            QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
+            title = bubble_map.get(event.action, "检测到文件操作")
+            # Show the absolute path so the user knows WHAT changed. Shell
+            # events may legitimately carry no path (KI-08) — title only.
+            path = str(event.path) if getattr(event, "path", None) else None
+            self.show_bubble(f"{title}\n{path}" if path else title, 3500)
+            QTimer.singleShot(4000, lambda: self.set_state(self.STATE_IDLE))
 
     def _open_add_reminder(self):
         d = AddReminderDialog(self)
