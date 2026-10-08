@@ -60,7 +60,7 @@ class QuickPanel(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setFixedWidth(320); self.setMaximumHeight(520)
+        self.setFixedWidth(320); self.setMaximumHeight(600)
         self._build_ui(); self._refresh()
         ui_skin.skinChanged.connect(self._apply_skin)
 
@@ -354,8 +354,12 @@ class QuickPanel(QWidget):
         self.move_near(rect, live=False, screen=pet_window.screen())
 
     def move_near(self, anchor_rect, live=False, screen=None):
+        # The scroll area swallows the window's own sizeHint, so size from
+        # the CARD's content hint instead — the panel grows to fit its
+        # content (≤ maxHeight) and only scrolls in extreme cases.
         self.adjustSize()
-        ph = min(max(self.sizeHint().height() + 16, self.height()), self.maximumHeight())
+        content_h = self._card.sizeHint().height() + 26   # margins + scrollbar
+        ph = min(max(content_h, 380), self.maximumHeight())
         self.resize(self.width(), ph)
         import anchor
         anchor.place_panel(self, anchor_rect, screen=screen)
