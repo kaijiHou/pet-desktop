@@ -75,7 +75,7 @@ class TodayWageWindow(QWidget):
             return "已隐藏" if hide else f"¥{value:.2f}"
 
         clocked = rec is not None and rec.actual_clock_out is not None
-        self.clock_btn.setEnabled(snap.overtime_minutes > 0 and not clocked)
+        self.clock_btn.setEnabled(True)   # 随时可打，重复点击以最新为准
         month_minutes = svc.prior_overtime_minutes_before(snap.date) + snap.overtime_minutes
 
         if clocked:

@@ -107,7 +107,7 @@ def test_today_wage_clocked_out_summary(qapp, test_temp_root):
         assert "20:13 下班" in win.amount.text()
         assert "今日加班 2h43m" in win.detail.text()
         assert "本月累计 2h43m" in win.detail.text()
-        assert not win.clock_btn.isEnabled()
+        assert win.clock_btn.isEnabled()   # 重复点击以最新为准
     finally:
         win.close()
 

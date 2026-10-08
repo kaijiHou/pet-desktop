@@ -121,8 +121,12 @@ class WageCalculator:
         configured = self.settings.configured
         daily = self.daily_salary(day) if configured else Decimal("0.00")
         regular = self.regular_minutes_per_day() if configured else 0
-        paid = self.paid_regular_minutes(when) if configured else 0
-        base = self.base_earned(when, status)
+        # 打卡下班后，正常工资停在离开时间（不会继续涨到 work_end）。
+        effective = when
+        if record and record.actual_clock_out and record.actual_clock_out.date() == day:
+            effective = min(when, record.actual_clock_out)
+        paid = self.paid_regular_minutes(effective) if configured else 0
+        base = self.base_earned(effective, status)
         overtime = self.overtime_minutes(when, record) if configured else 0
         overtime_value = self.overtime_pay(overtime, prior_overtime_minutes) if configured else Decimal("0.00")
         confirmed_meal = self.meal_allowance(record.actual_clock_out, confirmed=True) if record else Decimal("0.00")

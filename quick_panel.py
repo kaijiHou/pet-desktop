@@ -181,7 +181,7 @@ class QuickPanel(QWidget):
         if wage is None or not wage.configured:
             self.wage_status.setText("工资统计未配置"); self.wage_amount.setText("未配置"); self.wage_detail.setText("首次使用请在设置中填写工资和上班时间"); self.wage_setup_btn.show(); self.clock_out_btn.setEnabled(False); return
         self.wage_setup_btn.hide(); snap = wage.current_breakdown(); rec = wage.record_for()
-        self.clock_out_btn.setEnabled(snap.overtime_minutes > 0 and rec is None)
+        self.clock_out_btn.setEnabled(True)   # 随时可打，重复点击以最新为准
         self.wage_status.setText(f"{rec.actual_clock_out:%H:%M} 下班" if rec and rec.actual_clock_out else {"workday": "工作中", "adjusted_workday": "调休上班", "rest": "休息日", "leave": "请假"}.get(snap.status, snap.status))
         if wage.settings.privacy_mode:
             self.wage_amount.setText(f"今日进度 {snap.progress}%"); self.wage_detail.setText("金额已隐藏 · " + (f"已加班 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m" if snap.overtime_minutes else "正常工作时间进行中"))

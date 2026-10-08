@@ -223,8 +223,13 @@ class WorkCalendarDialog(ModernDialog):
             # §29: never surface raw paper URLs in the UI — name the source.
             source_text += " · 国务院办公厅放假安排"
         self.source_label.setText(source_text)
+        is_today = day == self.service._now().date()
+        self.clock_out_edit.setReadOnly(is_today)
+        self.clock_out_edit.setToolTip("今天：点下方按钮自动打卡" if is_today else "补记历史时间：先填时间再点记录下班")
         if record and record.actual_clock_out:
             self.clock_out_edit.setTime(QTime(record.actual_clock_out.hour, record.actual_clock_out.minute))
+        elif is_today:
+            self.clock_out_edit.setTime(QTime(0, 0))
         else: self.clock_out_edit.setTime(QTime(0, 0))
         self.note_edit.setText(record.note if record else "")
         idx = self.status.findData("auto" if not detail["is_manual"] else detail["status"]); self.status.setCurrentIndex(max(0, idx))
