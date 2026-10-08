@@ -42,3 +42,16 @@ def test_income_notification_pops_money(pet_window):
     finally:
         pet_window.wage.settings.privacy_mode = False
         pet_window._money_popup.hide()
+
+
+def test_dynamic_anchor_is_cell_sized(pet_window):
+    """Regression: the anchor was a sheet-wide absolute union (4341×5388),
+    throwing bubbles/panels to mid-screen. It must stay within one cell."""
+    if pet_window.dynamic_renderer is None:
+        pytest.skip("single mode")
+    bbox = pet_window.dynamic_renderer.visible_bbox()
+    assert bbox[2] <= 192 and bbox[3] <= 208, \
+        f"cell-relative union must fit one cell, got {bbox}"
+    rect = pet_window.visible_pet_rect()
+    assert rect.width() <= 192 * pet_window.character.scale + 2
+    assert rect.height() <= 208 * pet_window.character.scale + 2
