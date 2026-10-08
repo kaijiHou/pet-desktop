@@ -100,15 +100,24 @@ class TodayWageWindow(QWidget):
             if snap.expected_meal_allowance > 0:
                 lines.append("餐补预计 +¥30" if not hide else "餐补预计 +（已隐藏）")
             self.detail.setText("\n".join(lines))
-            self.progress.setText(f"距离 17:30 已过 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m")
+            self.progress.setText(f"加班中 · {svc.settings.overtime_start:%H:%M} 起已 {snap.overtime_minutes // 60}h{snap.overtime_minutes % 60:02d}m")
         else:
-            minutes_to_go = int(max(0, (datetime.combine(snap.date, svc.settings.overtime_start) - now)
-                                    .total_seconds()) // 60)
+            work_end = svc.settings.work_end
+            overtime_start = svc.settings.overtime_start
+            now_t = now.time()
+            if now_t < work_end:
+                minutes_to_go = int(max(0, (datetime.combine(snap.date, work_end) - now)
+                                        .total_seconds()) // 60)
+                progress = (f"今日进度 {snap.progress}% · 距离下班 "
+                            f"{minutes_to_go // 60}小时{minutes_to_go % 60:02d}分")
+            elif now_t < overtime_start:
+                progress = f"{work_end:%H:%M}-{overtime_start:%H:%M} 不计薪 · {overtime_start:%H:%M} 开始算加班"
+            else:
+                progress = f"今日进度 {snap.progress}%"
             self.amount.setText(f"今日进度 {snap.progress}%" if hide else amt(snap.total_earned))
             self.detail.setText(f"正常工资 {amt(snap.base_earned)} · 加班 {amt(snap.overtime_pay)} · "
                                 f"餐补 {amt(snap.confirmed_meal_allowance)}")
-            self.progress.setText(f"今日进度 {snap.progress}% · 距离 17:30 还有 "
-                                  f"{minutes_to_go // 60}小时{minutes_to_go % 60:02d}分")
+            self.progress.setText(progress)
 
         self.reveal_btn.setText("恢复隐藏" if self._reveal else "临时显示金额")
         if hide:

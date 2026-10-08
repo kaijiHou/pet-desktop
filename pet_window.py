@@ -1145,12 +1145,21 @@ class PetWindow(QWidget):
         if getattr(self, "_today_wage", None) is not None:
             self._today_wage.refresh()
 
+    def _show_money_popup(self, text):
+        """Big ¥ chip above the pet's head (IME-safe QLabel, no paintEvent)."""
+        from money_popup import MoneyPopup
+        if getattr(self, "_money_popup", None) is None:
+            self._money_popup = MoneyPopup()
+        self._money_popup.pop(text, self.visible_pet_global_rect(), self.screen())
+
     def _on_wage_progress(self, snapshot):
         self.play_semantic("WAGE_PROGRESS")
         if self.wage.settings.privacy_mode:
             self.show_bubble(f"今日进度 {snapshot.progress}%", 5000)
+            self._show_money_popup(f"进度 {snapshot.progress}%")
         else:
             self.show_bubble(f"今天已赚 ¥{snapshot.total_earned:.2f}\n进度 {snapshot.progress}%", 5000)
+            self._show_money_popup(f"¥{snapshot.total_earned:.2f}")
 
     def _clock_out(self, actual_clock_out=None):
         """Save today's actual clock-out; exposed for the assistant panel."""

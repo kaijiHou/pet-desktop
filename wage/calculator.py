@@ -38,8 +38,10 @@ class WageCalculator:
         return max(0, (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute))
 
     def regular_minutes_per_day(self) -> int:
+        # Paid time ends at work_end (default 17:00); the 17:00-17:30 gap
+        # before overtime_start is deliberately unpaid.
         start = self.settings.work_start
-        cutoff = self.settings.overtime_start
+        cutoff = self.settings.work_end
         total = self._minutes_between(start, cutoff)
         lunch_start = max(start, self.settings.lunch_start)
         lunch_end = min(cutoff, self.settings.lunch_end)
@@ -47,7 +49,7 @@ class WageCalculator:
 
     def paid_regular_minutes(self, when: datetime) -> int:
         start = datetime.combine(when.date(), self.settings.work_start)
-        cutoff = datetime.combine(when.date(), self.settings.overtime_start)
+        cutoff = datetime.combine(when.date(), self.settings.work_end)
         if when <= start:
             return 0
         end = min(when, cutoff)

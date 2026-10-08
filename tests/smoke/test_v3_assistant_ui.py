@@ -132,7 +132,7 @@ def test_normal_mode_shows_amount(pet_window, isolated_wage):
         pet_window._quick_panel = panel
     panel.refresh()
     assert "¥" in panel.wage_amount.text()
-    assert "133.33" in panel.wage_detail.text()
+    assert "142.86" in panel.wage_detail.text()
     panel.close()
 
 

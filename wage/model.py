@@ -37,6 +37,7 @@ class WageSettings:
     enabled: bool = False
     monthly_salary: Decimal = Decimal("0.00")
     work_start: time = time(9, 0)
+    work_end: time = time(17, 0)    # paid time stops here; 17:00-17:30 unpaid gap
     lunch_start: time = time(12, 0)
     lunch_end: time = time(13, 0)
     income_interval_minutes: int = 0
@@ -51,6 +52,7 @@ class WageSettings:
     def __post_init__(self):
         self.monthly_salary = money(self.monthly_salary)
         self.work_start = parse_time(self.work_start, time(9, 0))
+        self.work_end = parse_time(self.work_end, time(17, 0))
         self.lunch_start = parse_time(self.lunch_start, time(12, 0))
         self.lunch_end = parse_time(self.lunch_end, time(13, 0))
         self.overtime_start = parse_time(self.overtime_start, time(17, 30))
@@ -72,6 +74,7 @@ class WageSettings:
             "enabled": self.enabled,
             "monthly_salary": str(self.monthly_salary),
             "work_start": self.work_start.strftime("%H:%M"),
+            "work_end": self.work_end.strftime("%H:%M"),
             "lunch_start": self.lunch_start.strftime("%H:%M"),
             "lunch_end": self.lunch_end.strftime("%H:%M"),
             "income_interval_minutes": self.income_interval_minutes,
@@ -97,6 +100,7 @@ class WageSettings:
             enabled=bool(raw.get("enabled", False)),
             monthly_salary=raw.get("monthly_salary", "0"),
             work_start=raw.get("work_start", "09:00"),
+            work_end=raw.get("work_end", "17:00"),
             lunch_start=raw.get("lunch_start", "12:00"),
             lunch_end=raw.get("lunch_end", "13:00"),
             income_interval_minutes=raw.get("income_interval_minutes", 0),

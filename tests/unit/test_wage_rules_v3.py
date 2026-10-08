@@ -33,9 +33,10 @@ def _dt(h, m):
 
 def test_regular_income_after_lunch(test_temp_root):
     calc, _ = _calc(test_temp_root)
-    # 13:30 = 4.5h elapsed minus 1h lunch = 3.5h (210 min) of 7.5h regular day.
+    # 13:30 = 4.5h elapsed minus 1h lunch = 3.5h (210 min) of a 7h paid day
+    # (09:00-17:00 minus lunch, work_end 17:00).
     assert calc.paid_regular_minutes(_dt(13, 30)) == 210
-    assert calc.base_earned(_dt(13, 30)) == Decimal("466.67")
+    assert calc.base_earned(_dt(13, 30)) == Decimal("500.00")
 
 
 def test_rest_day_base_income_zero(test_temp_root):
@@ -78,9 +79,9 @@ def test_missing_wage_settings_unconfigured(test_temp_root):
 
 def test_decimal_rounding_to_cent(test_temp_root):
     calc, _ = _calc(test_temp_root)
-    # 22000/22 = 1000/day; 7.5h day → 133.33... per hour must quantize HALF_UP.
+    # 22000/22 = 1000/day; 7h paid day → 142.857.../h must quantize HALF_UP.
     assert money("133.335") == Decimal("133.34")
-    assert calc.base_earned(_dt(10, 0)) == Decimal("133.33")
+    assert calc.base_earned(_dt(10, 0)) == Decimal("142.86")
     assert str(calc.base_earned(_dt(10, 0))).split(".")[1].__len__() == 2
 
 
@@ -96,7 +97,7 @@ def test_corrupt_wage_data_safe_fallback(test_temp_root):
     assert reloaded.configured is True
     # Corrupt side files must not crash or corrupt the math: 12:00 noon is
     # 180 paid minutes of 450 using August's automatic 21-day calendar.
-    assert reloaded.current_breakdown().total_earned == Decimal("419.05")
+    assert reloaded.current_breakdown().total_earned == Decimal("448.98")
 
 
 # ── overtime ─────────────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ class WageSettingsDialog(ModernDialog):
         self.enabled = QCheckBox("启用收入统计"); self.enabled.setChecked(settings.enabled); form.addRow("状态", self.enabled)
         self.salary = ModernMoneyField(settings.monthly_salary); form.addRow("月工资", self.salary)
         self.work_start = _time(settings.work_start); form.addRow("上班时间", self.work_start)
+        self.work_end = _time(settings.work_end); form.addRow("下班时间", self.work_end)
         self.lunch_start = _time(settings.lunch_start); form.addRow("午休开始", self.lunch_start)
         self.lunch_end = _time(settings.lunch_end); form.addRow("午休结束", self.lunch_end)
         self.interval = ModernSelect(); [(self.interval.addItem(label, value)) for label, value in (("关闭", 0), ("每 10 分钟", 10), ("每 30 分钟", 30), ("每 60 分钟", 60), ("每 120 分钟", 120))]; idx = self.interval.findData(settings.income_interval_minutes); self.interval.setCurrentIndex(max(0, idx)); form.addRow("收入提示", self.interval)
@@ -35,7 +36,7 @@ class WageSettingsDialog(ModernDialog):
             self.migration_banner.hide()
         self.add_body(calendar_card)
 
-        info = QLabel("规则：17:30 后计入加班；累计加班前 25 小时按 15 元/小时，之后按 25 元/小时；20:00 及以后下班并确认可计餐补。")
+        info = QLabel("规则：到下班时间停止计薪；下班时间到 17:30 之间不计薪；17:30 后计入加班；累计加班前 25 小时按 15 元/小时，之后按 25 元/小时；20:00 及以后下班并确认可计餐补。")
         info.setWordWrap(True); info.setObjectName("muted"); self.add_body(info)
         now = self.service._now().date(); notes = []
         for day in self.service.calendar.month_days(now.year, now.month):
@@ -67,7 +68,7 @@ class WageSettingsDialog(ModernDialog):
         WorkCalendarDialog(self.service, self).exec_(); self._refresh_workdays()
 
     def _save(self):
-        self.service.update_settings(enabled=self.enabled.isChecked(), monthly_salary=str(self.salary.value()), work_start=self.work_start.time().toString("HH:mm"), lunch_start=self.lunch_start.time().toString("HH:mm"), lunch_end=self.lunch_end.time().toString("HH:mm"), income_interval_minutes=self.interval.currentData(), privacy_mode=self.privacy.isChecked())
+        self.service.update_settings(enabled=self.enabled.isChecked(), monthly_salary=str(self.salary.value()), work_start=self.work_start.time().toString("HH:mm"), work_end=self.work_end.time().toString("HH:mm"), lunch_start=self.lunch_start.time().toString("HH:mm"), lunch_end=self.lunch_end.time().toString("HH:mm"), income_interval_minutes=self.interval.currentData(), privacy_mode=self.privacy.isChecked())
         self.accept()
 
 

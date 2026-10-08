@@ -23,7 +23,8 @@ def test_regular_income_before_work_and_morning(test_temp_root):
     calc, _ = _calculator(test_temp_root)
     assert calc.base_earned(datetime(2026, 8, 27, 8, 59)) == Decimal("0.00")
     assert calc.paid_regular_minutes(datetime(2026, 8, 27, 10, 0)) == 60
-    assert calc.base_earned(datetime(2026, 8, 27, 10, 0)) == Decimal("133.33")
+    # paid day = 09:00-17:00 minus 1h lunch = 420 min (work_end 17:00)
+    assert calc.base_earned(datetime(2026, 8, 27, 10, 0)) == Decimal("142.86")
 
 
 def test_lunch_does_not_accrue_and_caps_at_1730(test_temp_root):
