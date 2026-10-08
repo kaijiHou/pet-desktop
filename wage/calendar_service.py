@@ -153,14 +153,18 @@ class WorkCalendarService:
 
     @staticmethod
     def _work_cycle_info(day: date) -> Optional[HolidayInfo]:
-        """Return the user's post-National-Day big/small-week Saturday rule."""
+        """Return the user's post-National-Day big/small-week Saturday rule.
+
+        User-confirmed company convention (2026-10-08): 大周 = rest Saturday,
+        小周 = work Saturday. (The first cut had this parity backwards.)
+        """
         if day < WORK_CYCLE_START or day.weekday() != 5:
             return None
         week_index = (day - WORK_CYCLE_START).days // 7
         is_big_week = week_index % 2 == 0
         return HolidayInfo(
             day, "大周" if is_big_week else "小周",
-            ADJUSTED_WORKDAY if is_big_week else REST,
+            REST if is_big_week else ADJUSTED_WORKDAY,
             not is_big_week, "work_cycle",
         )
 

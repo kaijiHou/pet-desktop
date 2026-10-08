@@ -9,7 +9,8 @@ from wage.model import ADJUSTED_WORKDAY, REST, WORKDAY, WageSettings
 def test_2026_statutory_counts_and_metadata(test_temp_root):
     cal = WorkCalendarService(test_temp_root / "calendar.json", test_temp_root / "none.json")
     assert cal.workday_count(2026, 9) == 22
-    assert cal.workday_count(2026, 10) == 20
+    # 大周(休)/小周(班) 口径: 10/17 休、10/24 班、10/31 休 → 19 天
+    assert cal.workday_count(2026, 10) == 19
     sep20 = cal.status_detail_for(date(2026, 9, 20))
     assert sep20["status"] == ADJUSTED_WORKDAY
     assert sep20["holiday_name"] == "国庆节"
@@ -20,11 +21,12 @@ def test_2026_statutory_counts_and_metadata(test_temp_root):
     assert cal.status_detail_for(date(2026, 10, 10))["status"] == ADJUSTED_WORKDAY
     assert cal.status_detail_for(date(2026, 10, 10))["source"] == "official"
     big_week = cal.status_detail_for(date(2026, 10, 17))
-    assert (big_week["status"], big_week["display_label"], big_week["source"]) == (ADJUSTED_WORKDAY, "大周上班", "work_cycle")
+    assert (big_week["status"], big_week["display_label"], big_week["source"]) == (REST, "大周休息", "work_cycle")
     small_week = cal.status_detail_for(date(2026, 10, 24))
-    assert (small_week["status"], small_week["display_label"], small_week["source"]) == (REST, "小周休息", "work_cycle")
-    assert cal.status_detail_for(date(2026, 10, 31))["status"] == ADJUSTED_WORKDAY
-    assert cal.status_detail_for(date(2026, 11, 7))["status"] == REST
+    assert (small_week["status"], small_week["display_label"], small_week["source"]) == (ADJUSTED_WORKDAY, "小周上班", "work_cycle")
+    # 10/31 是翻转后第二个大周周六 → 休息；11/7 第三个小周周六 → 上班
+    assert cal.status_detail_for(date(2026, 10, 31))["status"] == REST
+    assert cal.status_detail_for(date(2026, 11, 7))["status"] == ADJUSTED_WORKDAY
 
 
 def test_manual_day_override_changes_count_and_restores(test_temp_root):
