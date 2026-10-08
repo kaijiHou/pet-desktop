@@ -483,6 +483,6 @@ def test_three_favorites_get_room_without_covering_the_pocket_divider(qapp, pet_
         assert "QPushButton#panelManager:hover" in panel.scroll_area.widget().styleSheet()
         assert panel.scroll_area.widget() is not None
         # V5.4: maxHeight raised 520→600 so 收藏/提醒区不再被裁切
-    assert panel.maximumHeight() == 600
+        assert panel.maximumHeight() == 600
     finally:
         panel.close()
