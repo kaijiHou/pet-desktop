@@ -21,7 +21,7 @@ context of its own.
 
 from PyQt5.QtCore import Qt, QRect, QRectF
 from PyQt5.QtGui import QPainter, QPainterPath, QPen, QFont, QFontMetrics, QColor, QImage
-from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QLabel, QApplication
 
 import anchor
 import theme
@@ -99,10 +99,18 @@ class BubbleWindow(QLabel):
 
     # ── placement ──
     def place_near(self, anchor_rect: QRect, screen=None):
-        """Place next to *anchor* while staying in availableGeometry."""
+        """Place next to *anchor* while staying on the anchor's screen.
+
+        Returns the placed geometry, or None when *anchor_rect* carries no
+        usable screen (empty rect / center off every monitor) — the caller
+        must then hide the bubble instead of letting it float detached.
+        """
+        resolved = screen or QApplication.screenAt(anchor_rect.center())
+        if resolved is None:
+            return None
         self._anchor = QRect(anchor_rect)
         w, h = self.width(), self.height()
-        x, y, new_tail = anchor.place_bubble(self, anchor_rect, screen,
+        x, y, new_tail = anchor.place_bubble(self, anchor_rect, resolved,
                                              gap=self.GAP, tail_len=self.TAIL)
         if new_tail != self._tail:
             self._tail = new_tail

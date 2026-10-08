@@ -59,6 +59,18 @@ def place_bubble(window, anchor_rect, screen=None, gap=7, tail_len=8):
         if (x >= avail.left() and y >= avail.top()
                 and x + w - 1 <= avail.right() and y + h - 1 <= avail.bottom()):
             return x, y, tail
-    x = max(avail.left(), min(candidates[0][0], avail.right() - w + 1))
-    y = max(avail.top(), min(candidates[0][1], avail.bottom() - h + 1))
-    return x, y, candidates[0][2]
+    # Nothing fits unclamped: clamp EVERY candidate and keep whichever ends
+    # up CLOSEST to the pet — never pin to one fixed side.
+    def dist(x, y):
+        cx, cy = x + w / 2, y + h / 2
+        acx, acy = anchor_rect.center().x(), anchor_rect.center().y()
+        return (cx - acx) ** 2 + (cy - acy) ** 2
+
+    best = None
+    for x, y, tail in candidates:
+        cx = max(avail.left(), min(x, avail.right() - w + 1))
+        cy = max(avail.top(), min(y, avail.bottom() - h + 1))
+        d = dist(cx, cy)
+        if best is None or d < best[0]:
+            best = (d, cx, cy, tail)
+    return best[1], best[2], best[3]

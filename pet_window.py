@@ -610,8 +610,14 @@ class PetWindow(QWidget):
 
     def _position_bubble(self):
         if self._bubble_visible and self._bubble_display and self._bubble_window is not None:
-            screen = QApplication.screenAt(self.visible_pet_global_rect().center()) or QApplication.primaryScreen()
-            self._bubble_window.place_near(self.visible_pet_global_rect(), screen)
+            anchor = self.visible_pet_global_rect()
+            screen = QApplication.screenAt(anchor.center()) or self.screen()
+            placed = self._bubble_window.place_near(anchor, screen)
+            if placed is None:
+                # Pet has no on-screen anchor (dragged off / hidden) — a
+                # detached bubble in the middle of some other screen is the
+                # bug the user reported; hide instead.
+                self._bubble_window.hide()
 
     def show_bubble(self, text, auto_dismiss_ms=6000):
         self._bubble_text = text
@@ -1189,6 +1195,12 @@ class PetWindow(QWidget):
         _log = logging.getLogger("pet.shell_callback")
         _log.info("_on_shell_event RECEIVED action=%s path=%s", event.action, event.path)
         if not self.config.get("file_event_animations_enabled", True):
+            return
+        # Ignore our own sandbox churn (pytest temp dirs, probes): every test
+        # run otherwise paints bubbles and animations on the user's desktop.
+        from paths import TEMP_DIR
+        if event.path and str(event.path).startswith(str(TEMP_DIR)):
+            _log.info("shell event suppressed (project sandbox): %s", event.path)
             return
         # V3.2: removed is_explorer_foreground() gate — it was too strict
         # and blocked legitimate Explorer delete/create events.
