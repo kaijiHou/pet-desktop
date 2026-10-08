@@ -72,3 +72,10 @@ def test_legacy_calendar_count_does_not_survive_as_active_authority(test_temp_ro
     cal = WorkCalendarService(path, test_temp_root / "none.json")
     assert cal.legacy_manual_workday_count == 3
     assert cal.workday_count(2026, 9) == 22
+
+
+def test_day_detail_source_names_are_user_friendly(test_temp_root):
+    """No developer jargon in user-facing 来源 text."""
+    cal = WorkCalendarService(test_temp_root / "c.json", test_temp_root / "h.json")
+    detail = cal.status_detail_for(date(2026, 9, 23))
+    assert "兜底" not in str(detail)

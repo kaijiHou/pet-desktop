@@ -217,7 +217,7 @@ class WorkCalendarDialog(ModernDialog):
         self.weekday_label.setText(day.strftime("%Y年%m月%d日 · %A").replace("Monday", "星期一").replace("Tuesday", "星期二").replace("Wednesday", "星期三").replace("Thursday", "星期四").replace("Friday", "星期五").replace("Saturday", "星期六").replace("Sunday", "星期日"))
         self.holiday_label.setText(detail["display_label"] if detail.get("holiday_name") else "无节假日标记")
         self.status_label.setText(f"状态：{detail['label']}" + (" · 手动" if detail["is_manual"] else " · 自动"))
-        source_names = {"official": "官方离线数据", "user": "用户数据", "manual": "手动覆盖", "weekday_fallback": "工作日规则兜底", "work_cycle": "大小周规则"}
+        source_names = {"official": "官方离线数据", "user": "用户数据", "manual": "手动覆盖", "weekday_fallback": "默认规则（周一至五）", "work_cycle": "大小周规则"}
         source_text = f"来源：{source_names.get(detail['source'], detail['source'])}" + (f"（{detail['official_year']}）" if detail.get("official_year") else "")
         if detail["source"] in {"official", "user"} and detail.get("holiday_name") and detail.get("paper_url"):
             # §29: never surface raw paper URLs in the UI — name the source.
