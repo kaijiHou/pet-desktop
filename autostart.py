@@ -62,5 +62,6 @@ def acquire_single_instance_mutex() -> bool:
     if sys.platform != "win32":
         return True
     import ctypes
-    ctypes.windll.kernel32.CreateMutexW(None, False, "DesktopPet.SingleInstance")
-    return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW(None, False, "DesktopPet.SingleInstance")
+    return ctypes.get_last_error() != 183  # ERROR_ALREADY_EXISTS

@@ -1111,3 +1111,18 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 ### 边界说明
 - 工作时间/午休为初始默认值，用户可在 设置 → 工资与工作时间 调整。
 - 10/10（国庆调休补班）与 10/17、10/31（大周周六）按公司日历计为工作日；如与实际不符可在工作日历手工改单日状态。
+
+---
+
+## 2026-10-12 - 事故记录：探针覆盖用户常用文件夹（已恢复）
+
+### 事故
+- 用户反馈常用文件夹再次清空。根因：**本轮 UI 渲染探针脚本漏掉 `destinations.DESTINATIONS_FILE` 沙盒重定向**（config/reminders/pocket 都重定向了），`DestinationService()` 默认绑定真实 `data/destinations.json`，探针写入测试收藏覆盖用户数据（14:19，92 字节假路径 huanda→D:\tmp、环达→D:\tmp2）。
+- 恢复：从日志（Windows Recent lnk + `D:\Desktop\环达资料` 线索）定位真实文件夹 `D:\huanda` 与 `D:\环达`，经 DestinationService 重新加入并验证。
+
+### 探针纪律（永久）
+以后任何渲染/功能探针**必须**同时重定向全部五个用户数据面：
+`config.CONFIG_DIR/CONFIG_FILE`、`reminder_service.REMINDERS_FILE`、`pocket_service.POCKET_FILE`、`destinations.DESTINATIONS_FILE`、（如触 wage）`wage.data_dir`。缺一个 = 可能毁用户数据。
+
+### 顺带修正
+- 双 pythonw 进程之谜：uv venv 的 pythonw.exe 是跳板，父子两进程只有子进程执行 main.py，不构成双开；但单实例互斥锁的 `GetLastError` 已改为 `ctypes.get_last_error()`（use_last_error=True）标准写法，453 passed。
