@@ -37,9 +37,9 @@ def _panel_qss(p: dict) -> str:
         QPushButton#panelQuiet {{ background: transparent; color: {p['text_soft']}; border: 1px solid transparent; border-radius: 8px; padding: 5px 9px; }}
         QPushButton#panelQuiet:hover {{ background: {p['tint_light']}; color: {p['amount']}; border-color: {p['border']}; }}
         QPushButton#panelQuiet:pressed {{ background: {p['menu_highlight']}; border-color: {p['focus_ring']}; }}
-        QPushButton#panelManager {{ background: {p['card']}; color: {p['text_soft']}; border: 1px solid {p['secondary_border']}; border-radius: 8px; padding: 4px 9px; font-size: 8pt; }}
-        QPushButton#panelManager:hover {{ background: {p['tint_light']}; color: {p['amount']}; border-color: {p['focus_ring']}; }}
-        QPushButton#panelManager:pressed {{ background: {p['menu_highlight']}; border-color: {p['accent_hover']}; }}
+        QPushButton#panelManager {{ background: {p['tint_light']}; color: {p['accent']}; border: 1px solid {p['tint_border']}; border-radius: 14px; padding: 5px 14px; font-size: 9pt; font-weight: 600; }}
+        QPushButton#panelManager:hover {{ background: {p['accent']}; color: white; border-color: {p['accent']}; }}
+        QPushButton#panelManager:pressed {{ background: {p['accent_pressed']}; border-color: {p['accent_pressed']}; }}
         QPushButton#panelIconButton {{ background: {p['tint_light']}; color: {p['amount']}; border: 1px solid {p['tint_border']}; border-radius: 8px; font-size: 12pt; font-weight: 600; }}
         QPushButton#panelIconButton:hover {{ background: {p['menu_highlight']}; border-color: {p['focus_ring']}; color: {p['amount']}; }}
         QPushButton#panelIconButton:pressed {{ background: {p['section_border']}; border-color: {p['accent_hover']}; }}
@@ -136,6 +136,10 @@ class QuickPanel(QWidget):
         self.favorite_pin_menu.addAction("选择其他文件夹", self._choose_other_folder)
         self.favorite_pin_btn.setMenu(self.favorite_pin_menu)
         self.favorite_pin_btn.setPopupMode(QToolButton.InstantPopup)
+        # 菜单箭头写在按钮自身样式上（面板级子控件选择器对 InstantPopup 不生效）
+        self.favorite_pin_btn.setStyleSheet(
+            "QToolButton::menu-indicator { image: none; width: 0; subcontrol-position: right center; }"
+            "QToolButton { padding: 0; }")
         favorite_header.addWidget(self.favorite_title); favorite_header.addStretch(); favorite_header.addWidget(self.favorite_manage_btn); favorite_header.addWidget(self.favorite_pin_btn)
         self.favorite_banner = InlineBanner()
         self.favorite_banner.hide()
@@ -162,7 +166,7 @@ class QuickPanel(QWidget):
         self.open_pocket_btn = QPushButton("🎒 打开文件口袋"); self.open_pocket_btn.setObjectName("panelPrimary"); self.open_pocket_btn.clicked.connect(self._open_pocket); layout.addWidget(self.open_pocket_btn)
 
         self._section_line(layout)
-        remind_hdr = QHBoxLayout(); self.remind_title = QLabel("⏰ 下个提醒"); self.remind_title.setObjectName("panelSectionTitle"); self.remind_btn = QPushButton("＋"); self.remind_btn.setObjectName("panelIconButton"); self.remind_btn.setFixedSize(28, 28); self.remind_btn.clicked.connect(self._open_add_reminder); remind_hdr.addWidget(self.remind_title); remind_hdr.addStretch(); remind_hdr.addWidget(self.remind_btn); layout.addLayout(remind_hdr)
+        remind_hdr = QHBoxLayout(); self.remind_title = QLabel("⏰ 下个提醒"); self.remind_title.setObjectName("panelSectionTitle"); self.remind_btn = QToolButton(); self.remind_btn.setText("+"); self.remind_btn.setObjectName("panelIconButton"); self.remind_btn.setFixedSize(30, 30); self.remind_btn.clicked.connect(self._open_add_reminder); remind_hdr.addWidget(self.remind_title); remind_hdr.addStretch(); remind_hdr.addWidget(self.remind_btn); layout.addLayout(remind_hdr)
         self.next_reminder_label = QLabel("暂无提醒"); self.next_reminder_label.setWordWrap(True); layout.addWidget(self.next_reminder_label)
         self.remind_items_layout = QVBoxLayout(); self.remind_items_layout.setSpacing(2); layout.addLayout(self.remind_items_layout)
         self.no_remind_label = QLabel("暂无提醒"); self.no_remind_label.setObjectName("panelCaption"); self.no_remind_label.hide(); layout.addWidget(self.no_remind_label)
