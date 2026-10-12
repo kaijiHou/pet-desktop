@@ -117,15 +117,23 @@ class ClockoutConfirmPopup(QWidget):
         return self.confirmed_flag
 
 
-def confirm_clockout(service, pet) -> bool:
-    """Shared entry: pretty confirm chip anchored to the pet; True = 打卡。"""
+def clockout_popup_texts(service):
+    """(title, sub) for the confirm chip; warns before work_end."""
     now = service._now()
     snap = service.current_breakdown()
     hide = service.settings.privacy_mode
     amount = f"当前已赚 ¥{snap.total_earned:.2f}" if not hide else f"当前进度 {snap.progress}%"
+    if now.time() < service.settings.work_end:
+        amount = f"⚠ 还没到 {service.settings.work_end:%H:%M} 下班时间\n" + amount
+    return f"{now:%H:%M} 下班打卡？", amount
+
+
+def confirm_clockout(service, pet) -> bool:
+    """Shared entry: pretty confirm chip anchored to the pet; True = 打卡。"""
+    title, sub = clockout_popup_texts(service)
     popup = getattr(pet, "_confirm_popup", None)
     if popup is None:
         popup = ClockoutConfirmPopup()
         pet._confirm_popup = popup
-    return popup.confirm(f"{now:%H:%M} 下班打卡？", amount,
+    return popup.confirm(title, sub,
                          pet.visible_pet_global_rect(), pet.screen())

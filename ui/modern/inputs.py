@@ -7,7 +7,30 @@ class ModernLineEdit(QLineEdit):
 
 
 class ModernComboBox(QComboBox):
-    pass
+    """QComboBox whose popup view is styled from the CURRENT tokens.
+
+    The dropdown list is a popup whose parent chain carries the dialog
+    stylesheet, but Windows dark-app-mode theming can still paint it raw
+    black — nailing the palette onto the view itself is the reliable fix.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setView(__import__("PyQt5.QtWidgets", fromlist=["QListView"]).QListView(self))
+
+    def showPopup(self):
+        from ui.modern import tokens
+        view = self.view()
+        view.setStyleSheet(
+            f"QAbstractItemView {{ background: {tokens.CARD}; color: {tokens.TEXT};"
+            f" border: 1px solid {tokens.BORDER}; border-radius: 10px;"
+            f" selection-background-color: {tokens.PRIMARY}; selection-color: white;"
+            f" outline: none; padding: 4px; }}"
+            f"QAbstractItemView::item {{ min-height: 30px; border-radius: 6px; padding: 2px 8px; }}"
+            f"QAbstractItemView::item:hover {{ background: {tokens.PRIMARY}; color: white; }}"
+            f"QAbstractItemView::item:selected {{ background: {tokens.PRIMARY}; color: white; }}"
+        )
+        super().showPopup()
 
 
 class ModernTimeField(QTimeEdit):

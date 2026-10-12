@@ -233,3 +233,24 @@ def test_picker_defaults_and_zero_guard(qapp, test_temp_root):
         assert rec.actual_clock_out == datetime(2026, 10, 12, 20, 10)
     finally:
         dlg.close()
+
+
+def test_clockout_popup_warns_before_work_end(qapp, test_temp_root):
+    """17:00 前打卡 → 确认卡带'还没到下班时间'警告；之后没有。"""
+    import shutil
+    from datetime import datetime, time as _time
+    from wage.service import WageService
+    from clockout_confirm import clockout_popup_texts
+    from tests.conftest import TEST_TEMP_ROOT
+
+    tmp = TEST_TEMP_ROOT / "gui" / "v54_early_warn"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    NOW = [datetime(2026, 10, 12, 15, 0)]
+    svc = WageService(tmp, now_provider=lambda: NOW[0])
+    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00")
+    title, sub = clockout_popup_texts(svc)
+    assert "还没到 17:00 下班时间" in sub
+    NOW[0] = datetime(2026, 10, 12, 17, 30)
+    title, sub = clockout_popup_texts(svc)
+    assert "还没到" not in sub

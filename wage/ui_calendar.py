@@ -297,13 +297,19 @@ class WorkCalendarDialog(ModernDialog):
         self.pick_time_button.setText("收起" if not visible else "选时间…")
 
     def _picker_confirmed(self):
-        """读取内嵌下拉并立即补卡。0:00 不是有效下班时间，拒绝。"""
+        """读取内嵌下拉并立即补卡。0:00 不是有效下班时间，拒绝。
+        时间早于下班时间 → 警告后仍记录（工资按提前离开时刻冻结）。"""
         day = self._selected_day
         h = self.picker_hour.currentIndex()
         m = self.picker_minute.currentIndex()
         if h == 0 and m == 0:
             self._show_action_feedback(self.picker_ok, "请选有效时间")
             return
+        chosen = self.service._now().time() if day == self.service._now().date() and (h, m) == (
+            self.service._now().hour, self.service._now().minute) else None
+        if h < self.service.settings.work_end.hour or (
+                h == self.service.settings.work_end.hour and m < self.service.settings.work_end.minute):
+            self._show_action_feedback(self.record_out_button, "⚠ 未到下班时间，已按提前下班记录")
         self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, h, m))
         self._clock_selection = None
         self.picker_host.hide()
