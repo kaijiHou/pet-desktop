@@ -283,16 +283,27 @@ class WorkCalendarDialog(ModernDialog):
         self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
 
     def _pick_clock_time(self):
-        """在详情面板内展开 时/分 下拉（无独立窗口）。"""
+        """在详情面板内展开 时/分 下拉（无独立窗口）。打开时默认选中合理时刻。"""
+        if not self.picker_host.isVisible():
+            day = self._selected_day
+            record = self.service.record_for(day)
+            base = (record.actual_clock_out if record and record.actual_clock_out
+                    else (self.service._now() if day == self.service._now().date()
+                          else datetime(day.year, day.month, day.day, 18, 0)))
+            self.picker_hour.setCurrentIndex(base.hour)
+            self.picker_minute.setCurrentIndex(base.minute)
         visible = self.picker_host.isVisible()
         self.picker_host.setVisible(not visible)
         self.pick_time_button.setText("收起" if not visible else "选时间…")
 
     def _picker_confirmed(self):
-        """读取内嵌下拉并立即补卡。"""
+        """读取内嵌下拉并立即补卡。0:00 不是有效下班时间，拒绝。"""
         day = self._selected_day
         h = self.picker_hour.currentIndex()
         m = self.picker_minute.currentIndex()
+        if h == 0 and m == 0:
+            self._show_action_feedback(self.picker_ok, "请选有效时间")
+            return
         self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, h, m))
         self._clock_selection = None
         self.picker_host.hide()

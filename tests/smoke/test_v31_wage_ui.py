@@ -199,3 +199,37 @@ def test_clockout_needs_confirm_and_records_on_yes(qapp, test_temp_root):
     popup2._answer_no()
     assert popup2.confirmed_flag is False
     popup2.hide()
+
+
+def test_picker_defaults_and_zero_guard(qapp, test_temp_root):
+    """选择器打开=默认合理时刻；0:00 拒绝保存（防止工资冻结成 0）。"""
+    import shutil
+    from datetime import datetime
+    from wage.service import WageService
+    from wage.ui_calendar import WorkCalendarDialog
+    from tests.conftest import TEST_TEMP_ROOT
+
+    tmp = TEST_TEMP_ROOT / "gui" / "v54_picker"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    NOW = [datetime(2026, 10, 12, 11, 20)]
+    svc = WageService(tmp, now_provider=lambda: NOW[0])
+    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00")
+    dlg = WorkCalendarDialog(svc)
+    try:
+        dlg._selected_day = NOW[0].date()
+        dlg._show_day_detail()
+        dlg._pick_clock_time()                     # 打开：默认=当前时刻
+        assert dlg.picker_hour.currentIndex() == 11
+        assert dlg.picker_minute.currentIndex() == 20
+        dlg.picker_hour.setCurrentIndex(0)
+        dlg.picker_minute.setCurrentIndex(0)
+        dlg._picker_confirmed()                    # 0:00 拒绝
+        assert svc.record_for(NOW[0].date()) is None
+        dlg.picker_hour.setCurrentIndex(20)
+        dlg.picker_minute.setCurrentIndex(10)
+        dlg._picker_confirmed()
+        rec = svc.record_for(NOW[0].date())
+        assert rec.actual_clock_out == datetime(2026, 10, 12, 20, 10)
+    finally:
+        dlg.close()

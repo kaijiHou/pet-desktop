@@ -43,6 +43,8 @@ QPushButton#titleButton {{ background: transparent; color: {TEXT}; font-size: 15
 QPushButton#titleButton:hover {{ background: #eef2f7; }}
 QLineEdit, QComboBox, QTimeEdit, QDoubleSpinBox, QSpinBox {{ background: #fbfcfe; border: 1px solid {BORDER}; border-radius: 11px; padding: 7px 9px; min-height: 22px; }}
 QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus {{ border: 1px solid {PRIMARY}; }}
+QComboBox QAbstractItemView {{ background: {CARD}; color: {TEXT}; border: 1px solid {BORDER};
+    border-radius: 10px; selection-background-color: {PRIMARY}; selection-color: white; outline: none; }}
 QCheckBox {{ spacing: 8px; }}
 """
 
