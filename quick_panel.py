@@ -93,7 +93,7 @@ class QuickPanel(QWidget):
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         card = QFrame(); card.setObjectName("card"); self._card = card
         self._apply_skin()
-        layout = QVBoxLayout(card); layout.setContentsMargins(13, 11, 13, 11); layout.setSpacing(7)
+        layout = QVBoxLayout(card); layout.setContentsMargins(13, 9, 13, 9); layout.setSpacing(6)
 
         top = QHBoxLayout(); top.setSpacing(9)
         mark = QLabel("🎀"); mark.setAlignment(Qt.AlignCenter); mark.setFixedSize(30, 30)
