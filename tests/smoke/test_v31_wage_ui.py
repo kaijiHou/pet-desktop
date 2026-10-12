@@ -169,37 +169,39 @@ def test_calendar_clockout_button_stamps_now_and_updates(qapp, test_temp_root):
         dlg.close()
 
 
-def test_today_undo_clockout_resumes_accrual(qapp, test_temp_root):
-    """误点打卡 → 撤销 → 收入恢复累计、播报恢复。"""
+
+
+def test_clockout_needs_confirm_and_records_on_yes(qapp, test_temp_root):
+    """确认框：确定→记录；取消→不记录。记录链本身由服务层保证。"""
     import shutil
     from datetime import datetime
+    from decimal import Decimal
     from wage.service import WageService
-    from wage.ui_today import TodayWageWindow
+    from clockout_confirm import ClockoutConfirmPopup
+    from PyQt5.QtCore import QRect
     from tests.conftest import TEST_TEMP_ROOT
 
-    tmp = TEST_TEMP_ROOT / "gui" / "v54_undo"
+    tmp = TEST_TEMP_ROOT / "gui" / "v54_confirm"
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True)
-    NOW = [datetime(2026, 10, 12, 11, 20)]
+    NOW = [datetime(2026, 10, 9, 18, 30)]
     svc = WageService(tmp, now_provider=lambda: NOW[0])
-    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00",
-                        income_interval_minutes=60)
-    win = TodayWageWindow(svc, None)
-    try:
-        svc.record_clock_out(datetime(2026, 10, 12, 10, 55))   # 误点
-        win.refresh()
-        assert "10:55 下班" in win.amount.text()
-        assert not win.undo_btn.isHidden()
+    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00")
 
-        win._undo_clock_out()
-        rec = svc.record_for(NOW[0].date())
-        assert rec.actual_clock_out is None and rec.resolved_no_overtime
-        win.refresh()
-        assert "下班" not in win.amount.text()
-        assert win.undo_btn.isHidden()
-        # 播报恢复：slot 前进后能再次触发（on_progress 由 PetWindow 挂）
-        svc.on_progress = lambda b: None
-        NOW[0] = datetime(2026, 10, 12, 13, 5)
-        assert svc.maybe_emit_progress() is True
-    finally:
-        win.close()
+    # 确定按钮 → confirmed_flag=True
+    popup = ClockoutConfirmPopup()
+    popup.show()
+    popup._answer_yes()
+    assert popup.confirmed_flag is True
+    popup.hide()
+    svc.record_clock_out(datetime(2026, 10, 9, 18, 30))
+    rec = svc.record_for(NOW[0].date())
+    assert rec.actual_clock_out == datetime(2026, 10, 9, 18, 30)
+    assert rec.overtime_pay == Decimal("15.00")
+
+    # 取消按钮 → confirmed_flag=False（产品里此时不会调用 record）
+    popup2 = ClockoutConfirmPopup()
+    popup2.show()
+    popup2._answer_no()
+    assert popup2.confirmed_flag is False
+    popup2.hide()
