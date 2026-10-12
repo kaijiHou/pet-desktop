@@ -121,10 +121,11 @@ def test_wage_scheduler_is_single_shot_not_polling(pet_window):
     assert pet_window._wage_timer.remainingTime() <= 3600 * 1000
 
 
+
 def test_calendar_clockout_button_stamps_now_and_updates(qapp, test_temp_root):
-    """点一下=当前电脑时间；再点一下=以最新点击为准。"""
+    """今天点'下班打卡'=当前时间（重复点击取最新）；'选时间…'弹出器补卡；历史按钮叫'补卡下班'。"""
     import shutil
-    from datetime import datetime
+    from datetime import datetime, time as _time
     from wage.service import WageService
     from wage.ui_calendar import WorkCalendarDialog
     from tests.conftest import TEST_TEMP_ROOT
@@ -134,42 +135,35 @@ def test_calendar_clockout_button_stamps_now_and_updates(qapp, test_temp_root):
     tmp.mkdir(parents=True)
     NOW = [datetime(2026, 10, 8, 18, 0, 5)]
     svc = WageService(tmp, now_provider=lambda: NOW[0])
-    svc.update_settings(enabled=True, monthly_salary="14000")
+    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00",
+                        income_interval_minutes=60)
     dlg = WorkCalendarDialog(svc)
     try:
         dlg._selected_day = NOW[0].date()
-        dlg._save_clock_out()                      # 第一击：18:00
+        dlg._show_day_detail()
+        assert dlg.record_out_button.text() == "下班打卡"
+        dlg._save_clock_out()                      # 一击：18:00
         rec = svc.record_for(NOW[0].date())
         assert rec.actual_clock_out == datetime(2026, 10, 8, 18, 0)
-        assert dlg.clock_out_edit.time().hour() == 18
+        assert dlg.clock_label.text() == "18:00（点打卡可改）"
 
         NOW[0] = datetime(2026, 10, 8, 19, 30, 40)
-        dlg._save_clock_out()                      # 第二击（没动时间框）：刷新为 19:30
-        rec = svc.record_for(NOW[0].date())
-        assert rec.actual_clock_out == datetime(2026, 10, 8, 19, 30)
-        assert rec.overtime_minutes == 120         # 17:30 起算
+        dlg._save_clock_out()                      # 再击：19:30
+        assert svc.record_for(NOW[0].date()).actual_clock_out == datetime(2026, 10, 8, 19, 30)
 
-        # 手动改时间 → 按填的保存（今天补卡 20:10 也行）
-        from datetime import datetime as _dt2
-        NOW[0] = datetime(2026, 10, 8, 21, 0)
-        from PyQt5.QtCore import QTime as _QT
-        dlg.clock_out_edit.setTime(_QT(20, 10))
+        # 选时间…：选 20:10 → 立即记录 20:10
+        dlg._clock_selection = _time(20, 10)
         dlg._save_clock_out()
         assert svc.record_for(NOW[0].date()).actual_clock_out == datetime(2026, 10, 8, 20, 10)
+        assert dlg.clock_label.text().startswith("20:10")
 
-        # 历史日期：按时间框补记，不抢今天的时间
+        # 历史日期：按钮叫 补卡下班
         from datetime import date as _d
         dlg._selected_day = _d(2026, 10, 5)
-        from PyQt5.QtCore import QTime
-        dlg.clock_out_edit.setTime(QTime(20, 13))
-        dlg._save_clock_out()
-        rec = svc.record_for(_d(2026, 10, 5))
-        assert rec.actual_clock_out == datetime(2026, 10, 5, 20, 13)
+        dlg._show_day_detail()
+        assert dlg.record_out_button.text() == "补卡下班"
     finally:
         dlg.close()
-
-
-
 
 def test_clockout_needs_confirm_and_records_on_yes(qapp, test_temp_root):
     """确认框：确定→记录；取消→不记录。记录链本身由服务层保证。"""

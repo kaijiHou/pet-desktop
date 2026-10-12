@@ -12,6 +12,9 @@ from PyQt5.QtWidgets import (
 )
 
 from .model import WORKDAY, REST, ADJUSTED_WORKDAY, LEAVE, WorkDayRecord
+from ui.modern import (ModernDialog, PrimaryButton, SecondaryButton, Card,
+                       StatCard, SectionTitle, InlineBanner, ModernTimeField,
+                       ModernLineEdit, ModernComboBox)
 from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, StatCard, SectionTitle, InlineBanner, ModernTimeField, ModernLineEdit, ModernComboBox
 
 STATUS_LABELS = {WORKDAY: "工作日", REST: "休息日", ADJUSTED_WORKDAY: "调休上班", LEAVE: "请假"}
@@ -158,12 +161,13 @@ class WorkCalendarDialog(ModernDialog):
         self.weekday_label = QLabel(); self.holiday_label = QLabel(); self.status_label = QLabel(); self.source_label = QLabel(); self.source_label.setObjectName("muted"); self.source_label.setWordWrap(True)
         for label in (self.weekday_label, self.holiday_label, self.status_label, self.source_label): detail.addWidget(label)
         detail.addSpacing(5)
-        self.clock_out_edit = ModernTimeField(QTime(0, 0)); self.clock_out_edit.setSpecialValueText("未记录"); detail.addWidget(QLabel("下班时间")); detail.addWidget(self.clock_out_edit)
+        detail.addWidget(QLabel("下班时间"))
+        self.clock_label = QLabel("未记录"); self.clock_label.setStyleSheet("font-size:15px;font-weight:700;")
+        detail.addWidget(self.clock_label)
+        self._clock_selection = None   # 用户通过"选时间"指定的时刻；None = 跟随按钮语义
         clock_row = QHBoxLayout()
-        self.record_out_button = SecondaryButton("记录下班"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
-        self.cancel_clock_button = SecondaryButton("取消"); self.cancel_clock_button.clicked.connect(self._cancel_clock_out); self.cancel_clock_button.hide(); clock_row.addWidget(self.cancel_clock_button); detail.addLayout(clock_row)
-        self._clock_field_dirty = False
-        self.clock_out_edit.timeChanged.connect(lambda _t: (setattr(self, "_clock_field_dirty", True), self.cancel_clock_button.show()))
+        self.record_out_button = SecondaryButton("下班打卡"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
+        self.pick_time_button = SecondaryButton("选时间…"); self.pick_time_button.clicked.connect(self._pick_clock_time); clock_row.addWidget(self.pick_time_button); detail.addLayout(clock_row)
         self.note_edit = ModernLineEdit(); self.note_edit.setPlaceholderText("给这一天写备注"); detail.addWidget(self.note_edit)
         note_row = QHBoxLayout()
         self.note_button = SecondaryButton("添加备注"); self.note_button.clicked.connect(self._save_note); self.save_note_button = self.note_button; note_row.addWidget(self.note_button)
@@ -224,12 +228,14 @@ class WorkCalendarDialog(ModernDialog):
             # §29: never surface raw paper URLs in the UI — name the source.
             source_text += " · 国务院办公厅放假安排"
         self.source_label.setText(source_text)
-        self.clock_out_edit.setToolTip("不填直接点按钮 = 打当前时间；要补卡就先填时间再点")
-        self._clock_field_dirty = False
-        if record and record.actual_clock_out:
-            self.clock_out_edit.setTime(QTime(record.actual_clock_out.hour, record.actual_clock_out.minute))
+        is_today = day == self.service._now().date()
+        self.record_out_button.setText("下班打卡" if is_today else "补卡下班")
+        if self._clock_selection is not None:
+            self.clock_label.setText(f"将记录 {self._clock_selection:%H:%M}")
+        elif record and record.actual_clock_out:
+            self.clock_label.setText(f"{record.actual_clock_out:%H:%M}（点打卡可改）")
         else:
-            self.clock_out_edit.setTime(QTime(0, 0))
+            self.clock_label.setText("未记录")
         self.note_edit.setText(record.note if record else "")
         idx = self.status.findData("auto" if not detail["is_manual"] else detail["status"]); self.status.setCurrentIndex(max(0, idx))
         if not record:
@@ -252,22 +258,33 @@ class WorkCalendarDialog(ModernDialog):
     def _apply_status(self):
         value = self.status.currentData(); self.service.restore_day_status_auto(self._selected_day) if value == "auto" else self.service.set_day_status(self._selected_day, value); self._refresh(); self._show_action_feedback(self.apply_status_button, "已应用 ✓")
     def _save_clock_out(self):
-        """一键打卡：没动过时间框 = 打当前电脑时间（重复点击以最新为准）；
-        手动改过时间（补卡/改时间）就按填的保存。历史日期未填时间则提示。"""
+        """下班打卡：今天未选时间 → 打当前电脑时间；选了时间 → 记所选。"""
         day = self._selected_day
-        if not getattr(self, "_clock_field_dirty", False):
-            if day == self.service._now().date():
-                now = self.service._now().time()
-                self.clock_out_edit.setTime(QTime(now.hour, now.minute))
-            elif self.clock_out_edit.time() == QTime(0, 0):
-                self._show_action_feedback(self.record_out_button, "请先填时间")
-                return
-        qtime = self.clock_out_edit.time()
-        self._clock_field_dirty = False
-        self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, qtime.hour(), qtime.minute())); self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
-    def _cancel_clock_out(self):
-        record = self.service.record_for(self._selected_day)
-        self.clock_out_edit.setTime(QTime(record.actual_clock_out.hour, record.actual_clock_out.minute) if record and record.actual_clock_out else QTime(0, 0))
+        if self._clock_selection is not None:
+            t = self._clock_selection
+        elif day == self.service._now().date():
+            t = self.service._now().time()
+        else:
+            self._show_action_feedback(self.record_out_button, "先点选时间")
+            return
+        self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, t.hour, t.minute))
+        self._clock_selection = None
+        self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
+
+    def _pick_clock_time(self):
+        """弹出时间选择器（下拉选时/分，不用打字）。确定后记录所选时刻。"""
+        day = self._selected_day
+        record = self.service.record_for(day)
+        initial = (self._clock_selection or (record.actual_clock_out.time() if record and record.actual_clock_out
+                   else self.service._now().time()))
+        dlg = ClockPickDialog(initial, self)
+        if dlg.exec_() and dlg.chosen is not None:
+            self._clock_selection = dlg.chosen
+            self.service.edit_clock_out(day, datetime(day.year, day.month, day.day,
+                                                      dlg.chosen.hour(), dlg.chosen.minute()))
+            self._clock_selection = None
+            self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
+
     def _save_note(self):
         day = self._selected_day; record = self.service.record_for(day) or WorkDayRecord(day, self.service.status_for(day)); record.note = self.note_edit.text().strip(); self.service.records[day.isoformat()] = record; self.service._save_records(); self._refresh(); self._show_action_feedback(self.note_button, "备注已保存 ✓")
 
@@ -312,3 +329,33 @@ class WorkCalendarDialog(ModernDialog):
 
 def _layout_widget(layout):
     widget = QWidget(); widget.setLayout(layout); return widget
+
+
+class ClockPickDialog(ModernDialog):
+    """选时间弹出器：时/分下拉，确定后记录。"""
+
+    def __init__(self, initial_time, parent=None):
+        super().__init__(f"选择时间 {initial_time:%H:%M}", "选好时和分，点确定记录",
+                         parent, min_width=300)
+        self.chosen = None
+        lay = self.body
+        row = QHBoxLayout()
+        self.hour_combo = ModernComboBox()
+        self.hour_combo.addItems([f"{h:02d} 时" for h in range(24)])
+        self.hour_combo.setCurrentIndex(initial_time.hour)
+        row.addWidget(self.hour_combo)
+        self.minute_combo = ModernComboBox()
+        self.minute_combo.addItems([f"{m:02d} 分" for m in range(60)])
+        self.minute_combo.setCurrentIndex(initial_time.minute)
+        row.addWidget(self.minute_combo)
+        lay.addLayout(row)
+        cancel = SecondaryButton("取消"); cancel.clicked.connect(self.reject)
+        ok = PrimaryButton("确定"); ok.clicked.connect(self._confirm)
+        self.add_footer(cancel); self.add_footer(ok)
+
+    def _confirm(self):
+        h = self.hour_combo.currentIndex()
+        m = self.minute_combo.currentIndex()
+        from datetime import time as _time
+        self.chosen = _time(h, m)
+        self.accept()

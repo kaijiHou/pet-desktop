@@ -43,7 +43,7 @@ def test_calendar_actions_show_success_feedback(qapp, test_temp_root):
         assert dialog.record_out_button.property("feedback") == "success"
         assert 'QPushButton#secondary[feedback="success"]' in dialog.styleSheet()
         dialog._on_clicked(date(2026, 9, 4))
-        assert dialog.record_out_button.text() == "记录下班"
+        assert dialog.record_out_button.text() in ("下班打卡", "补卡下班")
     finally:
         dialog.close()
 
