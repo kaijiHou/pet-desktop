@@ -96,8 +96,9 @@ class SettingsDialog(ModernDialog):
             ToggleRow("滚轮调整角色大小", self._work.get("wheel_zoom_enabled", True)),
             ToggleRow("文件操作动画", self._work.get("file_event_animations_enabled", True)),
             ToggleRow("口袋数量角标", self._work.get("pocket_badge_enabled", True)),
+            ToggleRow("开机自启", bool(self._work.get("autostart_enabled", False))),
         ]
-        self.top_check, self.wheel_check, self.anim_check, self.badge_check = [row.toggle for row in self._behavior_rows]
+        self.top_check, self.wheel_check, self.anim_check, self.badge_check, self.autostart_check = [row.toggle for row in self._behavior_rows]
         for row in self._behavior_rows: bl.addWidget(row)
         speed_row = QHBoxLayout(); speed_label = QLabel("动画速度"); speed_row.addWidget(speed_label); speed_row.addStretch()
         from ui.modern import ModernComboBox
@@ -262,6 +263,9 @@ class SettingsDialog(ModernDialog):
         c.set("wheel_zoom_enabled", self.wheel_check.isChecked())
         c.set("file_event_animations_enabled", self.anim_check.isChecked())
         c.set("pocket_badge_enabled", self.badge_check.isChecked())
+        import autostart as _autostart
+        c.set("autostart_enabled", self.autostart_check.isChecked())
+        _autostart.set_enabled(self.autostart_check.isChecked())
         c.set("animation_speed", float(self.speed_combo.currentData()))
         c.set("reminder_sound_enabled", self.sound_check.isChecked())
         c.set("reminder_bubble_enabled", self.bubble_check.isChecked())
@@ -361,6 +365,8 @@ class PetWindow(QWidget):
         self._setup_timers()
         self._setup_callbacks()
         self._setup_speech_bubble()
+        self._pending_deleted = None        # editor atomic-save coalescing
+        self._pending_deleted_timer = None
         self._wage_last_overtime = False
         if self.wage.configured:
             missing = self.wage.missing_clockout_yesterday()
@@ -1211,15 +1217,57 @@ class PetWindow(QWidget):
                       "dir_created": "检测到新建文件夹", "dir_removed": "检测到删除文件夹",
                       "renamed": "检测到文件重命名", "dir_renamed": "检测到文件夹重命名"}
         semantic = action_map.get(event.action)
-        if semantic:
-            self._state = self.STATE_TALKING
-            self.play_semantic(semantic)
-            title = bubble_map.get(event.action, "检测到文件操作")
-            # Show the absolute path so the user knows WHAT changed. Shell
-            # events may legitimately carry no path (KI-08) — title only.
-            path = str(event.path) if getattr(event, "path", None) else None
-            self.show_bubble(f"{title}\n{path}" if path else title, 3500)
-            QTimer.singleShot(4000, lambda: self.set_state(self.STATE_IDLE))
+        if not semantic:
+            return
+        path_str = str(event.path) if getattr(event, "path", None) else None
+        # Editors save atomically: create(tmp) + delete(original) + rename(tmp
+        # → original). The raw "deleted" of the original is NOT a user delete
+        # — hold it briefly; a matching rename/create cancels it into a save.
+        if event.action == "deleted" and path_str:
+            if self._pending_deleted is not None and self._pending_deleted[1] == path_str:
+                return                                    # 同一文件的重复删除事件
+            if self._pending_deleted_timer is not None:
+                self._pending_deleted_timer.stop()
+                self._flush_pending_deleted()             # 前一个悬空删除落地
+            self._pending_deleted = (semantic, path_str, event)
+            self._pending_deleted_timer = QTimer.singleShot(350, self._flush_pending_deleted)
+            return
+        if event.action in ("created", "renamed", "dir_created", "dir_renamed") and path_str:
+            if self._cancel_pending_deleted(path_str):
+                self._emit_file_feedback("renamed", path_str, event, saved=True)
+                return
+        self._emit_file_feedback(event.action, path_str, event, saved=False)
+
+    def _cancel_pending_deleted(self, path_str):
+        if self._pending_deleted is not None and self._pending_deleted[1] == path_str:
+            if self._pending_deleted_timer is not None:
+                self._pending_deleted_timer.stop()
+            self._pending_deleted = None
+            self._pending_deleted_timer = None
+            return True
+        return False
+
+    def _flush_pending_deleted(self):
+        stashed, self._pending_deleted, self._pending_deleted_timer = self._pending_deleted, None, None
+        if stashed is not None:
+            self._emit_file_feedback(stashed[0], stashed[1], stashed[2], saved=False)
+
+    def _emit_file_feedback(self, action, path_str, event, saved=False):
+        action_map = {"created": "CREATE_FILE", "deleted": "DELETE_FILE",
+                      "renamed": "RENAME_FILE", "dir_created": "CREATE_FILE",
+                      "dir_removed": "DELETE_FILE", "dir_renamed": "RENAME_FILE"}
+        bubble_map = {"created": "检测到新建文件", "deleted": "检测到删除文件",
+                      "dir_created": "检测到新建文件夹", "dir_removed": "检测到删除文件夹",
+                      "renamed": "检测到文件重命名", "dir_renamed": "检测到文件夹重命名"}
+        semantic = action_map.get(action)
+        if saved:
+            title, semantic = "检测到文件保存", "RENAME_FILE"
+        else:
+            title = bubble_map.get(action, "检测到文件操作")
+        self._state = self.STATE_TALKING
+        self.play_semantic(semantic)
+        self.show_bubble(f"{title}\n{path_str}" if path_str else title, 3500)
+        QTimer.singleShot(4000, lambda: self.set_state(self.STATE_IDLE))
 
     def _open_add_reminder(self):
         d = AddReminderDialog(self)

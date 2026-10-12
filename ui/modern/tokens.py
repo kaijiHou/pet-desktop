@@ -18,12 +18,12 @@ def base_qss() -> str:
     pick the new palette up (call this, not the stale constant)."""
     return f"""
 QDialog {{ background: transparent; color: {TEXT}; }}
-QFrame#modernCard {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 16px; }}
+QFrame#modernCard {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 18px; }}
 QLabel {{ background: transparent; color: {TEXT}; }}
 QLabel#muted, QLabel.muted {{ color: {MUTED}; }}
 QLabel#title {{ font-size: 20px; font-weight: 700; }}
 QLabel#subtitle {{ color: {MUTED}; font-size: 12px; }}
-QPushButton {{ border: 1px solid transparent; border-radius: 8px; padding: 8px 14px; font-size: 13px; min-height: 22px; }}
+QPushButton {{ border: 1px solid transparent; border-radius: 11px; padding: 8px 14px; font-size: 13px; min-height: 22px; }}
 QPushButton:focus {{ border: 2px solid #93c5fd; }}
 QPushButton#linkButton {{ background: transparent; color: {PRIMARY}; padding: 4px 2px; text-align: left; }}
 QPushButton#linkButton:hover {{ color: {PRIMARY_HOVER}; }}
@@ -41,7 +41,7 @@ QPushButton[feedback="success"] {{ background: #ecfdf5; border-color: #86efac; c
 QPushButton#secondary[feedback="success"], QPushButton#primary[feedback="success"] {{ background: #ecfdf5; border-color: #86efac; color: #047857; font-weight: 600; }}
 QPushButton#titleButton {{ background: transparent; color: {TEXT}; font-size: 15px; padding: 0; }}
 QPushButton#titleButton:hover {{ background: #eef2f7; }}
-QLineEdit, QComboBox, QTimeEdit, QDoubleSpinBox, QSpinBox {{ background: #fbfcfe; border: 1px solid {BORDER}; border-radius: 8px; padding: 7px 9px; min-height: 22px; }}
+QLineEdit, QComboBox, QTimeEdit, QDoubleSpinBox, QSpinBox {{ background: #fbfcfe; border: 1px solid {BORDER}; border-radius: 11px; padding: 7px 9px; min-height: 22px; }}
 QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus {{ border: 1px solid {PRIMARY}; }}
 QCheckBox {{ spacing: 8px; }}
 """

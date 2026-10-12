@@ -54,7 +54,7 @@ class CalendarDayCell(QFrame):
         elif self._hovered: bg = "#eef5ff"
         border = "#2563eb" if selected or self.is_today else "#93c5fd" if self._hovered else "#e5e7eb"
         width = 2 if selected or self.is_today else 1
-        self.setStyleSheet(f"QFrame#calendarDayCell{{background:{bg};border:{width}px solid {border};border-radius:9px;}}")
+        self.setStyleSheet(f"QFrame#calendarDayCell{{background:{bg};border:{width}px solid {border};border-radius:12px;}}")
         if not self.in_month: self.day_label.setStyleSheet("color:#9ca3af;font-weight:700;")
 
     def set_selected(self, selected): self._apply_style(selected)
@@ -162,7 +162,8 @@ class WorkCalendarDialog(ModernDialog):
         clock_row = QHBoxLayout()
         self.record_out_button = SecondaryButton("记录下班"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
         self.cancel_clock_button = SecondaryButton("取消"); self.cancel_clock_button.clicked.connect(self._cancel_clock_out); self.cancel_clock_button.hide(); clock_row.addWidget(self.cancel_clock_button); detail.addLayout(clock_row)
-        self.clock_out_edit.timeChanged.connect(lambda _t: self.cancel_clock_button.show())
+        self._clock_field_dirty = False
+        self.clock_out_edit.timeChanged.connect(lambda _t: (setattr(self, "_clock_field_dirty", True), self.cancel_clock_button.show()))
         self.note_edit = ModernLineEdit(); self.note_edit.setPlaceholderText("给这一天写备注"); detail.addWidget(self.note_edit)
         note_row = QHBoxLayout()
         self.note_button = SecondaryButton("添加备注"); self.note_button.clicked.connect(self._save_note); self.save_note_button = self.note_button; note_row.addWidget(self.note_button)
@@ -223,14 +224,12 @@ class WorkCalendarDialog(ModernDialog):
             # §29: never surface raw paper URLs in the UI — name the source.
             source_text += " · 国务院办公厅放假安排"
         self.source_label.setText(source_text)
-        is_today = day == self.service._now().date()
-        self.clock_out_edit.setReadOnly(is_today)
-        self.clock_out_edit.setToolTip("今天：点下方按钮自动打卡" if is_today else "补记历史时间：先填时间再点记录下班")
+        self.clock_out_edit.setToolTip("不填直接点按钮 = 打当前时间；要补卡就先填时间再点")
+        self._clock_field_dirty = False
         if record and record.actual_clock_out:
             self.clock_out_edit.setTime(QTime(record.actual_clock_out.hour, record.actual_clock_out.minute))
-        elif is_today:
+        else:
             self.clock_out_edit.setTime(QTime(0, 0))
-        else: self.clock_out_edit.setTime(QTime(0, 0))
         self.note_edit.setText(record.note if record else "")
         idx = self.status.findData("auto" if not detail["is_manual"] else detail["status"]); self.status.setCurrentIndex(max(0, idx))
         if not record:
@@ -253,15 +252,18 @@ class WorkCalendarDialog(ModernDialog):
     def _apply_status(self):
         value = self.status.currentData(); self.service.restore_day_status_auto(self._selected_day) if value == "auto" else self.service.set_day_status(self._selected_day, value); self._refresh(); self._show_action_feedback(self.apply_status_button, "已应用 ✓")
     def _save_clock_out(self):
-        """今天：一键打当前电脑时间，重复点击以最新点击为准；历史日期：
-        按时间框里填的时间补记（今天时间之外才需要手填）。"""
+        """一键打卡：没动过时间框 = 打当前电脑时间（重复点击以最新为准）；
+        手动改过时间（补卡/改时间）就按填的保存。历史日期未填时间则提示。"""
         day = self._selected_day
-        if day == self.service._now().date():
-            now = self.service._now().time()
-            self.clock_out_edit.setTime(QTime(now.hour, now.minute))
-            qtime = QTime(now.hour, now.minute)
-        else:
-            qtime = self.clock_out_edit.time()
+        if not getattr(self, "_clock_field_dirty", False):
+            if day == self.service._now().date():
+                now = self.service._now().time()
+                self.clock_out_edit.setTime(QTime(now.hour, now.minute))
+            elif self.clock_out_edit.time() == QTime(0, 0):
+                self._show_action_feedback(self.record_out_button, "请先填时间")
+                return
+        qtime = self.clock_out_edit.time()
+        self._clock_field_dirty = False
         self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, qtime.hour(), qtime.minute())); self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
     def _cancel_clock_out(self):
         record = self.service.record_for(self._selected_day)

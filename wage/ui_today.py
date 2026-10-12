@@ -32,9 +32,12 @@ class TodayWageWindow(QWidget):
         self.progress = QLabel(""); self.progress.setWordWrap(True)
         self.clock_btn = QPushButton("下班打卡"); self.clock_btn.setObjectName("primary")
         self.clock_btn.clicked.connect(self._clock_out)
+        self.undo_btn = QPushButton("撤销打卡"); self.undo_btn.setObjectName("flat")
+        self.undo_btn.setToolTip("误点了打卡？撤销后收入继续累计")
+        self.undo_btn.clicked.connect(self._undo_clock_out); self.undo_btn.hide()
         self.reveal_btn = QPushButton("临时显示金额"); self.reveal_btn.setObjectName("flat")
         self.reveal_btn.clicked.connect(self._toggle_reveal); self.reveal_btn.hide()
-        for w in (self.amount, self.detail, self.progress, self.clock_btn, self.reveal_btn):
+        for w in (self.amount, self.detail, self.progress, self.clock_btn, self.undo_btn, self.reveal_btn):
             lay.addWidget(w)
         root.addWidget(card)
         self._reveal = False
@@ -76,6 +79,7 @@ class TodayWageWindow(QWidget):
 
         clocked = rec is not None and rec.actual_clock_out is not None
         self.clock_btn.setEnabled(True)   # 随时可打，重复点击以最新为准
+        self.undo_btn.setVisible(clocked and rec.actual_clock_out.date() == now.date())
         month_minutes = svc.prior_overtime_minutes_before(snap.date) + snap.overtime_minutes
 
         if clocked:
@@ -139,6 +143,13 @@ class TodayWageWindow(QWidget):
     def _clock_out(self):
         if self.pet is not None:
             self.pet._clock_out()
+        self.refresh()
+
+    def _undo_clock_out(self):
+        """误点打卡的后悔药：清掉今天的下班记录，收入继续累计、播报恢复。"""
+        self.service.mark_no_overtime(self.service._now().date())
+        if self.pet is not None and hasattr(self.pet, "_on_clockout_record_changed"):
+            self.pet._on_clockout_record_changed()
         self.refresh()
 
     def hideEvent(self, event):

@@ -21,6 +21,7 @@ DEFAULT_CONFIG = {
     "selected_character_id": "default_dynamic_ghost",
     "ui_skin": "sakura",               # 皮肤: sakura/cream/mint/sky/taro/custom_*
     "animation_speed": 1.0,            # 动画播放速度倍率 0.6/1.0/1.5/2.0
+    "autostart_enabled": False,        # 开机自启（写 HKCU Run）
     "character_image": "",      # portable path under data/character_images/, "" = dynamic pack
 
     # Behavior (V2)

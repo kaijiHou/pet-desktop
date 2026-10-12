@@ -17,7 +17,7 @@ import ui_skin
 def _panel_qss(p: dict) -> str:
     """Assistant-panel stylesheet derived from the active skin palette."""
     return f"""
-        QFrame#card {{ background: {p['card']}; border: 1px solid {p['border']}; border-radius: 14px; }}
+        QFrame#card {{ background: {p['card']}; border: 1px solid {p['border']}; border-radius: 18px; }}
         QLabel#panelHeading {{ color: {p['text']}; font-size: 11pt; font-weight: 700; }}
         QLabel#panelCaption {{ color: {p['muted']}; font-size: 8pt; }}
         QLabel#panelSectionTitle {{ color: {p['text']}; font-size: 10pt; font-weight: 650; }}

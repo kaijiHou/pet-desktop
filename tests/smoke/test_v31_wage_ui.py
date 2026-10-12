@@ -144,10 +144,18 @@ def test_calendar_clockout_button_stamps_now_and_updates(qapp, test_temp_root):
         assert dlg.clock_out_edit.time().hour() == 18
 
         NOW[0] = datetime(2026, 10, 8, 19, 30, 40)
-        dlg._save_clock_out()                      # 第二击：刷新为 19:30
+        dlg._save_clock_out()                      # 第二击（没动时间框）：刷新为 19:30
         rec = svc.record_for(NOW[0].date())
         assert rec.actual_clock_out == datetime(2026, 10, 8, 19, 30)
         assert rec.overtime_minutes == 120         # 17:30 起算
+
+        # 手动改时间 → 按填的保存（今天补卡 20:10 也行）
+        from datetime import datetime as _dt2
+        NOW[0] = datetime(2026, 10, 8, 21, 0)
+        from PyQt5.QtCore import QTime as _QT
+        dlg.clock_out_edit.setTime(_QT(20, 10))
+        dlg._save_clock_out()
+        assert svc.record_for(NOW[0].date()).actual_clock_out == datetime(2026, 10, 8, 20, 10)
 
         # 历史日期：按时间框补记，不抢今天的时间
         from datetime import date as _d
@@ -159,3 +167,39 @@ def test_calendar_clockout_button_stamps_now_and_updates(qapp, test_temp_root):
         assert rec.actual_clock_out == datetime(2026, 10, 5, 20, 13)
     finally:
         dlg.close()
+
+
+def test_today_undo_clockout_resumes_accrual(qapp, test_temp_root):
+    """误点打卡 → 撤销 → 收入恢复累计、播报恢复。"""
+    import shutil
+    from datetime import datetime
+    from wage.service import WageService
+    from wage.ui_today import TodayWageWindow
+    from tests.conftest import TEST_TEMP_ROOT
+
+    tmp = TEST_TEMP_ROOT / "gui" / "v54_undo"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    NOW = [datetime(2026, 10, 12, 11, 20)]
+    svc = WageService(tmp, now_provider=lambda: NOW[0])
+    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00",
+                        income_interval_minutes=60)
+    win = TodayWageWindow(svc, None)
+    try:
+        svc.record_clock_out(datetime(2026, 10, 12, 10, 55))   # 误点
+        win.refresh()
+        assert "10:55 下班" in win.amount.text()
+        assert not win.undo_btn.isHidden()
+
+        win._undo_clock_out()
+        rec = svc.record_for(NOW[0].date())
+        assert rec.actual_clock_out is None and rec.resolved_no_overtime
+        win.refresh()
+        assert "下班" not in win.amount.text()
+        assert win.undo_btn.isHidden()
+        # 播报恢复：slot 前进后能再次触发（on_progress 由 PetWindow 挂）
+        svc.on_progress = lambda b: None
+        NOW[0] = datetime(2026, 10, 12, 13, 5)
+        assert svc.maybe_emit_progress() is True
+    finally:
+        win.close()

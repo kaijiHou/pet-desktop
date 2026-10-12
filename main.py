@@ -22,6 +22,10 @@ import applog
 
 def _run():
     log = applog.setup_logging()
+    import autostart
+    if not autostart.acquire_single_instance_mutex():
+        log.info("startup: another DesktopPet instance is running; exiting")
+        return 0
     import app_version
     info = app_version.build_info()
     log.info("startup: pet-desktop launching (python %s)", sys.version.split()[0])
