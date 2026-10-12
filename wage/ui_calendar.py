@@ -164,6 +164,16 @@ class WorkCalendarDialog(ModernDialog):
         detail.addWidget(QLabel("下班时间"))
         self.clock_label = QLabel("未记录"); self.clock_label.setStyleSheet("font-size:15px;font-weight:700;")
         detail.addWidget(self.clock_label)
+        self.picker_row = QHBoxLayout(); self.picker_row.setSpacing(6)
+        self.picker_hour = ModernComboBox(); self.picker_hour.addItems([f"{h:02d} 时" for h in range(24)])
+        self.picker_minute = ModernComboBox(); self.picker_minute.addItems([f"{m:02d} 分" for m in range(60)])
+        self.picker_ok = SecondaryButton("确定"); self.picker_ok.clicked.connect(self._picker_confirmed)
+        self.picker_cancel = SecondaryButton("取消"); self.picker_cancel.clicked.connect(self._picker_cancel)
+        self.picker_row.addWidget(self.picker_hour); self.picker_row.addWidget(self.picker_minute)
+        self.picker_row.addWidget(self.picker_ok); self.picker_row.addWidget(self.picker_cancel)
+        picker_host = QWidget(); picker_host.setLayout(self.picker_row); picker_host.setStyleSheet("background: transparent;")
+        picker_host.hide(); detail.addWidget(picker_host)
+        self.picker_host = picker_host
         self._clock_selection = None   # 用户通过"选时间"指定的时刻；None = 跟随按钮语义
         clock_row = QHBoxLayout()
         self.record_out_button = SecondaryButton("下班打卡"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
@@ -230,6 +240,7 @@ class WorkCalendarDialog(ModernDialog):
         self.source_label.setText(source_text)
         is_today = day == self.service._now().date()
         self.record_out_button.setText("下班打卡" if is_today else "补卡下班")
+        self.record_out_button._idle_text = self.record_out_button.text()   # 反馈复位基准跟随文案
         if self._clock_selection is not None:
             self.clock_label.setText(f"将记录 {self._clock_selection:%H:%M}")
         elif record and record.actual_clock_out:
@@ -272,18 +283,25 @@ class WorkCalendarDialog(ModernDialog):
         self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
 
     def _pick_clock_time(self):
-        """弹出时间选择器（下拉选时/分，不用打字）。确定后记录所选时刻。"""
+        """在详情面板内展开 时/分 下拉（无独立窗口）。"""
+        visible = self.picker_host.isVisible()
+        self.picker_host.setVisible(not visible)
+        self.pick_time_button.setText("收起" if not visible else "选时间…")
+
+    def _picker_confirmed(self):
+        """读取内嵌下拉并立即补卡。"""
         day = self._selected_day
-        record = self.service.record_for(day)
-        initial = (self._clock_selection or (record.actual_clock_out.time() if record and record.actual_clock_out
-                   else self.service._now().time()))
-        dlg = ClockPickDialog(initial, self)
-        if dlg.exec_() and dlg.chosen is not None:
-            self._clock_selection = dlg.chosen
-            self.service.edit_clock_out(day, datetime(day.year, day.month, day.day,
-                                                      dlg.chosen.hour(), dlg.chosen.minute()))
-            self._clock_selection = None
-            self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
+        h = self.picker_hour.currentIndex()
+        m = self.picker_minute.currentIndex()
+        self.service.edit_clock_out(day, datetime(day.year, day.month, day.day, h, m))
+        self._clock_selection = None
+        self.picker_host.hide()
+        self.pick_time_button.setText("选时间…")
+        self._refresh(); self._show_action_feedback(self.record_out_button, "已记录 ✓")
+
+    def _picker_cancel(self):
+        self.picker_host.hide()
+        self.pick_time_button.setText("选时间…")
 
     def _save_note(self):
         day = self._selected_day; record = self.service.record_for(day) or WorkDayRecord(day, self.service.status_for(day)); record.note = self.note_edit.text().strip(); self.service.records[day.isoformat()] = record; self.service._save_records(); self._refresh(); self._show_action_feedback(self.note_button, "备注已保存 ✓")
@@ -330,32 +348,3 @@ class WorkCalendarDialog(ModernDialog):
 def _layout_widget(layout):
     widget = QWidget(); widget.setLayout(layout); return widget
 
-
-class ClockPickDialog(ModernDialog):
-    """选时间弹出器：时/分下拉，确定后记录。"""
-
-    def __init__(self, initial_time, parent=None):
-        super().__init__(f"选择时间 {initial_time:%H:%M}", "选好时和分，点确定记录",
-                         parent, min_width=300)
-        self.chosen = None
-        lay = self.body
-        row = QHBoxLayout()
-        self.hour_combo = ModernComboBox()
-        self.hour_combo.addItems([f"{h:02d} 时" for h in range(24)])
-        self.hour_combo.setCurrentIndex(initial_time.hour)
-        row.addWidget(self.hour_combo)
-        self.minute_combo = ModernComboBox()
-        self.minute_combo.addItems([f"{m:02d} 分" for m in range(60)])
-        self.minute_combo.setCurrentIndex(initial_time.minute)
-        row.addWidget(self.minute_combo)
-        lay.addLayout(row)
-        cancel = SecondaryButton("取消"); cancel.clicked.connect(self.reject)
-        ok = PrimaryButton("确定"); ok.clicked.connect(self._confirm)
-        self.add_footer(cancel); self.add_footer(ok)
-
-    def _confirm(self):
-        h = self.hour_combo.currentIndex()
-        m = self.minute_combo.currentIndex()
-        from datetime import time as _time
-        self.chosen = _time(h, m)
-        self.accept()
