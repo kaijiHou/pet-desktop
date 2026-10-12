@@ -144,7 +144,8 @@ def test_quick_panel_shows_only_first_six_and_open_does_not_record_recent(
     assert panel.favorite_grid.count() == 6
     assert panel.favorite_count == 8
     assert panel.favorite_view_all_btn.text() == "查看全部（8）"
-    assert panel.sizeHint().height() <= 520
+    # V5.4: 上限 520→600（内容自适应，超出才滚动到收藏区内部滚动）
+    assert panel.sizeHint().height() <= 600
     assert panel._open_favorite(favorites[0].id)
     assert len(opened) == 1 and Path(opened[0]) == favorites[0].path
     assert favorite_service.list_recents() == []
@@ -480,8 +481,8 @@ def test_three_favorites_get_room_without_covering_the_pocket_divider(qapp, pet_
         assert panel.favorite_grid.verticalSpacing() >= 6
         assert panel.favorite_grid.itemAt(2).widget().height() >= 31
         assert panel.favorite_manage_btn.objectName() == "panelManager"
-        assert "QPushButton#panelManager:hover" in panel.scroll_area.widget().styleSheet()
-        assert panel.scroll_area.widget() is not None
+        assert "QPushButton#panelManager:hover" in panel._card.styleSheet()
+        assert panel._card is not None
         # V5.4: maxHeight raised 520→600 so 收藏/提醒区不再被裁切
         assert panel.maximumHeight() == 600
     finally:

@@ -75,6 +75,7 @@ class QuickPanel(QWidget):
         """Re-paint every locally-styled surface from the active skin."""
         p = ui_skin.palette()
         self._card.setStyleSheet(_panel_qss(p))
+        self.setStyleSheet(f"QuickPanel {{ background: transparent; }}")
         if getattr(self, "_mark", None) is not None:
             self._mark.setStyleSheet(
                 f"background:{p['menu_highlight']}; color:{p['amount']}; "
@@ -166,9 +167,9 @@ class QuickPanel(QWidget):
         self.remind_items_layout = QVBoxLayout(); self.remind_items_layout.setSpacing(2); layout.addLayout(self.remind_items_layout)
         self.no_remind_label = QLabel("暂无提醒"); self.no_remind_label.setObjectName("panelCaption"); self.no_remind_label.hide(); layout.addWidget(self.no_remind_label)
         self.open_reminders_btn = QPushButton("🔔 我的提醒"); self.open_reminders_btn.setObjectName("panelQuiet"); self.open_reminders_btn.clicked.connect(self._open_reminders); layout.addWidget(self.open_reminders_btn)
-        self.scroll_area = QScrollArea(self); self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setFrameShape(QFrame.NoFrame); self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll_area.setWidget(card); root.addWidget(self.scroll_area)
+        # 无外层滚动容器：QScrollArea 的方形视口会在圆角卡片四角露出"尖尖"，
+        # 而内容量在 600px 上限内（收藏区自带滚动），直接铺卡片即可。
+        root.addWidget(card)
 
     @staticmethod
     def _clear(layout):
