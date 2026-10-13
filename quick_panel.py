@@ -62,6 +62,11 @@ class QuickPanel(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFixedWidth(320); self.setMaximumHeight(600)
         self._build_ui(); self._refresh()
+        # 工资区 5 分钟自刷新：仅面板可见期间运行（showNear 启动 / hideEvent 停止）
+        from PyQt5.QtCore import QTimer
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setInterval(5 * 60 * 1000)
+        self.refresh_timer.timeout.connect(self._refresh_wage)
         ui_skin.skinChanged.connect(self._apply_skin)
 
     def _section_line(self, layout):
@@ -375,6 +380,7 @@ class QuickPanel(QWidget):
         if not live:
             self.show(); self.raise_(); self.activateWindow()
             QApplication.instance().installEventFilter(self)
+            self.refresh_timer.start()
 
     def eventFilter(self, obj, event):
         """Click-anywhere-outside closes the assistant panel.
@@ -396,6 +402,7 @@ class QuickPanel(QWidget):
 
     def hideEvent(self, event):
         QApplication.instance().removeEventFilter(self)
+        self.refresh_timer.stop()
         super().hideEvent(event)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape: self.hide()

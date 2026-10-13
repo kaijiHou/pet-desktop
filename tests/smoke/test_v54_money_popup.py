@@ -55,3 +55,18 @@ def test_dynamic_anchor_is_cell_sized(pet_window):
     rect = pet_window.visible_pet_rect()
     assert rect.width() <= 192 * pet_window.character.scale + 2
     assert rect.height() <= 208 * pet_window.character.scale + 2
+
+
+def test_quick_panel_refresh_timer_5min(pet_window):
+    """工资区每 5 分钟自刷新（仅可见期间）；隐藏即停。"""
+    from quick_panel import QuickPanel
+    panel = pet_window._quick_panel
+    if panel is None:
+        panel = QuickPanel(pet_window)
+        pet_window._quick_panel = panel
+    assert panel.refresh_timer.interval() == 5 * 60 * 1000
+    panel.showNear(pet_window)
+    assert panel.refresh_timer.isActive()
+    panel.hide()
+    assert not panel.refresh_timer.isActive()
+    pet_window._quick_panel = None

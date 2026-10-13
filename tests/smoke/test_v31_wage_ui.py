@@ -254,3 +254,30 @@ def test_clockout_popup_warns_before_work_end(qapp, test_temp_root):
     NOW[0] = datetime(2026, 10, 12, 17, 30)
     title, sub = clockout_popup_texts(svc)
     assert "还没到" not in sub
+
+
+def test_picker_buttons_fit_inside_card(qapp, test_temp_root):
+    """确定/取消不得被挤出面板右缘（用户截图显示过裁切）。"""
+    import shutil
+    from datetime import datetime
+    from wage.service import WageService
+    from wage.ui_calendar import WorkCalendarDialog
+    from tests.conftest import TEST_TEMP_ROOT
+
+    tmp = TEST_TEMP_ROOT / "gui" / "v54_picker_fit"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    svc = WageService(tmp, now_provider=lambda: datetime(2026, 10, 12, 11, 20))
+    svc.update_settings(enabled=True, monthly_salary="14000", work_end="17:00")
+    dlg = WorkCalendarDialog(svc)
+    try:
+        dlg.show(); qapp.processEvents()
+        dlg._pick_clock_time(); qapp.processEvents()
+        card_right = dlg.detail_card.mapTo(dlg, dlg.detail_card.rect().topRight()).x()
+        for name, widget in (("ok", dlg.picker_ok), ("cancel", dlg.picker_cancel),
+                             ("hour", dlg.picker_hour), ("minute", dlg.picker_minute)):
+            right = widget.mapTo(dlg, widget.rect().topRight()).x()
+            assert right <= card_right - 2, f"{name} clipped: {right} > {card_right}"
+        dlg.picker_ok.setFocus()
+    finally:
+        dlg.close()
