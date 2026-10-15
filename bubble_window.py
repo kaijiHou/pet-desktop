@@ -24,7 +24,7 @@ from PyQt5.QtGui import QPainter, QPainterPath, QPen, QFont, QFontMetrics, QColo
 from PyQt5.QtWidgets import QLabel, QApplication
 
 import anchor
-import theme
+import ui_skin
 
 
 class BubbleWindow(QLabel):
@@ -89,9 +89,14 @@ class BubbleWindow(QLabel):
         else:
             path.moveTo(body.left(), cx - tail_len); path.lineTo(rect.left(), cx); path.lineTo(body.left(), cx + tail_len)
         path.closeSubpath()
-        p.fillPath(path, QColor(255, 255, 255, 242))
-        p.setPen(QPen(QColor(theme.BORDER), 1.2)); p.drawPath(path)
-        p.setPen(QColor(theme.TEXT)); p.setFont(QFont("Microsoft YaHei UI", 8))
+        # Bubble surface follows the active skin: a dark theme must NOT get
+        # near-white paint under light bridged text (unreadable wash).
+        skin = ui_skin.palette()
+        fill = QColor(skin["menu_bg"])
+        fill.setAlpha(242)
+        p.fillPath(path, fill)
+        p.setPen(QPen(QColor(skin["menu_border"]), 1.2)); p.drawPath(path)
+        p.setPen(QColor(skin["text"])); p.setFont(QFont("Microsoft YaHei UI", 8))
         p.drawText(body.adjusted(9, 7, -9, -6), Qt.TextWordWrap | Qt.AlignLeft | Qt.AlignTop, self._text)
         p.end()
         from PyQt5.QtGui import QPixmap
