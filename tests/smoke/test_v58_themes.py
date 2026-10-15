@@ -19,18 +19,19 @@ import pytest
 CLASSIC = ("sakura", "cream", "mint", "sky", "taro")
 CLASSIC_NAMES = {"sakura": "樱花粉", "cream": "奶油黄", "mint": "薄荷绿",
                  "sky": "天空蓝", "taro": "香芋紫"}
+ASSET_THEMES = {"rose_moon": ("玫瑰月夜", True), "mint_pearl": ("薄荷珍珠", False)}
 
 
-def test_presets_rollback_state(theme_env):
-    """Classic five restored (original names, light) + dark rose_moon only."""
+def test_presets_state(theme_env):
+    """Classic five (original names/colors) + the two asset themes."""
     skins = theme_env.PRESETS
-    assert sorted(skins) == sorted((*CLASSIC, "rose_moon"))
+    assert sorted(skins) == sorted((*CLASSIC, *ASSET_THEMES))
     for sid, expected_name in CLASSIC_NAMES.items():
         assert skins[sid][0] == expected_name
         assert not skins[sid][1].get("dark", False)
-    name, colors = skins["rose_moon"]
-    assert name == "玫瑰月夜"
-    assert colors.get("dark") is True and colors.get("category") == "cute"
+    for sid, (expected_name, dark) in ASSET_THEMES.items():
+        assert skins[sid][0] == expected_name
+        assert skins[sid][1].get("dark", False) is dark
 
 
 def test_all_presets_have_core_keys_and_deco(theme_env):

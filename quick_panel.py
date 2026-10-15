@@ -65,7 +65,7 @@ def _panel_qss(p: dict) -> str:
         QLabel#wageArtScrim {{ background: qlineargradient(x1:0 y1:0, x2:1 y2:0, stop:0 {p['scrim_left']}, stop:0.55 {p['scrim_mid']}, stop:1 {p['scrim_right']}); border: none; }}
         QLabel#sectionIcon, QLabel#roseDecor {{ background: transparent; border: none; }}
         QFrame#pocketBanner {{ background: {p['card']}; border: 1px solid {p['section_border']}; border-radius: 14px; }}
-        QPushButton#pocketBannerBtn {{ background: transparent; color: {p['action_text']}; border: 1px solid transparent; border-radius: 13px; padding: 6px 10px; font-weight: 700; }}
+        QPushButton#pocketBannerBtn {{ background: transparent; color: {p['text']}; border: 1px solid transparent; border-radius: 13px; padding: 6px 10px; font-weight: 700; }}
         QPushButton#pocketBannerBtn:hover {{ background: rgba(255,255,255,36); border-color: {p['tint_border']}; }}
         QPushButton#pocketBannerBtn:pressed {{ background: rgba(255,255,255,60); }}
         QLabel#panelRow {{ background: {p['chip']}; border: 1px solid {p['tint_border']}; border-radius: 9px; padding: 4px 8px; font-size: 8pt; color: {p['text']}; }}

@@ -122,6 +122,19 @@ PRESETS = {
         "primary_top": "#E86E9C", "primary_bottom": "#C4507C",
         "glow": "#F2A0BC", "deco": "🌹",
     }),
+    # ── 薄荷珍珠（V5.11，插画素材主题，海盐薄荷亮色）──────────────────────
+    "mint_pearl": ("薄荷珍珠", {
+        "accent": "#4FAF9C", "accent_hover": "#3E9C8A",
+        "bg": "#F2FAF7", "card": "#FFFFFF", "border": "#D5EBE2",
+        "text": "#2E4A42", "muted": "#5E8A7E",
+        "menu_bg": "#F0F8F4", "menu_border": "#CFE8DD",
+        "menu_highlight": "#DFF3EA", "menu_highlight_text": "#2E8574",
+        "amount": "#2F9C8A",
+        "category": "cute",
+        "hero_top": "#DFF3EC", "hero_bottom": "#C4E8DC",
+        "primary_top": "#4FAF9C", "primary_bottom": "#3B9482",
+        "glow": "#A8D8C8", "deco": "🐚",
+    }),
 }
 
 SKIN_KEYS = ("accent", "accent_hover", "bg", "card", "border", "text", "muted",
