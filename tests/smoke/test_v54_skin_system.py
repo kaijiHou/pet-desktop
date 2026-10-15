@@ -34,7 +34,9 @@ def test_set_skin_mutates_legacy_globals_and_persists(skin_env, monkeypatch):
     assert skin_env.set_skin("mint")
     p = skin_env.palette()
     assert theme.ACCENT == p["accent"] == "#34B78F"
-    assert tokens.PRIMARY == p["accent"]
+    # V5.8: dialog primary buttons mirror the contrast-gated action colour
+    # (readable in both light and dark themes), not the raw accent.
+    assert tokens.PRIMARY == p["action_bg"]
     assert theme.MENU_BG == p["menu_bg"]
     # persisted for next startup
     import config as config_mod

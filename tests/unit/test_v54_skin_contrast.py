@@ -21,10 +21,14 @@ def test_skin_contrast(skin_id, monkeypatch):
     assert ui_skin._contrast(p["text_soft"], p["section_bg"]) >= 4.5
     assert ui_skin._contrast(p["text_soft"], p["tint_light"]) >= 4.5
     assert ui_skin._contrast(p["amount"], p["section_bg"]) >= 4.5
-    assert ui_skin._contrast("#FFFFFF", p["action_bg"]) >= 4.5
-    assert ui_skin._contrast("#FFFFFF", p["action_hover"]) >= 4.5
+    # Primary action: text must read on the fill in either direction
+    # (bright accents like lime/gold carry dark text, mid tones white).
+    assert ui_skin._contrast(p["action_text"], p["action_bg"]) >= 4.5
+    assert ui_skin._contrast(p["action_text"], p["action_hover"]) >= 4.5
     assert p["section_bg"] == ui_skin._tint(p["accent"], p["card"], 0.10)
-    assert p["tint_light"] == ui_skin._tint(p["accent"], "#FFFFFF", 0.12)
+    # Tints mix with white on light skins and with the card on dark ones.
+    assert p["tint_light"] == ui_skin._tint(p["accent"], p["tint_base"], 0.12)
+    assert (p["tint_base"] == "#FFFFFF") != bool(p["dark"])
 
 
 def test_quick_panel_switch_recolors_visible_captions(qapp, test_temp_root, monkeypatch):
