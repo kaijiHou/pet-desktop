@@ -466,3 +466,13 @@ Fresh Release 构建与黑盒验证结果由 `docs/V52_CHANGE_SUMMARY.md` §9–
 | 真实 Explorer/人工屏幕视觉/DPI/鼠标 | **NOT TESTED** | Qt 控件渲染截图不冒充真实桌面验收；详见 `docs/V53_REAL_ACCEPTANCE.md` |
 
 正式 release 的全量结果、时间与实际产物摘要见 `docs/V53_CHANGE_SUMMARY.md`。
+
+## V5.8（2026-10-15）
+
+| 命令 / 套件 | 结果 | 覆盖 |
+|---|---:|---|
+| `.venv\Scripts\python.exe -m pytest tests -q` | **476 passed, 1 skipped / 129.62s** | 全量回归 + V5.8 主题套件（首轮 476+1 中 v49 gallery 计时器测试负载抖动失败，单跑即过，复跑全量全绿） |
+| `tests/smoke/test_v58_themes.py` | **8 passed** | 16 预设分类（可爱8/炫酷8）、暗色风味键、16 套切换持久化+bridge、QuickPanel/工作日历逐主题渲染、主题中心页签/卡片/切换、零 paintEvent 红线、日历格子换肤 |
+| `tests/unit/test_v54_skin_contrast.py` | **19 passed** | 参数化对比度验收扩到 16 预设+3 自定义（≥4.5 双向门禁、tint_base 公式、action_text 门禁） |
+| `scripts/capture_v58_themes.py` | **40 张渲染图** | 16 主题 QuickPanel+日历、before/after、theme-picker-cute/cool、DPI 125%/150%（QT_SCALE_FACTOR+grab 实像素，无裁切）；沙盒六重定向，未触碰真实 data/ |
+| 真实显示器人工视觉 / 鼠标 / EXE 打包 | **NOT TESTED** | 沿用项目边界：Qt 离屏渲染不冒充真机验收；EXE 级视觉验收继续遗留 |

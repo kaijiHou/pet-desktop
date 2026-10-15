@@ -1139,3 +1139,28 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 
 ### V5.8 开工
 - 用户提供主题参考包（26 张图：cute_quickpanel×8、cute_calendar×1、cool_quickpanel×8、cool_calendar×8）+ 完整还原需求 txt；目标：16 套主题（可爱 8 + 炫酷 8）按图还原 QuickPanel 与工作日历，复用现有 ui_skin 架构。详见 docs/V58_REFERENCE_MAPPING.md（本轮新增）。
+
+---
+
+## 2026-10-15 - V5.8 主题还原落地（16 套主题 + 主题中心）
+
+### 大小周收尾
+- ui_calendar 两处旧口径文案（排班规则说明/图例）修正并单独 commit（754c4a2）。
+
+### 主题系统（ui_skin 复用扩展，未造第二套架构）
+- `PRESETS` 5 → 16：可爱 8（sakura/garden/taro/sky/cream/forest/mint/berry_night，末位暗色）+ 炫酷 8（cyber_night/deep_pulse/ember_tech/aurora_pulse/titanium/obsidian_gold/storm_volt/midnight_neon，全暗色）。原 4 套预设原色保留改名归类；"奶油黄"→"蜜桃奶茶"（焦糖）。产品内只用可爱/炫酷字样。
+- `palette()` 明暗双向派生：`_fit_text` 按背景亮度加深/提亮；`tint_base` 亮=白暗=卡；`action_bg/action_text` 双向门禁（亮强调色配深字）；对比度验收参数化 19 例全过。
+- 风味键：hero 渐变/primary 渐变/glow/状态四色/chip/deco emoji，均带派生兜底；自定义皮肤 build_custom_colors 支持 dark。
+- `ui/modern/tokens.base_qss` 去亮色硬编码 → bridge 推送 SURFACE/HOVER_BG/INPUT_BG/FOCUS_RING/ACTION_TEXT 等，深色下对话框/输入/下拉一致。
+
+### QuickPanel / 工作日历按图重做
+- 面板：渐变 hero 工资卡+状态胶囊+19pt 金额+主题装饰 emoji；胶囊按钮体系；去分隔线改留白+chip 行；文件夹 chip 网格。红线未动（无 paintEvent、无 QScrollArea、5 分钟刷新保留）。
+- 日历：月历格全调色板化（休息/调休/请假洗色、今天 accent 环、已记录 ok 点、状态词随色）；下班打卡/应用日期状态改主色钮（文案不动，测试钉纯文本）；摘要卡 emoji 图标；图例彩点化。
+
+### 主题中心（新 ui_theme_picker.py + pet_window 菜单）
+- 可爱/炫酷（+自定义）页签 + 132×128 预览卡网格（真实调色板迷你 mockup）+ 当前 ✓ 徽标/描边；点卡即切并持久化；右键 🎨 主题 → 主题中心…。
+
+### 测试与截图
+- 全量 **476 passed, 1 skipped**（V5.8 新增 8 项；v49 gallery 计时器测试首轮负载抖动、单跑即过、复跑全绿）。
+- 截图 40 张进 `docs/screenshots/v58/`（16 主题×两页、before/after、主题中心两页签、DPI 125%/150% 实像素）；采集脚本六重定向沙盒。C 盘解包临时目录已按用户要求移入回收站。
+- 文档：V58_REFERENCE_MAPPING / V58_CHANGE_SUMMARY / V58_REFERENCE_COMPARISON / TEST_REPORT / KNOWN_ISSUES 同步更新。
