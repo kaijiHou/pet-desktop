@@ -1164,3 +1164,35 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 - 全量 **476 passed, 1 skipped**（V5.8 新增 8 项；v49 gallery 计时器测试首轮负载抖动、单跑即过、复跑全绿）。
 - 截图 40 张进 `docs/screenshots/v58/`（16 主题×两页、before/after、主题中心两页签、DPI 125%/150% 实像素）；采集脚本六重定向沙盒。C 盘解包临时目录已按用户要求移入回收站。
 - 文档：V58_REFERENCE_MAPPING / V58_CHANGE_SUMMARY / V58_REFERENCE_COMPARISON / TEST_REPORT / KNOWN_ISSUES 同步更新。
+
+---
+
+## 2026-10-15（续）- V5.10 玫瑰月夜可爱风首批素材接入 + 气泡跟肤修复
+
+### 背景与转向
+- 用户对 V5.8 明确不满："这不就换了一套颜色吗"——参考图要求的是插画/场景/图标层级的还原，
+  不是调色板换肤。用户随后给出 V5.10 任务书：**停掉扩风格**，先用 4 张原始透明素材把
+  QuickPanel 一套真正做出来，再谈扩展。
+- 4 张素材（玫瑰花饰头像 1254²、玫瑰月夜阳台场景 1672×941、情书礼盒横幅 2172×724、
+  图标组母板 2172×724）从会话图片缓存字节级拷入 `assets/ui_themes/rose_moon/`，尺寸即标准。
+
+### 主题接入（rose_moon，可爱分类，暗色）
+- ui_skin：新预设 `rose_moon`（玫瑰月夜）+ `theme_asset()` 素材查找助手（assets/ui_themes/<id>/<name>.png，
+  缺失自动回退 emoji/渐变）+ scrim 渐变派生色（文字压插画层的可读性，对比度门禁不变）。
+- quick_panel：工资卡改三层堆叠（hero 场景 QLabel[Ignored+scaledContents] → scrim → 真实控件），
+  头像用 avatar 图，文件口袋横幅=pocket_banner 底层+透明真实按钮铺满可点击，8 枚母板切图
+  （close/plus/folder/pocket/bell/calendar/clock/rose）替换 emoji 与系统黄色文件夹图标，
+  图标按方形中心裁剪（alpha bbox 会把伴饰裁成细长条——踩过）。
+- ui_theme_picker：rose_moon 预览卡直接用 hero 缩略图；徽标改"✓"防重叠。
+- 踩坑：QLabel[pixmap] 在布局前的 sizeHint（640×480 默认）会把面板撑到 1375px——背景层必须
+  `QSizePolicy.Ignored + setScaledContents(True)`；pytest 里构造 QWidget 前没 QApplication 会
+  静默 exit 127（0 字节输出）——测试签名必须带 qapp 夹具。
+
+### 气泡跟肤修复（用户实测反馈）
+- 对话气泡底色硬编码近白，深色皮肤下浅色字不可读 → 底/框/字全部取 `ui_skin.palette()`；
+  QImage 离屏渲染零 paintEvent 架构未动。测试断言暗皮中心亮度<120、亮皮>200。
+
+### 验收
+- 全量 **486 passed, 1 skipped**（V5.10 新增 8 项 + 气泡 1 项）；截图
+  docs/screenshots/v510/（100%+125% DPI、主题中心）；对照说明 docs/V510_ROSE_MOON_THEME_SUMMARY.md。
+- 产品内主题现为 17 套；后续补素材沿用固定尺寸体系即可直接生效。
