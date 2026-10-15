@@ -15,36 +15,45 @@ import ui_skin
 
 
 def _panel_qss(p: dict) -> str:
-    """Assistant-panel stylesheet derived from the active skin palette."""
+    """Assistant-panel stylesheet derived from the active skin palette.
+
+    V5.8: wage card is a gradient hero card with a status chip and a theme
+    decoration; buttons are pills; sections are separated by whitespace and
+    chip rows instead of hairlines (per the reference pack)."""
     return f"""
-        QFrame#card {{ background: {p['card']}; border: 1px solid {p['border']}; border-radius: 18px; }}
+        QFrame#card {{ background: {p['card']}; border: 1px solid {p['border']}; border-radius: 20px; }}
         QLabel#panelHeading {{ color: {p['text']}; font-size: 11pt; font-weight: 700; }}
         QLabel#panelCaption {{ color: {p['muted']}; font-size: 8pt; }}
         QLabel#panelSectionTitle {{ color: {p['text']}; font-size: 10pt; font-weight: 650; }}
-        QLabel#panelStatus {{ color: {p['text_soft']}; font-size: 8pt; font-weight: 600; }}
-        QLabel#panelAmount {{ color: {p['amount']}; font-size: 17pt; font-weight: 700; }}
+        QLabel#panelMark {{ background: {p['chip']}; border: 1px solid {p['tint_border']}; border-radius: 15px; font-size: 13pt; }}
+        QLabel#panelStatus {{ background: {p['section_bg']}; color: {p['text_soft']}; border: 1px solid {p['section_border']}; border-radius: 9px; padding: 2px 9px; font-size: 8pt; font-weight: 600; }}
+        QLabel#panelAmount {{ color: {p['amount']}; font-size: 19pt; font-weight: 700; }}
         QLabel#panelDetail {{ color: {p['text_soft']}; font-size: 8pt; }}
-        QFrame#wageCard {{ background: {p['section_bg']}; border: 1px solid {p['section_border']}; border-radius: 11px; }}
-        QPushButton#panelPrimary {{ background: {p['action_bg']}; color: #FFFFFF; border: 1px solid {p['action_bg']}; border-radius: 8px; padding: 7px 10px; font-weight: 600; }}
+        QLabel#panelDecor {{ background: transparent; border: none; font-size: 25pt; }}
+        QLabel#panelRow {{ background: {p['chip']}; border: 1px solid {p['tint_border']}; border-radius: 9px; padding: 4px 8px; font-size: 8pt; color: {p['text']}; }}
+        QFrame#wageCard {{ background: qlineargradient(x1:0 y1:0, x2:1 y2:1, stop:0 {p['hero_top']}, stop:1 {p['hero_bottom']}); border: 1px solid {p['section_border']}; border-radius: 16px; }}
+        QPushButton#panelSetup {{ background: {p['action_bg']}; color: {p['action_text']}; border: 1px solid {p['action_bg']}; border-radius: 9px; padding: 8px 10px; font-weight: 600; }}
+        QPushButton#panelSetup:hover:enabled {{ background: {p['action_hover']}; border-color: {p['action_hover']}; }}
+        QPushButton#panelPrimary {{ background: qlineargradient(x1:0 y1:0, x2:0 y2:1, stop:0 {p['action_bg']}, stop:1 {p['accent_pressed']}); color: {p['action_text']}; border: 1px solid {p['action_bg']}; border-radius: 15px; padding: 7px 10px; font-weight: 600; }}
         QPushButton#panelPrimary:hover:enabled {{ background: {p['action_hover']}; border-color: {p['action_hover']}; }}
         QPushButton#panelPrimary:pressed:enabled {{ background: {p['accent_pressed']}; border-color: {p['accent_pressed']}; padding-top: 8px; padding-bottom: 6px; }}
         QPushButton#panelPrimary:focus {{ border: 2px solid {p['focus_ring']}; }}
         QPushButton#panelPrimary:disabled {{ background: {p['tint_light']}; color: {p['text_soft']}; border-color: {p['tint_border']}; }}
-        QPushButton#panelSecondary {{ background: {p['card']}; color: {p['text']}; border: 1px solid {p['secondary_border']}; border-radius: 8px; padding: 6px 9px; }}
+        QPushButton#panelSecondary {{ background: {p['chip']}; color: {p['text']}; border: 1px solid {p['secondary_border']}; border-radius: 15px; padding: 6px 9px; font-weight: 600; }}
         QPushButton#panelSecondary:hover:enabled {{ background: {p['tint_light']}; border-color: {p['focus_ring']}; }}
         QPushButton#panelSecondary:pressed:enabled {{ background: {p['menu_highlight']}; border-color: {p['accent_hover']}; }}
         QPushButton#panelSecondary:disabled {{ background: {p['tint_light']}; color: {p['text_soft']}; border-color: {p['border']}; }}
-        QPushButton#panelQuiet {{ background: transparent; color: {p['text_soft']}; border: 1px solid transparent; border-radius: 8px; padding: 5px 9px; }}
+        QPushButton#panelQuiet {{ background: transparent; color: {p['text_soft']}; border: 1px solid transparent; border-radius: 12px; padding: 5px 9px; }}
         QPushButton#panelQuiet:hover {{ background: {p['tint_light']}; color: {p['amount']}; border-color: {p['border']}; }}
         QPushButton#panelQuiet:pressed {{ background: {p['menu_highlight']}; border-color: {p['focus_ring']}; }}
-        QPushButton#panelManager {{ background: {p['tint_light']}; color: {p['accent']}; border: 1px solid {p['tint_border']}; border-radius: 14px; padding: 5px 14px; font-size: 9pt; font-weight: 600; }}
-        QPushButton#panelManager:hover {{ background: {p['accent']}; color: white; border-color: {p['accent']}; }}
+        QPushButton#panelManager {{ background: {p['tint_light']}; color: {p['amount']}; border: 1px solid {p['tint_border']}; border-radius: 12px; padding: 4px 12px; font-size: 9pt; font-weight: 600; }}
+        QPushButton#panelManager:hover {{ background: {p['accent']}; color: {p['action_text']}; border-color: {p['accent']}; }}
         QPushButton#panelManager:pressed {{ background: {p['accent_pressed']}; border-color: {p['accent_pressed']}; }}
-        QPushButton#panelIconButton {{ background: {p['tint_light']}; color: {p['amount']}; border: 1px solid {p['tint_border']}; border-radius: 8px; font-size: 12pt; font-weight: 600; }}
+        QPushButton#panelIconButton {{ background: {p['tint_light']}; color: {p['amount']}; border: 1px solid {p['tint_border']}; border-radius: 12px; font-size: 12pt; font-weight: 600; }}
         QPushButton#panelIconButton:hover {{ background: {p['menu_highlight']}; border-color: {p['focus_ring']}; color: {p['amount']}; }}
         QPushButton#panelIconButton:pressed {{ background: {p['section_border']}; border-color: {p['accent_hover']}; }}
         QPushButton#panelIconButton:focus {{ border: 2px solid {p['focus_ring']}; }}
-        QToolButton#panelIconButton {{ background: {p['tint_light']}; color: {p['amount']}; border: 1px solid {p['tint_border']}; border-radius: 8px; font-size: 12pt; font-weight: 600; }}
+        QToolButton#panelIconButton {{ background: {p['tint_light']}; color: {p['amount']}; border: 1px solid {p['tint_border']}; border-radius: 12px; font-size: 12pt; font-weight: 600; }}
         QToolButton#panelIconButton:hover {{ background: {p['menu_highlight']}; border-color: {p['focus_ring']}; color: {p['amount']}; }}
         QToolButton#panelIconButton:pressed {{ background: {p['section_border']}; border-color: {p['accent_hover']}; }}
     """
@@ -69,40 +78,27 @@ class QuickPanel(QWidget):
         self.refresh_timer.timeout.connect(self._refresh_wage)
         ui_skin.skinChanged.connect(self._apply_skin)
 
-    def _section_line(self, layout):
-        sep = QFrame(); sep.setFrameShape(QFrame.NoFrame); sep.setFixedHeight(1)
-        self._section_lines.append(sep)
-        if self._section_lines and hasattr(self, "_card"):
-            sep.setStyleSheet(f"background: {ui_skin.palette()['tint_border']};")
-        layout.addWidget(sep)
-
     def _apply_skin(self):
         """Re-paint every locally-styled surface from the active skin."""
         p = ui_skin.palette()
         self._card.setStyleSheet(_panel_qss(p))
         self.setStyleSheet(f"QuickPanel {{ background: transparent; }}")
         if getattr(self, "_mark", None) is not None:
-            self._mark.setStyleSheet(
-                f"background:{p['menu_highlight']}; color:{p['amount']}; "
-                f"border:1px solid {p['tint_border']}; border-radius:9px; "
-                "font-size:10pt; font-weight:700;")
-        for sep in getattr(self, "_section_lines", []):
-            sep.setStyleSheet(f"background: {p['tint_border']};")
+            self._mark.setText(p["deco"])
         if getattr(self, "pocket_count", None) is not None:
             self.pocket_count.setStyleSheet(f"color: {p['amount']}; font-weight: 700;")
         if hasattr(self, "favorite_grid"):
             self._refresh_favorites()
 
     def _build_ui(self):
-        self._section_lines = []
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         card = QFrame(); card.setObjectName("card"); self._card = card
         self._apply_skin()
-        layout = QVBoxLayout(card); layout.setContentsMargins(13, 9, 13, 9); layout.setSpacing(6)
+        layout = QVBoxLayout(card); layout.setContentsMargins(13, 10, 13, 11); layout.setSpacing(7)
 
         top = QHBoxLayout(); top.setSpacing(9)
-        mark = QLabel("🎀"); mark.setAlignment(Qt.AlignCenter); mark.setFixedSize(30, 30)
-        self._mark = mark
+        mark = QLabel(ui_skin.palette()["deco"]); mark.setAlignment(Qt.AlignCenter); mark.setFixedSize(30, 30)
+        mark.setObjectName("panelMark"); self._mark = mark
         heading = QVBoxLayout(); heading.setSpacing(0)
         title = QLabel("小迪助手"); title.setObjectName("panelHeading")
         subtitle = QLabel("工作 · 文件 · 提醒"); subtitle.setObjectName("panelCaption")
@@ -110,21 +106,27 @@ class QuickPanel(QWidget):
         close = QPushButton("×"); close.setObjectName("panelIconButton"); close.setFixedSize(26, 26); close.setToolTip("收起面板"); close.clicked.connect(self.hide); self.panel_close_btn = close
         top.addWidget(mark); top.addLayout(heading); top.addStretch(); top.addWidget(close); layout.addLayout(top)
 
-        wage_card = QFrame(); wage_card.setObjectName("wageCard")
-        wage_layout = QVBoxLayout(wage_card); wage_layout.setContentsMargins(10, 8, 10, 9); wage_layout.setSpacing(2)
+        wage_body = QHBoxLayout(); wage_body.setSpacing(4)
+        wage_text = QVBoxLayout(); wage_text.setSpacing(2)
         self.wage_status = QLabel("工资统计未配置"); self.wage_status.setObjectName("panelStatus")
+        self.wage_status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.wage_amount = QLabel("未配置"); self.wage_amount.setObjectName("panelAmount")
         self.wage_detail = QLabel(""); self.wage_detail.setObjectName("panelDetail"); self.wage_detail.setWordWrap(True)
-        self.wage_setup_btn = QPushButton("设置工资与工作时间"); self.wage_setup_btn.setObjectName("panelPrimary"); self.wage_setup_btn.clicked.connect(self._open_wage_settings)
-        wage_layout.addWidget(self.wage_status); wage_layout.addWidget(self.wage_amount); wage_layout.addWidget(self.wage_detail); wage_layout.addSpacing(4); wage_layout.addWidget(self.wage_setup_btn)
+        self.wage_setup_btn = QPushButton("设置工资与工作时间"); self.wage_setup_btn.setObjectName("panelSetup"); self.wage_setup_btn.clicked.connect(self._open_wage_settings)
+        wage_text.addWidget(self.wage_status); wage_text.addWidget(self.wage_amount); wage_text.addWidget(self.wage_detail); wage_text.addSpacing(4); wage_text.addWidget(self.wage_setup_btn)
+        wage_decor = QLabel(ui_skin.palette().get("deco", "🎀")); wage_decor.setObjectName("panelDecor")
+        wage_decor.setAlignment(Qt.AlignTop | Qt.AlignRight); wage_decor.setFixedWidth(52)
+        wage_body.addLayout(wage_text, 1); wage_body.addWidget(wage_decor)
+        wage_card = QFrame(); wage_card.setObjectName("wageCard")
+        wage_layout = QVBoxLayout(wage_card); wage_layout.setContentsMargins(11, 9, 8, 10); wage_layout.setSpacing(2)
+        wage_layout.addLayout(wage_body)
         layout.addWidget(wage_card)
 
         wage_buttons = QHBoxLayout(); wage_buttons.setSpacing(6)
         self.clock_out_btn = QPushButton("下班打卡"); self.clock_out_btn.setObjectName("panelSecondary"); self.clock_out_btn.clicked.connect(self._clock_out)
         self.calendar_btn = QPushButton("工作日历"); self.calendar_btn.setObjectName("panelSecondary"); self.calendar_btn.clicked.connect(self._open_calendar)
         wage_buttons.addWidget(self.clock_out_btn); wage_buttons.addWidget(self.calendar_btn); layout.addLayout(wage_buttons)
-
-        self._section_line(layout)
+        layout.addSpacing(4)
         favorite_header = QHBoxLayout()
         self.favorite_title = QLabel("⭐ 常用文件夹"); self.favorite_title.setObjectName("panelSectionTitle")
         self.favorite_manage_btn = QPushButton("管理")
@@ -164,13 +166,13 @@ class QuickPanel(QWidget):
         self.favorite_view_all_btn.clicked.connect(lambda: self._manage_favorites())
         layout.addWidget(self.favorite_view_all_btn)
 
-        self._section_line(layout)
+        layout.addSpacing(4)
         hdr = QHBoxLayout(); self.pocket_title = QLabel("🎒 文件口袋"); self.pocket_title.setObjectName("panelSectionTitle"); self.pocket_count = QLabel("0"); self.pocket_count.setStyleSheet(""); hdr.addWidget(self.pocket_title); hdr.addStretch(); hdr.addWidget(self.pocket_count); layout.addLayout(hdr)
-        self.pocket_items_layout = QVBoxLayout(); self.pocket_items_layout.setSpacing(2); layout.addLayout(self.pocket_items_layout)
+        self.pocket_items_layout = QVBoxLayout(); self.pocket_items_layout.setSpacing(3); layout.addLayout(self.pocket_items_layout)
         self.empty_label = QLabel("暂无内容 · 拖文件到角色即可暂存"); self.empty_label.setWordWrap(True); self.empty_label.setObjectName("panelCaption"); layout.addWidget(self.empty_label)
         self.open_pocket_btn = QPushButton("🎒 打开文件口袋"); self.open_pocket_btn.setObjectName("panelPrimary"); self.open_pocket_btn.clicked.connect(self._open_pocket); layout.addWidget(self.open_pocket_btn)
 
-        self._section_line(layout)
+        layout.addSpacing(4)
         remind_hdr = QHBoxLayout(); self.remind_title = QLabel("⏰ 下个提醒"); self.remind_title.setObjectName("panelSectionTitle"); self.remind_btn = QToolButton(); self.remind_btn.setText("+"); self.remind_btn.setObjectName("panelIconButton"); self.remind_btn.setFixedSize(30, 30); self.remind_btn.clicked.connect(self._open_add_reminder); remind_hdr.addWidget(self.remind_title); remind_hdr.addStretch(); remind_hdr.addWidget(self.remind_btn); layout.addLayout(remind_hdr)
         self.next_reminder_label = QLabel("暂无提醒"); self.next_reminder_label.setWordWrap(True); layout.addWidget(self.next_reminder_label)
         self.remind_items_layout = QVBoxLayout(); self.remind_items_layout.setSpacing(2); layout.addLayout(self.remind_items_layout)
@@ -201,17 +203,23 @@ class QuickPanel(QWidget):
     def _refresh(self):
         self._refresh_wage(); items = self.pet.pocket.list_items(); self.pocket_count.setText(str(len(items))); self.empty_label.setVisible(not items); self._clear(self.pocket_items_layout)
         for item in items[: self.ITEM_PREVIEW]:
-            lbl = QLabel(f"  {item.name if item.exists else item.name + '（路径失效）'}"); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT}; padding: 1px 0;"); self.pocket_items_layout.addWidget(lbl)
+            lbl = QLabel(item.name if item.exists else item.name + "（路径失效）"); lbl.setObjectName("panelRow"); lbl.setWordWrap(True); self.pocket_items_layout.addWidget(lbl)
         if len(items) > self.ITEM_PREVIEW:
-            lbl = QLabel(f"  还有 {len(items) - self.ITEM_PREVIEW} 项..."); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT_MUTED};"); self.pocket_items_layout.addWidget(lbl)
+            lbl = QLabel(f"还有 {len(items) - self.ITEM_PREVIEW} 项…"); lbl.setObjectName("panelRow"); self.pocket_items_layout.addWidget(lbl)
         reminders = self.pet.reminder.list_reminders(); self._clear(self.remind_items_layout)
         if reminders:
-            first = reminders[0]; self.next_reminder_label.setText(f"{first.due_at:%m-%d %H:%M}  {first.content}"); self.no_remind_label.hide()
+            first = reminders[0]; self.next_reminder_label.setText(f"{first.due_at:%m-%d %H:%M}  {first.content}"); self._set_row_style(self.next_reminder_label, True); self.no_remind_label.hide()
             for rem in reminders[1:3]:
-                lbl = QLabel(f"  {rem.due_at:%m-%d %H:%M}  {rem.content}"); lbl.setWordWrap(True); lbl.setStyleSheet(f"font-size: 8pt; color: {theme.TEXT}; padding: 1px 0;"); self.remind_items_layout.addWidget(lbl)
+                lbl = QLabel(f"{rem.due_at:%m-%d %H:%M}  {rem.content}"); lbl.setWordWrap(True); lbl.setObjectName("panelRow"); self.remind_items_layout.addWidget(lbl)
         else:
-            self.next_reminder_label.setText("暂无提醒"); self.no_remind_label.show()
+            self.next_reminder_label.setText("暂无提醒"); self._set_row_style(self.next_reminder_label, False); self.no_remind_label.show()
         self._refresh_favorites()
+
+    @staticmethod
+    def _set_row_style(label, as_row):
+        """First reminder renders as a chip row when present, caption when empty."""
+        label.setObjectName("panelRow" if as_row else "panelCaption")
+        label.style().unpolish(label); label.style().polish(label)
 
     refresh = _refresh
 
@@ -239,8 +247,8 @@ class QuickPanel(QWidget):
             button.setEnabled(True)  # keep the context menu available for repairing a missing path
             button.setFixedHeight(31)
             button.setStyleSheet(
-                f"QToolButton {{ text-align:left; color:{p['text'] if exists else p['muted']}; background:{p['bg']}; padding:3px 5px; border:1px solid {p['border']}; border-radius:7px; }}"
-                f"QToolButton:hover:enabled {{ background:{p['tint_light']}; border-color:{p['tint_border']}; }}"
+                f"QToolButton {{ text-align:left; color:{p['text'] if exists else p['muted']}; background:{p['chip']}; padding:3px 6px; border:1px solid {p['tint_border']}; border-radius:10px; }}"
+                f"QToolButton:hover:enabled {{ background:{p['tint_light']}; border-color:{p['focus_ring']}; }}"
                 f"QToolButton:pressed:enabled {{ background:{p['menu_highlight']}; border-color:{p['section_border']}; }}"
                 f"QToolButton:focus {{ border:1px solid {p['focus_ring']}; }}"
             )
