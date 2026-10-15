@@ -12,13 +12,13 @@ from PyQt5.QtWidgets import (
 )
 
 from .model import WORKDAY, REST, ADJUSTED_WORKDAY, LEAVE, WorkDayRecord
+import ui_skin
 from ui.modern import (ModernDialog, PrimaryButton, SecondaryButton, Card,
                        StatCard, SectionTitle, InlineBanner, ModernTimeField,
                        ModernLineEdit, ModernComboBox)
 from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, StatCard, SectionTitle, InlineBanner, ModernTimeField, ModernLineEdit, ModernComboBox
 
 STATUS_LABELS = {WORKDAY: "工作日", REST: "休息日", ADJUSTED_WORKDAY: "调休上班", LEAVE: "请假"}
-STATUS_COLORS = {WORKDAY: "#111827", REST: "#dc2626", ADJUSTED_WORKDAY: "#2563eb", LEAVE: "#b45309"}
 
 
 class _TextCompat(QLabel):
@@ -42,23 +42,43 @@ class CalendarDayCell(QFrame):
         top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0)
         self.day_label = QLabel(str(day.day)); self.day_label.setStyleSheet("font-weight:700;")
         top.addWidget(self.day_label); top.addStretch()
-        self.dot = QLabel("●"); self.dot.setVisible(bool(record)); self.dot.setStyleSheet("color:#10b981;font-size:9px;"); top.addWidget(self.dot)
+        self.dot = QLabel("●"); self.dot.setVisible(bool(record)); top.addWidget(self.dot)
         layout.addLayout(top)
         self.status_label = QLabel(detail.get("display_label", detail.get("label", "")) if in_month else "")
-        self.status_label.setStyleSheet(f"color:{STATUS_COLORS.get(detail.get('status'), '#6b7280')};font-size:10px;")
         self.status_label.setWordWrap(True); layout.addWidget(self.status_label)
         self._apply_style(False)
 
     def _apply_style(self, selected):
+        """Cell colors from the active skin (V5.8: status washes + today ring)."""
+        p = ui_skin.palette()
         status = self.detail.get("status")
-        bg = {REST: "#fff7f7", ADJUSTED_WORKDAY: "#eff6ff", LEAVE: "#fff7ed"}.get(status, "#fbfcfe")
-        if not self.in_month: bg = "#f3f4f6"
-        if selected: bg = "#dbeafe"
-        elif self._hovered: bg = "#eef5ff"
-        border = "#2563eb" if selected or self.is_today else "#93c5fd" if self._hovered else "#e5e7eb"
-        width = 2 if selected or self.is_today else 1
+        if not self.in_month:
+            bg = p["bg"]
+        elif status == REST:
+            bg = ui_skin._tint(p["danger"], p["card"], 0.12)
+        elif status == ADJUSTED_WORKDAY:
+            bg = ui_skin._tint(p["info"], p["card"], 0.12)
+        elif status == LEAVE:
+            bg = ui_skin._tint(p["warn"], p["card"], 0.12)
+        else:
+            bg = p["card"]
+        if selected:
+            bg = ui_skin._tint(p["accent"], p["card"], 0.26)
+        elif self._hovered and self.in_month:
+            bg = p["tint_light"]
+        if selected or self.is_today:
+            border, width = p["accent"], 2
+        elif self._hovered:
+            border, width = p["tint_border"], 1
+        else:
+            border, width = p["border"], 1
         self.setStyleSheet(f"QFrame#calendarDayCell{{background:{bg};border:{width}px solid {border};border-radius:12px;}}")
-        if not self.in_month: self.day_label.setStyleSheet("color:#9ca3af;font-weight:700;")
+        day_fg = (p["muted"] if not self.in_month
+                  else {REST: p["danger"], ADJUSTED_WORKDAY: p["info"], LEAVE: p["warn"]}.get(status, p["text"]))
+        self.day_label.setStyleSheet(f"color:{day_fg};font-weight:700;")
+        self.dot.setStyleSheet(f"color:{p['ok']};font-size:9px;")
+        status_fg = p["muted"] if not self.in_month else day_fg
+        self.status_label.setStyleSheet(f"color:{status_fg};font-size:10px;font-weight:600;")
 
     def set_selected(self, selected): self._apply_style(selected)
     def enterEvent(self, event):
@@ -84,9 +104,10 @@ class ModernMonthCalendar(QWidget):
         self._selected_day = selected_day or date.today()
         self.cells: list[CalendarDayCell] = []
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0); root.setSpacing(5)
+        weekday_color = ui_skin.palette()["muted"]
         weekdays = QHBoxLayout(); weekdays.setContentsMargins(5, 0, 5, 0)
         for text in ("一", "二", "三", "四", "五", "六", "日"):
-            label = QLabel(text); label.setAlignment(Qt.AlignCenter); label.setStyleSheet("color:#6b7280;font-size:11px;font-weight:600;"); weekdays.addWidget(label)
+            label = QLabel(text); label.setAlignment(Qt.AlignCenter); label.setStyleSheet(f"color:{weekday_color};font-size:11px;font-weight:600;"); weekdays.addWidget(label)
         root.addLayout(weekdays)
         self.grid = QGridLayout(); self.grid.setContentsMargins(0, 0, 0, 0); self.grid.setSpacing(5); root.addLayout(self.grid)
         self.refresh()
@@ -137,8 +158,9 @@ class WorkCalendarDialog(ModernDialog):
         self._refresh()
 
     def _build_ui(self):
+        p = ui_skin.palette()
         nav = QHBoxLayout()
-        self.month_label = QLabel(); self.month_label.setStyleSheet("font-size:16px;font-weight:700;")
+        self.month_label = QLabel(); self.month_label.setStyleSheet(f"color:{p['text']};font-size:17px;font-weight:800;")
         self.prev_button = SecondaryButton("上月"); self.next_button = SecondaryButton("下月"); self.today_button = SecondaryButton("今天")
         self.prev_button.setToolTip("查看上个月"); self.next_button.setToolTip("查看下个月")
         self.prev_button.clicked.connect(lambda: self._change_month(-1)); self.next_button.clicked.connect(lambda: self._change_month(1)); self.today_button.clicked.connect(self._go_today)
@@ -149,7 +171,7 @@ class WorkCalendarDialog(ModernDialog):
         self.add_body(_layout_widget(nav))
 
         stats_row = QHBoxLayout(); self.stat_cards = {}
-        for key, title in (("workdays", "应出勤"), ("recorded", "已记录"), ("overtime", "累计加班"), ("meal", "餐补"), ("estimated", "预计本月收入")):
+        for key, title in (("workdays", "📅 应出勤"), ("recorded", "✅ 已记录"), ("overtime", "⏱ 累计加班"), ("meal", "🍚 餐补"), ("estimated", "💰 预计本月收入")):
             card = StatCard(title); self.stat_cards[key] = card; stats_row.addWidget(card)
         self.add_body(_layout_widget(stats_row))
 
@@ -157,12 +179,12 @@ class WorkCalendarDialog(ModernDialog):
         self.calendar = ModernMonthCalendar(self.service, self._selected_day, self); self.calendar.day_selected.connect(self._on_clicked); left.addWidget(self.calendar)
         split.addLayout(left, 3)
         self.detail_card = Card(); detail = QVBoxLayout(self.detail_card); detail.setContentsMargins(16, 14, 16, 14)
-        detail.addWidget(SectionTitle("日期详情")); self.detail_title = QLabel(); self.detail_title.setStyleSheet("font-size:18px;font-weight:700;"); detail.addWidget(self.detail_title)
+        detail.addWidget(SectionTitle("日期详情")); self.detail_title = QLabel(); self.detail_title.setStyleSheet(f"color:{p['text']};font-size:18px;font-weight:700;"); detail.addWidget(self.detail_title)
         self.weekday_label = QLabel(); self.holiday_label = QLabel(); self.status_label = QLabel(); self.source_label = QLabel(); self.source_label.setObjectName("muted"); self.source_label.setWordWrap(True)
         for label in (self.weekday_label, self.holiday_label, self.status_label, self.source_label): detail.addWidget(label)
         detail.addSpacing(5)
         detail.addWidget(QLabel("下班时间"))
-        self.clock_label = QLabel("未记录"); self.clock_label.setStyleSheet("font-size:15px;font-weight:700;")
+        self.clock_label = QLabel("未记录"); self.clock_label.setStyleSheet(f"color:{p['amount']};font-size:15px;font-weight:700;")
         detail.addWidget(self.clock_label)
         picker_col = QVBoxLayout(); picker_col.setSpacing(6)
         self.picker_row = QHBoxLayout(); self.picker_row.setSpacing(6)
@@ -179,7 +201,7 @@ class WorkCalendarDialog(ModernDialog):
         self.picker_host = picker_host
         self._clock_selection = None   # 用户通过"选时间"指定的时刻；None = 跟随按钮语义
         clock_row = QHBoxLayout()
-        self.record_out_button = SecondaryButton("下班打卡"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
+        self.record_out_button = PrimaryButton("下班打卡"); self.record_out_button.clicked.connect(self._save_clock_out); self.save_clock_button = self.record_out_button; clock_row.addWidget(self.record_out_button)
         self.pick_time_button = SecondaryButton("选时间…"); self.pick_time_button.clicked.connect(self._pick_clock_time); clock_row.addWidget(self.pick_time_button); detail.addLayout(clock_row)
         self.note_edit = ModernLineEdit(); self.note_edit.setPlaceholderText("给这一天写备注"); detail.addWidget(self.note_edit)
         note_row = QHBoxLayout()
@@ -188,7 +210,7 @@ class WorkCalendarDialog(ModernDialog):
         self.note_edit.textChanged.connect(lambda _t: self.cancel_note_button.show())
         self.record_metrics_label = QLabel(); self.record_metrics_label.setObjectName("muted"); self.record_metrics_label.setWordWrap(True); detail.addWidget(self.record_metrics_label)
         self.status = ModernComboBox(); [(self.status.addItem(label, value)) for label, value in (("恢复自动判断", "auto"), ("工作日", WORKDAY), ("休息日", REST), ("调休上班", ADJUSTED_WORKDAY), ("请假", LEAVE))]; detail.addWidget(self.status)
-        self.apply_status_button = SecondaryButton("应用日期状态"); self.apply_status_button.clicked.connect(self._apply_status); detail.addWidget(self.apply_status_button)
+        self.apply_status_button = PrimaryButton("应用日期状态"); self.apply_status_button.clicked.connect(self._apply_status); detail.addWidget(self.apply_status_button)
         detail.addStretch(); split.addWidget(self.detail_card, 2); self.add_body(_layout_widget(split))
 
         self.advanced_card = Card(); self._rules_expanded = False; adv = QVBoxLayout(self.advanced_card)
@@ -197,10 +219,21 @@ class WorkCalendarDialog(ModernDialog):
         override_row = QHBoxLayout(); override_row.addWidget(QLabel("本月工资计算工作日数")); self.month_override_spin = QSpinBox(); self.month_override_spin.setRange(0, 31); self.month_override_spin.setSpecialValueText("自动"); self.month_override_spin.setButtonSymbols(QAbstractSpinBox.NoButtons); self.month_override_spin.setMinimumHeight(38); override_row.addWidget(self.month_override_spin); self.save_override = SecondaryButton("保存按月覆盖"); self.save_override.clicked.connect(self._save_manual_count); override_row.addWidget(self.save_override); self.restore_override = SecondaryButton("恢复自动"); self.restore_override.clicked.connect(lambda: self._restore_manual_count()); override_row.addWidget(self.restore_override); override_row.addStretch(); adv.addLayout(override_row)
         self.advanced_card.setVisible(False); self.add_body(self.advanced_card)
         self.warning_banner = InlineBanner(); self.add_body(self.warning_banner)
-        self.legend_label = QLabel("● 已记录　蓝色：调休/小周上班　红色：休息日/大周休息　灰色：非本月日期　｜数据源：holiday-cn / 国务院"); self.legend_label.setObjectName("muted"); self.add_body(self.legend_label)
+        self.legend_label = QLabel(self._legend_text()); self.legend_label.setObjectName("muted"); self.legend_label.setWordWrap(True); self.add_body(self.legend_label)
         cancel = SecondaryButton("关闭"); cancel.clicked.connect(self.reject); self.add_footer(cancel)
         self.summary = _TextCompat(self); self.summary.setVisible(False)
         self.detail = _TextCompat(self); self.detail.setVisible(False)
+
+    def _legend_text(self):
+        """Colored-dot legend (rich text) matching the cell status washes."""
+        p = ui_skin.palette()
+
+        def dot(color):
+            return f'<span style="color:{color};">●</span>'
+
+        return (f"{dot(p['ok'])} 已记录打卡　{dot(p['info'])} 调休/小周上班　"
+                f"{dot(p['danger'])} 休息日/大周休息　{dot(p['muted'])} 非本月日期　"
+                f"｜数据源：holiday-cn / 国务院")
 
     def _displayed_month(self): return self.calendar.month()
     def _privacy(self): return self.service.settings.privacy_mode
