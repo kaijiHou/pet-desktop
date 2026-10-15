@@ -12,35 +12,15 @@ from datetime import date, datetime
 import pytest
 
 
-@pytest.fixture()
-def theme_env(test_temp_root, monkeypatch):
-    """Redirect every user data surface; return the touched modules."""
-    import config as config_mod
-    import reminder_service
-    import pocket_service
-    import destinations
-    import ui_skin
-
-    cfg_dir = test_temp_root / "cfg"
-    cfg_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(config_mod, "CONFIG_DIR", cfg_dir)
-    monkeypatch.setattr(config_mod, "CONFIG_FILE", cfg_dir / "config.json")
-    monkeypatch.setattr(reminder_service, "REMINDERS_FILE", test_temp_root / "reminders.json")
-    monkeypatch.setattr(pocket_service, "POCKET_FILE", test_temp_root / "pocket.json")
-    monkeypatch.setattr(destinations, "DESTINATIONS_FILE", test_temp_root / "destinations.json")
-    monkeypatch.setattr(ui_skin, "SKINS_FILE", test_temp_root / "ui_skins.json")
-    monkeypatch.setattr(ui_skin, "_active_id", None)
-    return ui_skin
-
-
-CUTE = ("sakura", "garden", "taro", "sky", "cream", "forest", "mint", "berry_night")
+CUTE = ("sakura", "garden", "taro", "sky", "cream", "forest", "mint", "berry_night",
+        "rose_moon")
 COOL = ("cyber_night", "deep_pulse", "ember_tech", "aurora_pulse", "titanium",
         "obsidian_gold", "storm_volt", "midnight_neon")
 
 
-def test_sixteen_presets_eight_per_category(theme_env):
+def test_preset_categories(theme_env):
     skins = theme_env.PRESETS
-    assert len(skins) == 16
+    assert len(skins) == 17
     cute = [sid for sid, (_, c) in skins.items() if c.get("category") == "cute"]
     cool = [sid for sid, (_, c) in skins.items() if c.get("category") == "cool"]
     assert cute == list(CUTE)
@@ -53,8 +33,9 @@ def test_cool_presets_dark_with_flavor_keys(theme_env):
             assert key in colors, f"{sid} missing {key}"
         assert colors.get("deco"), f"{sid} missing theme emoji"
     assert all(theme_env.PRESETS[sid][1].get("dark") for sid in COOL)
-    assert not any(theme_env.PRESETS[sid][1].get("dark") for sid in CUTE if sid != "berry_night")
-    assert theme_env.PRESETS["berry_night"][1].get("dark") is True
+    light_cute = [sid for sid in CUTE if sid not in ("berry_night", "rose_moon")]
+    assert not any(theme_env.PRESETS[sid][1].get("dark") for sid in light_cute)
+    assert all(theme_env.PRESETS[sid][1].get("dark") for sid in ("berry_night", "rose_moon"))
 
 
 def test_every_preset_switches_persists_and_bridges(theme_env):
@@ -97,7 +78,10 @@ def test_quick_panel_renders_under_every_theme(theme_env, qapp, monkeypatch):
             p = theme_env.palette()
             assert p["action_bg"] in qss, f"{sid}: panel must follow action colour"
             assert p["hero_top"] in qss, f"{sid}: panel must paint the hero gradient"
-            assert panel._mark.text() == p["deco"]
+            if theme_env.theme_asset("avatar", sid) is not None:
+                assert not panel._mark.pixmap().isNull(), f"{sid}: avatar art missing"
+            else:
+                assert panel._mark.text() == p["deco"]
         finally:
             panel.close()
 
@@ -133,7 +117,7 @@ def test_theme_picker_tabs_cards_and_switch(theme_env, qapp):
     try:
         assert [k for k, _ in dialog._categories] == ["cute", "cool"]
         dialog._show_category("cute")
-        assert dialog.grid.count() == 8
+        assert dialog.grid.count() == 9
         dialog._show_category("cool")
         assert dialog.grid.count() == 8
         card = dialog.grid.itemAt(3).widget()
@@ -173,3 +157,25 @@ def test_calendar_status_colors_follow_skin(theme_env, monkeypatch):
     monkeypatch.setattr(theme_env, "_active_id", "storm_volt")
     cell._apply_style(False)
     assert cell.styleSheet() != sakura_qss, "cell must re-skin when the theme changes"
+
+
+def test_bubble_surface_follows_skin(theme_env, qapp, monkeypatch):
+    """Dark skins must get a dark bubble fill (no white wash under light text)."""
+    from PyQt5.QtCore import Qt
+    from bubble_window import BubbleWindow
+
+    bubble = BubbleWindow()
+    try:
+        monkeypatch.setattr(theme_env, "_active_id", "rose_moon")
+        bubble.set_text("检测到 123.txt")
+        pm = bubble.pixmap().toImage()
+        center = pm.pixelColor(pm.width() // 2, pm.height() // 2)
+        assert center.lightness() < 120, "dark skin bubble body must be dark"
+
+        monkeypatch.setattr(theme_env, "_active_id", "sakura")
+        bubble.set_text("检测到 123.txt")
+        pm = bubble.pixmap().toImage()
+        center = pm.pixelColor(pm.width() // 2, pm.height() // 2)
+        assert center.lightness() > 200, "light skin bubble body stays light"
+    finally:
+        bubble.hide()

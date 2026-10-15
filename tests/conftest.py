@@ -74,6 +74,28 @@ def isolated_config(test_temp_root, monkeypatch):
     return config_mod.Config()
 
 
+@pytest.fixture()
+def theme_env(test_temp_root, monkeypatch):
+    """Sandbox ALL user data surfaces (config/reminders/pocket/destinations/
+    ui_skins) for theme-system tests; wage stays explicit-path by callers."""
+    import config as config_mod
+    import reminder_service
+    import pocket_service
+    import destinations
+    import ui_skin
+
+    cfg_dir = test_temp_root / "cfg"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(config_mod, "CONFIG_DIR", cfg_dir)
+    monkeypatch.setattr(config_mod, "CONFIG_FILE", cfg_dir / "config.json")
+    monkeypatch.setattr(reminder_service, "REMINDERS_FILE", test_temp_root / "reminders.json")
+    monkeypatch.setattr(pocket_service, "POCKET_FILE", test_temp_root / "pocket.json")
+    monkeypatch.setattr(destinations, "DESTINATIONS_FILE", test_temp_root / "destinations.json")
+    monkeypatch.setattr(ui_skin, "SKINS_FILE", test_temp_root / "ui_skins.json")
+    monkeypatch.setattr(ui_skin, "_active_id", None)
+    return ui_skin
+
+
 @pytest.fixture(scope="session")
 def qapp():
     """Session-wide QApplication under offscreen platform (GUI tests).
