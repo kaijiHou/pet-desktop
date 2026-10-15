@@ -16,7 +16,8 @@ from .storage import load_json, save_json_atomic
 LOGGER = logging.getLogger("pet.wage.calendar")
 STATUS_LABELS = {WORKDAY: "工作日", REST: "休息日", ADJUSTED_WORKDAY: "调休上班", LEAVE: "请假"}
 PAPER_URL_FALLBACK = "https://www.gov.cn/"
-WORK_CYCLE_START = date(2026, 10, 12)  # Week after the 2026 National Day adjustment week: first large week.
+# 2026 国庆调休周把小周顺延一周：10-12 所在周是第一个小周（10/17 上班），下周大周（10/24 休息）。
+WORK_CYCLE_START = date(2026, 10, 12)
 
 
 @dataclass(frozen=True)
@@ -155,13 +156,14 @@ class WorkCalendarService:
     def _work_cycle_info(day: date) -> Optional[HolidayInfo]:
         """Return the user's post-National-Day big/small-week Saturday rule.
 
-        User-confirmed company convention (2026-10-08): 大周 = rest Saturday,
-        小周 = work Saturday. (The first cut had this parity backwards.)
+        User-confirmed company convention: 大周 = rest Saturday, 小周 = work
+        Saturday. The week of WORK_CYCLE_START itself is a 小周 — the National
+        Day adjustment postponed it by one week (user 2026-10-15).
         """
         if day < WORK_CYCLE_START or day.weekday() != 5:
             return None
         week_index = (day - WORK_CYCLE_START).days // 7
-        is_big_week = week_index % 2 == 0
+        is_big_week = week_index % 2 == 1
         return HolidayInfo(
             day, "大周" if is_big_week else "小周",
             REST if is_big_week else ADJUSTED_WORKDAY,

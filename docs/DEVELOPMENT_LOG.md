@@ -1126,3 +1126,16 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 
 ### 顺带修正
 - 双 pythonw 进程之谜：uv venv 的 pythonw.exe 是跳板，父子两进程只有子进程执行 main.py，不构成双开；但单实例互斥锁的 `GetLastError` 已改为 `ctypes.get_last_error()`（use_last_error=True）标准写法，453 passed。
+
+---
+
+## 2026-10-15 - 大小周相位修正：国庆调休顺延小周 + V5.8 主题还原开工
+
+### 大小周修正（用户 2026-10-15 口径）
+- 用户澄清：**10-12 所在周是小周**（10/17 上班），下周大周（10/24 休息），再下周小周（10/31 上班）——国庆调休把小周顺延了一周。此前 10-08 翻转"大周=休"时意外把班次周六从 {10/17, 10/31} 挪到了 {10/24}，相位错一周。
+- 修复：`calendar_service._work_cycle_info` 的 `is_big_week` 改为 `week_index % 2 == 1`（锚点周=小周）；`WORK_CYCLE_START` 注释改为中文说明顺延原因。
+- 影响：10 月应出勤 19 → **20 天，日薪 736.84 → 700.00**（日历自动算，无需手工 override）。
+- 测试：test_v47_calendar_contract 同步改断言，全量 **457 passed**。
+
+### V5.8 开工
+- 用户提供主题参考包（26 张图：cute_quickpanel×8、cute_calendar×1、cool_quickpanel×8、cool_calendar×8）+ 完整还原需求 txt；目标：16 套主题（可爱 8 + 炫酷 8）按图还原 QuickPanel 与工作日历，复用现有 ui_skin 架构。详见 docs/V58_REFERENCE_MAPPING.md（本轮新增）。
