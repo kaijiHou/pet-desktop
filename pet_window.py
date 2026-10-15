@@ -1376,9 +1376,11 @@ class PetWindow(QWidget):
             self._quit_app()
 
     def _add_skin_menu(self, m):
-        """🎨 皮肤 — presets + user skins (checkable) + custom editor."""
+        """🎨 主题 — theme center + presets + user skins (checkable)."""
         import ui_skin
-        skin_menu = m.addMenu("🎨 皮肤")
+        skin_menu = m.addMenu("🎨 主题")
+        skin_menu.addAction("🎨 主题中心…").triggered.connect(self._open_theme_picker)
+        skin_menu.addSeparator()
         active = ui_skin.active_id()
         for skin_id, (name, _colors) in ui_skin.all_skins().items():
             act = skin_menu.addAction(name)
@@ -1387,6 +1389,11 @@ class PetWindow(QWidget):
             act.triggered.connect(lambda _checked=False, sid=skin_id: self._switch_skin(sid))
         skin_menu.addSeparator()
         skin_menu.addAction("➕ 自定义皮肤…").triggered.connect(self._add_custom_skin)
+
+    def _open_theme_picker(self):
+        from ui_theme_picker import ThemePickerDialog
+        dlg = ThemePickerDialog(self)
+        dlg.exec_()
 
     def _switch_skin(self, skin_id):
         import ui_skin
