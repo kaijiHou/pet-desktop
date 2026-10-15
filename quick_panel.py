@@ -1,7 +1,9 @@
 """Today's assistant panel: wage snapshot first, pocket and reminders below."""
 
-from PyQt5.QtCore import Qt, QTimer, QEvent, QUrl, QFileInfo
-from PyQt5.QtGui import QDesktopServices, QFontMetrics
+from pathlib import Path
+
+from PyQt5.QtCore import Qt, QTimer, QEvent, QUrl, QFileInfo, QSize
+from PyQt5.QtGui import QDesktopServices, QFontMetrics, QPixmap, QIcon
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QFrame,
     QApplication, QToolButton, QFileIconProvider, QMenu, QFileDialog, QLineEdit,
@@ -12,6 +14,34 @@ from ui.modern.dialog import ModernDialog
 from ui.modern.message import InlineBanner
 import theme
 import ui_skin
+
+
+def _fill_pixmap(path, width: int, height: int) -> QPixmap:
+    """Scale an image to COVER the box, center-cropped (hero/banner layers)."""
+    src = QPixmap(str(path))
+    if src.isNull() or width <= 0 or height <= 0:
+        return QPixmap()
+    scaled = src.scaled(width, height, Qt.KeepAspectRatioByExpanding,
+                        Qt.SmoothTransformation)
+    x = max(0, (scaled.width() - width) // 2)
+    y = max(0, (scaled.height() - height) // 2)
+    return scaled.copy(x, y, width, height)
+
+
+def _fit_pixmap(path, size: int) -> QPixmap:
+    src = QPixmap(str(path))
+    if src.isNull():
+        return QPixmap()
+    return src.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+
+def _skin_icon(name: str) -> QIcon:
+    """Theme-sheet icon (e.g. 'icons/clock'); empty QIcon when skin has none."""
+    path = ui_skin.theme_asset(f"icons/{name}")
+    if path is None:
+        return QIcon()
+    pm = _fit_pixmap(path, 48)
+    return QIcon() if pm.isNull() else QIcon(pm)
 
 
 def _panel_qss(p: dict) -> str:
@@ -30,6 +60,14 @@ def _panel_qss(p: dict) -> str:
         QLabel#panelAmount {{ color: {p['amount']}; font-size: 19pt; font-weight: 700; }}
         QLabel#panelDetail {{ color: {p['text_soft']}; font-size: 8pt; }}
         QLabel#panelDecor {{ background: transparent; border: none; font-size: 25pt; }}
+        QLabel#panelAvatar {{ background: transparent; border: none; }}
+        QLabel#wageArtBg, QLabel#pocketArtBg {{ background: transparent; border: none; }}
+        QLabel#wageArtScrim {{ background: qlineargradient(x1:0 y1:0, x2:1 y2:0, stop:0 {p['scrim_left']}, stop:0.55 {p['scrim_mid']}, stop:1 {p['scrim_right']}); border: none; }}
+        QLabel#sectionIcon, QLabel#roseDecor {{ background: transparent; border: none; }}
+        QFrame#pocketBanner {{ background: {p['card']}; border: 1px solid {p['section_border']}; border-radius: 14px; }}
+        QPushButton#pocketBannerBtn {{ background: transparent; color: {p['action_text']}; border: 1px solid transparent; border-radius: 13px; padding: 6px 10px; font-weight: 700; }}
+        QPushButton#pocketBannerBtn:hover {{ background: rgba(255,255,255,36); border-color: {p['tint_border']}; }}
+        QPushButton#pocketBannerBtn:pressed {{ background: rgba(255,255,255,60); }}
         QLabel#panelRow {{ background: {p['chip']}; border: 1px solid {p['tint_border']}; border-radius: 9px; padding: 4px 8px; font-size: 8pt; color: {p['text']}; }}
         QFrame#wageCard {{ background: qlineargradient(x1:0 y1:0, x2:1 y2:1, stop:0 {p['hero_top']}, stop:1 {p['hero_bottom']}); border: 1px solid {p['section_border']}; border-radius: 16px; }}
         QPushButton#panelSetup {{ background: {p['action_bg']}; color: {p['action_text']}; border: 1px solid {p['action_bg']}; border-radius: 9px; padding: 8px 10px; font-weight: 600; }}
@@ -83,30 +121,117 @@ class QuickPanel(QWidget):
         p = ui_skin.palette()
         self._card.setStyleSheet(_panel_qss(p))
         self.setStyleSheet(f"QuickPanel {{ background: transparent; }}")
-        if getattr(self, "_mark", None) is not None:
-            self._mark.setText(p["deco"])
+        if hasattr(self, "_favorite_icon"):
+            self._apply_art()
         if getattr(self, "pocket_count", None) is not None:
             self.pocket_count.setStyleSheet(f"color: {p['amount']}; font-weight: 700;")
         if hasattr(self, "favorite_grid"):
             self._refresh_favorites()
 
+    def _section_host(self, icon_name, text, fallback_emoji):
+        """Section header = sheet icon (fallback emoji) + title + rose accent."""
+        host = QWidget(); host.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(host); row.setContentsMargins(0, 0, 0, 0); row.setSpacing(6)
+        icon_lbl = QLabel(); icon_lbl.setAlignment(Qt.AlignCenter); icon_lbl.setFixedSize(18, 18)
+        title = QLabel(text); title.setObjectName("panelSectionTitle")
+        rose = QLabel(); rose.setFixedSize(14, 14)
+        row.addWidget(icon_lbl); row.addWidget(title); row.addWidget(rose)
+        return host, icon_lbl, title, rose
+
+    @staticmethod
+    def _set_section_icon(lbl, name, fallback_emoji):
+        path = ui_skin.theme_asset(f"icons/{name}")
+        if path is not None:
+            lbl.setPixmap(_fit_pixmap(path, 20)); lbl.setText("")
+        else:
+            lbl.setPixmap(QPixmap()); lbl.setText(fallback_emoji)
+
+    def _apply_art(self):
+        """Wire per-skin illustration assets; emoji fallback when absent."""
+        avatar = ui_skin.theme_asset("avatar")
+        if avatar is not None:
+            self._mark.setObjectName("panelAvatar")
+            self._mark.setText("")
+            self._mark.setPixmap(_fill_pixmap(avatar, 32, 32))
+        else:
+            self._mark.setObjectName("panelMark")
+            self._mark.setPixmap(QPixmap())
+            self._mark.setText(ui_skin.palette()["deco"])
+        self._mark.style().unpolish(self._mark); self._mark.style().polish(self._mark)
+
+        hero = ui_skin.theme_asset("hero_scene")
+        if hero is not None:
+            self._wage_bg.setPixmap(QPixmap(str(hero)))
+            self._wage_bg.show(); self._wage_scrim.show(); self.wage_decor.hide()
+        else:
+            self._wage_bg.setPixmap(QPixmap()); self._wage_bg.hide()
+            self._wage_scrim.hide()
+            self.wage_decor.setText(ui_skin.palette()["deco"]); self.wage_decor.show()
+
+        if self._pocket_bg is not None:
+            banner = ui_skin.theme_asset("pocket_banner")
+            if banner is not None:
+                self._pocket_bg.setPixmap(QPixmap(str(banner)))
+
+        self._set_section_icon(self._favorite_icon, "folder", "⭐")
+        self._set_section_icon(self._pocket_icon, "pocket", "🎒")
+        self._set_section_icon(self._remind_icon, "bell", "⏰")
+        rose = ui_skin.theme_asset("icons/rose")
+        rose_pm = _fit_pixmap(rose, 16) if rose is not None else QPixmap()
+        for lbl in (self._favorite_rose, self._pocket_rose, self._remind_rose):
+            lbl.setPixmap(rose_pm)
+
+        self.clock_out_btn.setIconSize(QSize(18, 18)); self.clock_out_btn.setIcon(_skin_icon("clock"))
+        self.calendar_btn.setIconSize(QSize(18, 18)); self.calendar_btn.setIcon(_skin_icon("calendar"))
+        self.open_reminders_btn.setIconSize(QSize(18, 18)); self.open_reminders_btn.setIcon(_skin_icon("bell"))
+        self.panel_close_btn.setIconSize(QSize(16, 16))
+        self.panel_close_btn.setIcon(_skin_icon("close"))
+        self.panel_close_btn.setText("" if not self.panel_close_btn.icon().isNull() else "×")
+        self.remind_btn.setIconSize(QSize(18, 18))
+        self.remind_btn.setIcon(_skin_icon("plus"))
+        self.remind_btn.setText("" if not self.remind_btn.icon().isNull() else "+")
+        self.favorite_pin_btn.setIconSize(QSize(18, 18))
+        self.favorite_pin_btn.setIcon(_skin_icon("plus"))
+        self.favorite_pin_btn.setText("" if not self.favorite_pin_btn.icon().isNull() else "＋")
+        self.open_pocket_btn.setIconSize(QSize(20, 20))
+        self.open_pocket_btn.setIcon(_skin_icon("pocket"))
+        if not self.open_pocket_btn.icon().isNull():
+            self.open_pocket_btn.setText("打开文件口袋")
+
+    def showEvent(self, event):
+        # Art layers crop from the laid-out card size — recompute once real.
+        QTimer.singleShot(0, self._apply_art)
+        super().showEvent(event)
+
     def _build_ui(self):
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         card = QFrame(); card.setObjectName("card"); self._card = card
         self._apply_skin()
-        layout = QVBoxLayout(card); layout.setContentsMargins(13, 10, 13, 11); layout.setSpacing(7)
+        layout = QVBoxLayout(card); layout.setContentsMargins(13, 10, 13, 11); layout.setSpacing(6)
 
         top = QHBoxLayout(); top.setSpacing(9)
-        mark = QLabel(ui_skin.palette()["deco"]); mark.setAlignment(Qt.AlignCenter); mark.setFixedSize(30, 30)
-        mark.setObjectName("panelMark"); self._mark = mark
+        mark = QLabel(); mark.setAlignment(Qt.AlignCenter); mark.setFixedSize(32, 32)
+        self._mark = mark
         heading = QVBoxLayout(); heading.setSpacing(0)
         title = QLabel("小迪助手"); title.setObjectName("panelHeading")
         subtitle = QLabel("工作 · 文件 · 提醒"); subtitle.setObjectName("panelCaption")
         heading.addWidget(title); heading.addWidget(subtitle)
-        close = QPushButton("×"); close.setObjectName("panelIconButton"); close.setFixedSize(26, 26); close.setToolTip("收起面板"); close.clicked.connect(self.hide); self.panel_close_btn = close
+        close = QPushButton(); close.setObjectName("panelIconButton"); close.setFixedSize(26, 26); close.setToolTip("收起面板"); close.clicked.connect(self.hide); self.panel_close_btn = close
         top.addWidget(mark); top.addLayout(heading); top.addStretch(); top.addWidget(close); layout.addLayout(top)
 
-        wage_body = QHBoxLayout(); wage_body.setSpacing(4)
+        # Hero wage card: theme art (V5.10) as stacked background + scrim, real
+        # controls on top — data is never baked into the image.
+        wage_card = QFrame(); wage_card.setObjectName("wageCard")
+        wage_stack = QGridLayout(wage_card); wage_stack.setContentsMargins(0, 0, 0, 0); wage_stack.setSpacing(0)
+        ignored = QSizePolicy.Ignored
+        self._wage_bg = QLabel(); self._wage_bg.setObjectName("wageArtBg")
+        self._wage_bg.setScaledContents(True)
+        self._wage_bg.setSizePolicy(ignored, ignored)
+        wage_stack.addWidget(self._wage_bg, 0, 0)
+        self._wage_scrim = QLabel(); self._wage_scrim.setObjectName("wageArtScrim")
+        self._wage_scrim.setSizePolicy(ignored, ignored)
+        wage_stack.addWidget(self._wage_scrim, 0, 0)
+        wage_body = QHBoxLayout(); wage_body.setSpacing(4); wage_body.setContentsMargins(11, 9, 8, 9)
         wage_text = QVBoxLayout(); wage_text.setSpacing(2)
         self.wage_status = QLabel("工资统计未配置"); self.wage_status.setObjectName("panelStatus")
         self.wage_status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -114,12 +239,12 @@ class QuickPanel(QWidget):
         self.wage_detail = QLabel(""); self.wage_detail.setObjectName("panelDetail"); self.wage_detail.setWordWrap(True)
         self.wage_setup_btn = QPushButton("设置工资与工作时间"); self.wage_setup_btn.setObjectName("panelSetup"); self.wage_setup_btn.clicked.connect(self._open_wage_settings)
         wage_text.addWidget(self.wage_status); wage_text.addWidget(self.wage_amount); wage_text.addWidget(self.wage_detail); wage_text.addSpacing(4); wage_text.addWidget(self.wage_setup_btn)
-        wage_decor = QLabel(ui_skin.palette().get("deco", "🎀")); wage_decor.setObjectName("panelDecor")
-        wage_decor.setAlignment(Qt.AlignTop | Qt.AlignRight); wage_decor.setFixedWidth(52)
-        wage_body.addLayout(wage_text, 1); wage_body.addWidget(wage_decor)
-        wage_card = QFrame(); wage_card.setObjectName("wageCard")
-        wage_layout = QVBoxLayout(wage_card); wage_layout.setContentsMargins(11, 9, 8, 10); wage_layout.setSpacing(2)
-        wage_layout.addLayout(wage_body)
+        self.wage_decor = QLabel(ui_skin.palette().get("deco", "🎀")); self.wage_decor.setObjectName("panelDecor")
+        self.wage_decor.setAlignment(Qt.AlignTop | Qt.AlignRight); self.wage_decor.setFixedWidth(52)
+        wage_body.addLayout(wage_text, 1); wage_body.addWidget(self.wage_decor)
+        wage_content = QWidget(); wage_content.setLayout(wage_body); wage_content.setStyleSheet("background: transparent;")
+        wage_stack.addWidget(wage_content, 0, 0)
+        self._wage_scrim.raise_(); wage_content.raise_()
         layout.addWidget(wage_card)
 
         wage_buttons = QHBoxLayout(); wage_buttons.setSpacing(6)
@@ -128,7 +253,7 @@ class QuickPanel(QWidget):
         wage_buttons.addWidget(self.clock_out_btn); wage_buttons.addWidget(self.calendar_btn); layout.addLayout(wage_buttons)
         layout.addSpacing(4)
         favorite_header = QHBoxLayout()
-        self.favorite_title = QLabel("⭐ 常用文件夹"); self.favorite_title.setObjectName("panelSectionTitle")
+        self._favorite_host, self._favorite_icon, self.favorite_title, self._favorite_rose = self._section_host("folder", "常用文件夹", "⭐")
         self.favorite_manage_btn = QPushButton("管理")
         self.favorite_manage_btn.setObjectName("panelManager")
         self.favorite_manage_btn.setCursor(Qt.PointingHandCursor)
@@ -167,19 +292,37 @@ class QuickPanel(QWidget):
         layout.addWidget(self.favorite_view_all_btn)
 
         layout.addSpacing(4)
-        hdr = QHBoxLayout(); self.pocket_title = QLabel("🎒 文件口袋"); self.pocket_title.setObjectName("panelSectionTitle"); self.pocket_count = QLabel("0"); self.pocket_count.setStyleSheet(""); hdr.addWidget(self.pocket_title); hdr.addStretch(); hdr.addWidget(self.pocket_count); layout.addLayout(hdr)
+        hdr = QHBoxLayout(); self._pocket_host, self._pocket_icon, self.pocket_title, self._pocket_rose = self._section_host("pocket", "文件口袋", "🎒"); self.pocket_count = QLabel("0"); self.pocket_count.setStyleSheet(""); hdr.addWidget(self.pocket_title); hdr.addStretch(); hdr.addWidget(self.pocket_count); layout.addLayout(hdr)
         self.pocket_items_layout = QVBoxLayout(); self.pocket_items_layout.setSpacing(3); layout.addLayout(self.pocket_items_layout)
         self.empty_label = QLabel("暂无内容 · 拖文件到角色即可暂存"); self.empty_label.setWordWrap(True); self.empty_label.setObjectName("panelCaption"); layout.addWidget(self.empty_label)
-        self.open_pocket_btn = QPushButton("🎒 打开文件口袋"); self.open_pocket_btn.setObjectName("panelPrimary"); self.open_pocket_btn.clicked.connect(self._open_pocket); layout.addWidget(self.open_pocket_btn)
+        # 文件口袋横幅（V5.10）：主题横幅插画为底层，真实按钮铺满可点击。
+        pocket_art = ui_skin.theme_asset("pocket_banner")
+        if pocket_art is not None:
+            banner = QFrame(); banner.setObjectName("pocketBanner")
+            banner_grid = QGridLayout(banner); banner_grid.setContentsMargins(0, 0, 0, 0); banner_grid.setSpacing(0)
+            self._pocket_bg = QLabel(); self._pocket_bg.setObjectName("pocketArtBg")
+            self._pocket_bg.setScaledContents(True)
+            self._pocket_bg.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            banner_grid.addWidget(self._pocket_bg, 0, 0)
+            self.open_pocket_btn = QPushButton("打开文件口袋"); self.open_pocket_btn.setObjectName("pocketBannerBtn"); self.open_pocket_btn.setCursor(Qt.PointingHandCursor); self.open_pocket_btn.clicked.connect(self._open_pocket)
+            banner_grid.addWidget(self.open_pocket_btn, 0, 0)
+            self.open_pocket_btn.raise_()
+            self._pocket_banner = banner
+            layout.addWidget(banner)
+        else:
+            self._pocket_bg = None
+            self._pocket_banner = None
+            self.open_pocket_btn = QPushButton("🎒 打开文件口袋"); self.open_pocket_btn.setObjectName("panelPrimary"); self.open_pocket_btn.clicked.connect(self._open_pocket); layout.addWidget(self.open_pocket_btn)
 
         layout.addSpacing(4)
-        remind_hdr = QHBoxLayout(); self.remind_title = QLabel("⏰ 下个提醒"); self.remind_title.setObjectName("panelSectionTitle"); self.remind_btn = QToolButton(); self.remind_btn.setText("+"); self.remind_btn.setObjectName("panelIconButton"); self.remind_btn.setFixedSize(30, 30); self.remind_btn.clicked.connect(self._open_add_reminder); remind_hdr.addWidget(self.remind_title); remind_hdr.addStretch(); remind_hdr.addWidget(self.remind_btn); layout.addLayout(remind_hdr)
+        remind_hdr = QHBoxLayout(); self._remind_host, self._remind_icon, self.remind_title, self._remind_rose = self._section_host("bell", "下个提醒", "⏰"); self.remind_btn = QToolButton(); self.remind_btn.setObjectName("panelIconButton"); self.remind_btn.setFixedSize(30, 30); self.remind_btn.clicked.connect(self._open_add_reminder); remind_hdr.addWidget(self.remind_title); remind_hdr.addStretch(); remind_hdr.addWidget(self.remind_btn); layout.addLayout(remind_hdr)
         self.next_reminder_label = QLabel("暂无提醒"); self.next_reminder_label.setWordWrap(True); layout.addWidget(self.next_reminder_label)
         self.remind_items_layout = QVBoxLayout(); self.remind_items_layout.setSpacing(2); layout.addLayout(self.remind_items_layout)
         self.no_remind_label = QLabel("暂无提醒"); self.no_remind_label.setObjectName("panelCaption"); self.no_remind_label.hide(); layout.addWidget(self.no_remind_label)
-        self.open_reminders_btn = QPushButton("🔔 我的提醒"); self.open_reminders_btn.setObjectName("panelQuiet"); self.open_reminders_btn.clicked.connect(self._open_reminders); layout.addWidget(self.open_reminders_btn)
+        self.open_reminders_btn = QPushButton("我的提醒"); self.open_reminders_btn.setObjectName("panelQuiet"); self.open_reminders_btn.clicked.connect(self._open_reminders); layout.addWidget(self.open_reminders_btn)
         # 无外层滚动容器：QScrollArea 的方形视口会在圆角卡片四角露出"尖尖"，
         # 而内容量在 600px 上限内（收藏区自带滚动），直接铺卡片即可。
+        self._apply_art()
         root.addWidget(card)
 
     @staticmethod
@@ -236,7 +379,9 @@ class QuickPanel(QWidget):
             exists = favorite.exists
             button = QToolButton()
             button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-            button.setIcon(provider.icon(QFileInfo(str(favorite.path))) if exists
+            rose_folder = _skin_icon("folder")
+            button.setIcon(rose_folder if not rose_folder.isNull()
+                           else provider.icon(QFileInfo(str(favorite.path))) if exists
                            else provider.icon(QFileIconProvider.Folder))
             button.setFixedWidth(max(104, (self.width() - 36) // 2))
             button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)

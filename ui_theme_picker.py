@@ -16,6 +16,17 @@ from ui.modern.dialog import ModernDialog
 CATEGORY_LABELS = (("cute", "🌸 可爱"), ("cool", "⚡ 炫酷"))
 
 
+def _fill_pixmap(path, width: int, height: int):
+    """Cover-scale a theme illustration into a fixed box (center-crop)."""
+    from PyQt5.QtGui import QPixmap
+    src = QPixmap(str(path))
+    if src.isNull() or width <= 0 or height <= 0:
+        return QPixmap()
+    scaled = src.scaled(width, height, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+    return scaled.copy((scaled.width() - width) // 2, (scaled.height() - height) // 2,
+                       width, height)
+
+
 def _card_qss(p: dict, selected: bool) -> str:
     border = p["accent"] if selected else p["border"]
     width = 2 if selected else 1
@@ -49,13 +60,23 @@ class ThemeCard(QFrame):
         name_lbl = QLabel(f"{p['deco']} {name}"); name_lbl.setObjectName("tcName")
         head.addWidget(name_lbl); head.addStretch()
         if active:
-            badge = QLabel("当前 ✓"); badge.setObjectName("tcBadge")
+            badge = QLabel("✓"); badge.setObjectName("tcBadge")
             head.addWidget(badge)
         lay.addLayout(head)
         hero = QFrame(); hero.setObjectName("tcHero")
-        hero_lay = QVBoxLayout(hero); hero_lay.setContentsMargins(8, 5, 8, 6); hero_lay.setSpacing(1)
-        amount = QLabel("今日已赚 ¥757.34"); amount.setObjectName("tcAmount")
-        status = QLabel("● 工作中"); status.setStyleSheet(f"color:{p['text_soft']};font-size:7pt;background:transparent;border:none;")
+        hero_grid = QGridLayout(hero); hero_grid.setContentsMargins(0, 0, 0, 0); hero_grid.setSpacing(0)
+        hero_lay = QVBoxLayout(); hero_lay.setContentsMargins(8, 4, 8, 5); hero_lay.setSpacing(0)
+        hero_art = ui_skin.theme_asset("hero_scene", skin_id)
+        if hero_art is not None:
+            art = QLabel(); art.setFixedSize(112, 44)
+            art.setPixmap(_fill_pixmap(hero_art, 112, 44))
+            art.setStyleSheet("background: transparent; border: none;")
+            hero_grid.addWidget(art, 0, 0)
+            hero_grid.addLayout(hero_lay, 0, 0)
+        else:
+            hero_grid.addLayout(hero_lay, 0, 0)
+        status = QLabel("工作中"); status.setStyleSheet(f"color:{p['text_soft']};font-size:7pt;background:transparent;border:none;")
+        amount = QLabel("¥757.34"); amount.setObjectName("tcAmount")
         hero_lay.addWidget(status); hero_lay.addWidget(amount)
         lay.addWidget(hero)
         pills = QHBoxLayout(); pills.setSpacing(4)
@@ -74,7 +95,7 @@ class ThemePickerDialog(ModernDialog):
     """🎨 主题中心 — 可爱/炫酷(/自定义) 页签 + 预览卡网格 + 当前选中态。"""
 
     def __init__(self, parent=None):
-        super().__init__("主题中心", "16 套主题 · 点卡片立即切换，重启后记住", parent, min_width=620)
+        super().__init__("主题中心", "17 套主题 · 点卡片立即切换，重启后记住", parent, min_width=620)
         customs = ui_skin._load_custom_skins()
         self._categories = list(CATEGORY_LABELS)
         if customs:

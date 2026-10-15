@@ -35,6 +35,7 @@ tints, action_bg/action_text, section tints, text_soft.
 
 import json
 import logging
+from pathlib import Path
 
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QColor
@@ -45,6 +46,16 @@ from paths import DATA_DIR
 LOGGER = logging.getLogger("pet.ui_skin")
 
 SKINS_FILE = DATA_DIR / "ui_skins.json"
+
+# Per-theme image assets (V5.10 rose_moon): assets/ui_themes/<skin_id>/<name>.png
+ASSETS_DIR = Path(__file__).resolve().parent / "assets" / "ui_themes"
+
+
+def theme_asset(name: str, skin_id: str = None):
+    """Path to a theme image asset (e.g. 'avatar', 'icons/bell'), or None."""
+    sid = skin_id or active_id()
+    path = ASSETS_DIR / sid / f"{name}.png"
+    return path if path.exists() else None
 
 # id: (display name, colors)
 PRESETS = {
@@ -144,6 +155,18 @@ PRESETS = {
         "hero_top": "#58293E", "hero_bottom": "#3E1F2F",
         "primary_top": "#E88A96", "primary_bottom": "#C05A70",
         "glow": "#F2A9B8", "deco": "🌹",
+    }),
+    "rose_moon": ("玫瑰月夜", {
+        "accent": "#F0789F", "accent_hover": "#E0668F",
+        "bg": "#331C2B", "card": "#4A2839", "border": "#6E3B52",
+        "text": "#F9E8EF", "muted": "#D2A3B2",
+        "menu_bg": "#3E2130", "menu_border": "#663649",
+        "menu_highlight": "#573042", "menu_highlight_text": "#F5B8C8",
+        "amount": "#F7A8C0",
+        "category": "cute", "dark": True,
+        "hero_top": "#5A2C42", "hero_bottom": "#3A1F30",
+        "primary_top": "#E86E9C", "primary_bottom": "#C4507C",
+        "glow": "#F2A0BC", "deco": "🌹",
     }),
     # ── 炫酷 ─────────────────────────────────────────────────────────────
     "cyber_night": ("暗夜赛博", {
@@ -358,9 +381,18 @@ def resolve_palette(colors: dict) -> dict:
     for key, default in status_defaults.items():
         p.setdefault(key, default)
     p.setdefault("chip", _tint(p["accent"], p["card"], 0.12) if dark else p["bg"])
+    # Scrim for text-over-illustration layers (readability on hero art).
+    p["scrim_left"] = _rgba(p["bg"], 235)
+    p["scrim_mid"] = _rgba(p["bg"], 150)
+    p["scrim_right"] = _rgba(p["bg"], 30)
     for key in ("ok", "info", "warn", "danger"):
         p[key] = _fit_text(p[key], p["section_bg"])
     return p
+
+
+def _rgba(hex_color: str, alpha: int) -> str:
+    c = QColor(hex_color)
+    return f"rgba({c.red()},{c.green()},{c.blue()},{alpha})"
 
 
 def _tint(accent_hex: str, base_hex: str, accent_ratio: float) -> str:
