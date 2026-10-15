@@ -1,12 +1,16 @@
-"""Desktop-pet skin system (V5.4 皮肤系统 → V5.8 主题中心).
+"""Desktop-pet skin system (V5.4 皮肤系统 → V5.10 素材主题).
 
 One source of truth for every pet-owned popup surface:
 
-  * 16 preset themes in two categories — 可爱 (8, mostly light) and
-    炫酷 (8, all dark) — hand-tuned against the V5.8 reference pack
-    (docs/V58_REFERENCE_MAPPING.md)
+  * hand-tuned presets — the classic five (樱花粉/奶油黄/薄荷绿/天空蓝/香芋紫)
+    plus 玫瑰月夜 (V5.10, dark, illustration assets); the 2026-10-15 V5.8
+    16-theme batch was rolled back by user decision
+  * per-theme image assets in assets/ui_themes/<skin_id>/ are OPTIONAL —
+    theme_asset() returns None when absent and surfaces fall back to
+    palette/emoji rendering
   * user-defined skins persisted to data/ui_skins.json
-  * active skin id persisted in config ("ui_skin")
+  * active skin id persisted in config ("ui_skin"); an id that no longer
+    exists falls back to sakura
   * set_skin() mutates the legacy theme.* and ui.modern.tokens.* module
     globals (so every window constructed afterwards picks the palette up
     with zero refactor), regenerates the app stylesheet, and emits
@@ -59,103 +63,53 @@ def theme_asset(name: str, skin_id: str = None):
 
 # id: (display name, colors)
 PRESETS = {
-    # ── 可爱 ─────────────────────────────────────────────────────────────
-    "sakura": ("樱花甜心", {
+    # ── 经典五套（V5.4 原始预设，2026-10-15 恢复原名原色）─────────────────
+    "sakura": ("樱花粉", {
         "accent": "#F27BA7", "accent_hover": "#E0679A",
         "bg": "#FFF6FA", "card": "#FFFFFF", "border": "#F8D7E3",
         "text": "#5C3A4A", "muted": "#91516B",
         "menu_bg": "#FFF5F9", "menu_border": "#F6C6D9",
         "menu_highlight": "#FFE3EE", "menu_highlight_text": "#C2497E",
         "amount": "#E05590",
-        "category": "cute", "dark": False,
-        "hero_top": "#FFEDF4", "hero_bottom": "#FFDCE9",
-        "primary_top": "#F27BA7", "primary_bottom": "#E05E90",
-        "glow": "#F8A8C4", "deco": "🌸",
+        "deco": "🌸",
     }),
-    "garden": ("奶油花园", {
-        "accent": "#6E9165", "accent_hover": "#5C7F54",
-        "bg": "#FEFAF2", "card": "#FFFFFF", "border": "#E3DCC3",
-        "text": "#4A4636", "muted": "#8A8465",
-        "menu_bg": "#FBF7EA", "menu_border": "#E6DFC8",
-        "menu_highlight": "#F2EDD8", "menu_highlight_text": "#55744E",
-        "amount": "#55744E",
-        "category": "cute", "dark": False,
-        "hero_top": "#F3EFDA", "hero_bottom": "#E9E3C7",
-        "primary_top": "#6E9165", "primary_bottom": "#587C50",
-        "glow": "#A9C49E", "deco": "🌿",
+    "cream": ("奶油黄", {
+        "accent": "#F5A623", "accent_hover": "#E09312",
+        "bg": "#FFFBF2", "card": "#FFFFFF", "border": "#F3E3C0",
+        "text": "#5C4A2E", "muted": "#926A2A",
+        "menu_bg": "#FFFAF0", "menu_border": "#F0DCB4",
+        "menu_highlight": "#FBEFD3", "menu_highlight_text": "#9A6B12",
+        "amount": "#E08A00",
+        "deco": "🌻",
     }),
-    "taro": ("月光薰衣草", {
-        "accent": "#9B7EDE", "accent_hover": "#8A6BD1",
-        "bg": "#F8F5FD", "card": "#FFFFFF", "border": "#E0D5F2",
-        "text": "#463A5C", "muted": "#64528A",
-        "menu_bg": "#F9F6FE", "menu_border": "#DCD0F0",
-        "menu_highlight": "#ECE4FB", "menu_highlight_text": "#6F4FC0",
-        "amount": "#8A6BD1",
-        "category": "cute", "dark": False,
-        "hero_top": "#F0EAFB", "hero_bottom": "#E3D8F7",
-        "primary_top": "#9B7EDE", "primary_bottom": "#8161CE",
-        "glow": "#C4AEEF", "deco": "🌙",
-    }),
-    "sky": ("晴空云朵", {
-        "accent": "#4A90D9", "accent_hover": "#3A7BC4",
-        "bg": "#F3F8FD", "card": "#FFFFFF", "border": "#CFE2F3",
-        "text": "#2E4258", "muted": "#385D85",
-        "menu_bg": "#F4F9FE", "menu_border": "#C6DDF0",
-        "menu_highlight": "#DCEDFB", "menu_highlight_text": "#2B6CB0",
-        "amount": "#3A7BC4",
-        "category": "cute", "dark": False,
-        "hero_top": "#E8F3FC", "hero_bottom": "#D3E8F9",
-        "primary_top": "#4A90D9", "primary_bottom": "#3579C2",
-        "glow": "#9CC8EE", "deco": "☁️",
-    }),
-    "cream": ("蜜桃奶茶", {
-        "accent": "#C98A4B", "accent_hover": "#B4763C",
-        "bg": "#FFFBF2", "card": "#FFFFFF", "border": "#EFDFC8",
-        "text": "#5C4A2E", "muted": "#8A6A45",
-        "menu_bg": "#FFFAF0", "menu_border": "#F0E0C4",
-        "menu_highlight": "#F9EEDC", "menu_highlight_text": "#96622A",
-        "amount": "#A96A2E",
-        "category": "cute", "dark": False,
-        "hero_top": "#FAF0DC", "hero_bottom": "#F4E2C2",
-        "primary_top": "#C98A4B", "primary_bottom": "#A96F35",
-        "glow": "#E5C296", "deco": "🍑",
-    }),
-    "forest": ("森系童话", {
-        "accent": "#4E7A46", "accent_hover": "#406839",
-        "bg": "#FCF6EA", "card": "#FFFFFF", "border": "#E2D9BE",
-        "text": "#454A34", "muted": "#7A7D5E",
-        "menu_bg": "#FAF4E4", "menu_border": "#E4DBC0",
-        "menu_highlight": "#EDF0D3", "menu_highlight_text": "#3F6A38",
-        "amount": "#3F6A38",
-        "category": "cute", "dark": False,
-        "hero_top": "#EDF1D4", "hero_bottom": "#DFE7BC",
-        "primary_top": "#4E7A46", "primary_bottom": "#3C6335",
-        "glow": "#9DBE8E", "deco": "🍄",
-    }),
-    "mint": ("柠檬薄荷", {
+    "mint": ("薄荷绿", {
         "accent": "#34B78F", "accent_hover": "#2AA37D",
         "bg": "#F2FBF7", "card": "#FFFFFF", "border": "#CDE9DD",
         "text": "#2F4A3E", "muted": "#31705A",
         "menu_bg": "#F3FCF8", "menu_border": "#C4E6D6",
         "menu_highlight": "#D8F3E7", "menu_highlight_text": "#1F7A5C",
         "amount": "#1FA37D",
-        "category": "cute", "dark": False,
-        "hero_top": "#E5F7EE", "hero_bottom": "#CFEFE1",
-        "primary_top": "#34B78F", "primary_bottom": "#259874",
-        "glow": "#8CDDBE", "deco": "🍋",
+        "deco": "🌿",
     }),
-    "berry_night": ("玫瑰莓夜", {
-        "accent": "#E88A96", "accent_hover": "#DE7686",
-        "bg": "#331B28", "card": "#4A2637", "border": "#6E3B50",
-        "text": "#F7E6EC", "muted": "#D2A3B2",
-        "menu_bg": "#402130", "menu_border": "#633349",
-        "menu_highlight": "#573042", "menu_highlight_text": "#F2B8C6",
-        "amount": "#F2A9B8",
-        "category": "cute", "dark": True,
-        "hero_top": "#58293E", "hero_bottom": "#3E1F2F",
-        "primary_top": "#E88A96", "primary_bottom": "#C05A70",
-        "glow": "#F2A9B8", "deco": "🌹",
+    "sky": ("天空蓝", {
+        "accent": "#4A90D9", "accent_hover": "#3A7BC4",
+        "bg": "#F3F8FD", "card": "#FFFFFF", "border": "#CFE2F3",
+        "text": "#2E4258", "muted": "#385D85",
+        "menu_bg": "#F4F9FE", "menu_border": "#C6DDF0",
+        "menu_highlight": "#DCEDFB", "menu_highlight_text": "#2B6CB0",
+        "amount": "#3A7BC4",
+        "deco": "☁️",
     }),
+    "taro": ("香芋紫", {
+        "accent": "#9B7EDE", "accent_hover": "#8A6BD1",
+        "bg": "#F8F5FD", "card": "#FFFFFF", "border": "#E0D5F2",
+        "text": "#463A5C", "muted": "#64528A",
+        "menu_bg": "#F9F6FE", "menu_border": "#DCD0F0",
+        "menu_highlight": "#ECE4FB", "menu_highlight_text": "#6F4FC0",
+        "amount": "#8A6BD1",
+        "deco": "🍇",
+    }),
+    # ── 玫瑰月夜（V5.10，插画素材主题，暗色可爱）──────────────────────────
     "rose_moon": ("玫瑰月夜", {
         "accent": "#F0789F", "accent_hover": "#E0668F",
         "bg": "#331C2B", "card": "#4A2839", "border": "#6E3B52",
@@ -167,103 +121,6 @@ PRESETS = {
         "hero_top": "#5A2C42", "hero_bottom": "#3A1F30",
         "primary_top": "#E86E9C", "primary_bottom": "#C4507C",
         "glow": "#F2A0BC", "deco": "🌹",
-    }),
-    # ── 炫酷 ─────────────────────────────────────────────────────────────
-    "cyber_night": ("暗夜赛博", {
-        "accent": "#3FA9F5", "accent_hover": "#5FC0FF",
-        "bg": "#0C1625", "card": "#14233A", "border": "#22405F",
-        "text": "#E6F2FF", "muted": "#8FB0CC",
-        "menu_bg": "#101D30", "menu_border": "#1E3A57",
-        "menu_highlight": "#17304C", "menu_highlight_text": "#7CC8FF",
-        "amount": "#4FC3FF",
-        "category": "cool", "dark": True,
-        "hero_top": "#17304F", "hero_bottom": "#0F1D31",
-        "primary_top": "#2E8FE0", "primary_bottom": "#1F6CB0",
-        "glow": "#37B6FF", "deco": "🤖",
-    }),
-    "deep_pulse": ("深海脉冲", {
-        "accent": "#2E9BE6", "accent_hover": "#4FB2F5",
-        "bg": "#011A3A", "card": "#062C55", "border": "#10497F",
-        "text": "#E0F2FF", "muted": "#7FA8CC",
-        "menu_bg": "#052450", "menu_border": "#0D4276",
-        "menu_highlight": "#0A3B6E", "menu_highlight_text": "#6FC2FF",
-        "amount": "#58C7FF",
-        "category": "cool", "dark": True,
-        "hero_top": "#0A3A6B", "hero_bottom": "#04234A",
-        "primary_top": "#2585D4", "primary_bottom": "#16629F",
-        "glow": "#2FB4FF", "deco": "🐋",
-    }),
-    "ember_tech": ("赤焰机能", {
-        "accent": "#E23B3B", "accent_hover": "#F05555",
-        "bg": "#0F0E11", "card": "#1C1418", "border": "#472A30",
-        "text": "#F5EDED", "muted": "#B59AA0",
-        "menu_bg": "#171216", "menu_border": "#3A2226",
-        "menu_highlight": "#2A1A1E", "menu_highlight_text": "#FF8A8A",
-        "amount": "#FF6B6B",
-        "category": "cool", "dark": True,
-        "hero_top": "#2A1720", "hero_bottom": "#190F15",
-        "primary_top": "#C93232", "primary_bottom": "#9E2020",
-        "glow": "#FF4444", "deco": "🔥",
-    }),
-    "aurora_pulse": ("极光脉冲", {
-        "accent": "#4F8DF9", "accent_hover": "#6FA5FF",
-        "bg": "#0A122A", "card": "#152551", "border": "#26468C",
-        "text": "#E8F0FF", "muted": "#8FA6D9",
-        "menu_bg": "#11204A", "menu_border": "#23407E",
-        "menu_highlight": "#1B3468", "menu_highlight_text": "#86B4FF",
-        "amount": "#6FB6FF",
-        "category": "cool", "dark": True,
-        "hero_top": "#1B3C7A", "hero_bottom": "#101F42",
-        "primary_top": "#3F7BE8", "primary_bottom": "#2C5AB8",
-        "glow": "#4FA0FF", "deco": "🛰️",
-    }),
-    "titanium": ("钛灰锋芒", {
-        "accent": "#7FA8D9", "accent_hover": "#97BCE6",
-        "bg": "#171D25", "card": "#232C39", "border": "#38455A",
-        "text": "#E8EEF5", "muted": "#9AAABB",
-        "menu_bg": "#1D2530", "menu_border": "#333F4D",
-        "menu_highlight": "#2A3542", "menu_highlight_text": "#B4D2F0",
-        "amount": "#A9C9EC",
-        "category": "cool", "dark": True,
-        "hero_top": "#2C3949", "hero_bottom": "#1E2733",
-        "primary_top": "#6C97C9", "primary_bottom": "#4F79A8",
-        "glow": "#6FA0D8", "deco": "⚙️",
-    }),
-    "obsidian_gold": ("黑曜流光", {
-        "accent": "#E8C268", "accent_hover": "#F2D284",
-        "bg": "#0A0908", "card": "#1C1712", "border": "#42351F",
-        "text": "#F5EFE2", "muted": "#B9AD92",
-        "menu_bg": "#161210", "menu_border": "#382E1E",
-        "menu_highlight": "#292112", "menu_highlight_text": "#F2D284",
-        "amount": "#F2CE74",
-        "category": "cool", "dark": True,
-        "hero_top": "#332713", "hero_bottom": "#1E160C",
-        "primary_top": "#D4AC4E", "primary_bottom": "#A88634",
-        "glow": "#E8B84A", "deco": "🏆",
-    }),
-    "storm_volt": ("风暴电光", {
-        "accent": "#C8F542", "accent_hover": "#D8FA6E",
-        "bg": "#06111B", "card": "#10222F", "border": "#25424E",
-        "text": "#EAF6E8", "muted": "#93AFA6",
-        "menu_bg": "#0D1B24", "menu_border": "#1F3A2A",
-        "menu_highlight": "#1A3020", "menu_highlight_text": "#D8FA6E",
-        "amount": "#D8FA6E",
-        "category": "cool", "dark": True,
-        "hero_top": "#1A3320", "hero_bottom": "#0C1D14",
-        "primary_top": "#AED935", "primary_bottom": "#86AC1E",
-        "glow": "#C8F542", "deco": "⚡",
-    }),
-    "midnight_neon": ("午夜霓虹", {
-        "accent": "#7C5CFF", "accent_hover": "#9678FF",
-        "bg": "#050719", "card": "#12103A", "border": "#2E2775",
-        "text": "#ECE8FF", "muted": "#A098D6",
-        "menu_bg": "#0D0B2E", "menu_border": "#262060",
-        "menu_highlight": "#1B174E", "menu_highlight_text": "#B4A2FF",
-        "amount": "#B48CFF",
-        "category": "cool", "dark": True,
-        "hero_top": "#221B5E", "hero_bottom": "#120E36",
-        "primary_top": "#6A4AE8", "primary_bottom": "#4F33BE",
-        "glow": "#9C6CFF", "deco": "🌌",
     }),
 }
 

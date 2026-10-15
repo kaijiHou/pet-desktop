@@ -1,5 +1,9 @@
-"""V5.8 theme system: 16 presets (cute/cool), dark-aware derivation,
-theme picker, and themed renders of QuickPanel / WorkCalendarDialog.
+"""Theme system contracts: presets, dark-aware derivation, theme picker,
+and themed renders of QuickPanel / WorkCalendarDialog.
+
+2026-10-15 rollback: the V5.8 16-theme batch was removed by user decision —
+the classic five presets keep their original names/colors, rose_moon (V5.10,
+illustration assets) is the only added theme.
 
 Data discipline: every test redirects ALL five user data surfaces (config,
 reminders, pocket, destinations, wage) into the per-test temp root before
@@ -12,30 +16,28 @@ from datetime import date, datetime
 import pytest
 
 
-CUTE = ("sakura", "garden", "taro", "sky", "cream", "forest", "mint", "berry_night",
-        "rose_moon")
-COOL = ("cyber_night", "deep_pulse", "ember_tech", "aurora_pulse", "titanium",
-        "obsidian_gold", "storm_volt", "midnight_neon")
+CLASSIC = ("sakura", "cream", "mint", "sky", "taro")
+CLASSIC_NAMES = {"sakura": "樱花粉", "cream": "奶油黄", "mint": "薄荷绿",
+                 "sky": "天空蓝", "taro": "香芋紫"}
 
 
-def test_preset_categories(theme_env):
+def test_presets_rollback_state(theme_env):
+    """Classic five restored (original names, light) + dark rose_moon only."""
     skins = theme_env.PRESETS
-    assert len(skins) == 17
-    cute = [sid for sid, (_, c) in skins.items() if c.get("category") == "cute"]
-    cool = [sid for sid, (_, c) in skins.items() if c.get("category") == "cool"]
-    assert cute == list(CUTE)
-    assert cool == list(COOL)
+    assert sorted(skins) == sorted((*CLASSIC, "rose_moon"))
+    for sid, expected_name in CLASSIC_NAMES.items():
+        assert skins[sid][0] == expected_name
+        assert not skins[sid][1].get("dark", False)
+    name, colors = skins["rose_moon"]
+    assert name == "玫瑰月夜"
+    assert colors.get("dark") is True and colors.get("category") == "cute"
 
 
-def test_cool_presets_dark_with_flavor_keys(theme_env):
+def test_all_presets_have_core_keys_and_deco(theme_env):
     for sid, (name, colors) in theme_env.PRESETS.items():
         for key in theme_env.SKIN_KEYS:
             assert key in colors, f"{sid} missing {key}"
         assert colors.get("deco"), f"{sid} missing theme emoji"
-    assert all(theme_env.PRESETS[sid][1].get("dark") for sid in COOL)
-    light_cute = [sid for sid in CUTE if sid not in ("berry_night", "rose_moon")]
-    assert not any(theme_env.PRESETS[sid][1].get("dark") for sid in light_cute)
-    assert all(theme_env.PRESETS[sid][1].get("dark") for sid in ("berry_night", "rose_moon"))
 
 
 def test_every_preset_switches_persists_and_bridges(theme_env):
@@ -110,20 +112,19 @@ def test_calendar_dialog_renders_under_every_theme(theme_env, qapp, monkeypatch)
             dialog.close()
 
 
-def test_theme_picker_tabs_cards_and_switch(theme_env, qapp):
+def test_theme_picker_grid_and_switch(theme_env, qapp):
     from ui_theme_picker import ThemePickerDialog
 
     dialog = ThemePickerDialog()
     try:
-        assert [k for k, _ in dialog._categories] == ["cute", "cool"]
-        dialog._show_category("cute")
-        assert dialog.grid.count() == 9
-        dialog._show_category("cool")
-        assert dialog.grid.count() == 8
-        card = dialog.grid.itemAt(3).widget()
-        dialog._pick("storm_volt")
-        assert theme_env.active_id() == "storm_volt"
+        assert dialog.grid.count() == len(theme_env.PRESETS)
+        card = dialog.grid.itemAt(0).widget()
         assert card is not None
+        dialog._pick("rose_moon")
+        assert theme_env.active_id() == "rose_moon"
+        dialog._rebuild_grid()
+        badges = [dialog.grid.itemAt(i).widget() for i in range(dialog.grid.count())]
+        assert any(b.skin_id == "rose_moon" for b in badges if hasattr(b, "skin_id"))
     finally:
         dialog.close()
 
@@ -154,7 +155,7 @@ def test_calendar_status_colors_follow_skin(theme_env, monkeypatch):
     from wage.ui_calendar import CalendarDayCell
     cell = CalendarDayCell(cell_day, rest_sakura, None, True, None)
     sakura_qss = cell.styleSheet()
-    monkeypatch.setattr(theme_env, "_active_id", "storm_volt")
+    monkeypatch.setattr(theme_env, "_active_id", "rose_moon")
     cell._apply_style(False)
     assert cell.styleSheet() != sakura_qss, "cell must re-skin when the theme changes"
 
