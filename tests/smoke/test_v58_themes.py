@@ -21,7 +21,9 @@ CLASSIC_NAMES = {"sakura": "樱花粉", "cream": "奶油黄", "mint": "薄荷绿
                  "sky": "天空蓝", "taro": "香芋紫"}
 ASSET_THEMES = {"rose_moon": ("玫瑰月夜", True), "mint_pearl": ("薄荷珍珠", False),
                 "cyber_night": ("暗夜赛博", True), "spring_study": ("春日花语", False),
-                "aurora_cyber": ("极光冰晶", True), "sea_salt_pearl": ("海盐珍珠梦境", False)}
+                "aurora_cyber": ("极光冰晶", True), "sea_salt_pearl": ("海盐珍珠梦境", False),
+                "autumn_lantern": ("枫叶暖灯书房", True), "snowy_starlight": ("雪夜星灯小屋", True),
+                "sakura_lantern": ("樱花灯影书阁", True), "moonlit_coast": ("月夜海城", True)}
 
 
 def test_presets_state(theme_env):

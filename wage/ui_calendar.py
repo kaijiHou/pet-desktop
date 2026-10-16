@@ -55,11 +55,11 @@ class CalendarDayCell(QFrame):
         if not self.in_month:
             bg = p["bg"]
         elif status == REST:
-            bg = ui_skin._tint(p["danger"], p["card"], 0.12)
+            bg = ui_skin._tint(p["danger"], p["card"], 0.20)
         elif status == ADJUSTED_WORKDAY:
-            bg = ui_skin._tint(p["info"], p["card"], 0.12)
+            bg = ui_skin._tint(p["info"], p["card"], 0.20)
         elif status == LEAVE:
-            bg = ui_skin._tint(p["warn"], p["card"], 0.12)
+            bg = ui_skin._tint(p["warn"], p["card"], 0.20)
         else:
             bg = p["card"]
         if selected:

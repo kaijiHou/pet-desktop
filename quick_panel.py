@@ -56,7 +56,7 @@ def _panel_qss(p: dict) -> str:
         QLabel#panelCaption {{ color: {p['muted']}; font-size: 8pt; }}
         QLabel#panelSectionTitle {{ color: {p['text']}; font-size: 10pt; font-weight: 650; }}
         QLabel#panelMark {{ background: {p['chip']}; border: 1px solid {p['tint_border']}; border-radius: 15px; font-size: 13pt; }}
-        QLabel#panelStatus {{ background: {p['section_bg']}; color: {p['text_soft']}; border: 1px solid {p['section_border']}; border-radius: 9px; padding: 2px 9px; font-size: 8pt; font-weight: 600; }}
+        QLabel#panelStatus {{ background: {p['section_bg']}; color: {p['text_soft']}; border: none; border-radius: 9px; padding: 2px 9px; font-size: 8pt; font-weight: 600; }}
         QLabel#panelAmount {{ color: {p['amount']}; font-size: 19pt; font-weight: 700; }}
         QLabel#panelDetail {{ color: {p['text_soft']}; font-size: 8pt; }}
         QLabel#panelDecor {{ background: transparent; border: none; font-size: 25pt; }}

@@ -187,6 +187,58 @@ PRESETS = {
         "primary_top": "#7FAE9A", "primary_bottom": "#5F917C",
         "glow": "#BCD8C8", "deco": "🐚",
     }),
+    # ── 枫叶暖灯书房（V5.14，插画素材主题，暖酒红深色）───────────────────
+    "autumn_lantern": ("枫叶暖灯书房", {
+        "accent": "#D98A6A", "accent_hover": "#C67455",
+        "bg": "#241219", "card": "#3A1F29", "border": "#5C3242",
+        "text": "#F7E9E4", "muted": "#C9A2A0",
+        "menu_bg": "#2E1822", "menu_border": "#4E2C3A",
+        "menu_highlight": "#462633", "menu_highlight_text": "#E8A98C",
+        "amount": "#E89B7C",
+        "category": "cute", "dark": True,
+        "hero_top": "#462633", "hero_bottom": "#2A1520",
+        "primary_top": "#C97A58", "primary_bottom": "#A65D42",
+        "glow": "#E8A173", "deco": "🍁",
+    }),
+    # ── 雪夜星灯小屋（V5.15，插画素材主题，蓝紫雪夜）─────────────────────
+    "snowy_starlight": ("雪夜星灯小屋", {
+        "accent": "#9BA8E8", "accent_hover": "#AFBBF0",
+        "bg": "#1E2A4C", "card": "#2B3A63", "border": "#3F5288",
+        "text": "#EEF0FA", "muted": "#A7AECB",
+        "menu_bg": "#26345A", "menu_border": "#3D4E80",
+        "menu_highlight": "#333F6E", "menu_highlight_text": "#B8C2F2",
+        "amount": "#B0BCF5",
+        "category": "cute", "dark": True,
+        "hero_top": "#33406E", "hero_bottom": "#222D52",
+        "primary_top": "#8090DC", "primary_bottom": "#6474C0",
+        "glow": "#9BA8E8", "deco": "🌨️",
+    }),
+    # ── 樱花灯影书阁（V5.16，插画素材主题，深梅夜樱）─────────────────────
+    "sakura_lantern": ("樱花灯影书阁", {
+        "accent": "#E88BB0", "accent_hover": "#D977A0",
+        "bg": "#2A1830", "card": "#3D2242", "border": "#5C3A62",
+        "text": "#F9EAF2", "muted": "#C9A3B8",
+        "menu_bg": "#33203A", "menu_border": "#523259",
+        "menu_highlight": "#472A4E", "menu_highlight_text": "#F2B8CE",
+        "amount": "#F2A9C4",
+        "category": "cute", "dark": True,
+        "hero_top": "#472A4E", "hero_bottom": "#2C1A34",
+        "primary_top": "#D9739E", "primary_bottom": "#B45880",
+        "glow": "#F2A9C4", "deco": "🏮",
+    }),
+    # ── 月夜海城（V5.18，插画素材主题，黑金海岸）─────────────────────────
+    "moonlit_coast": ("月夜海城", {
+        "accent": "#D4B078", "accent_hover": "#E2C28C",
+        "bg": "#0B1015", "card": "#14202A", "border": "#2A3A46",
+        "text": "#EAF0EA", "muted": "#96A69A",
+        "menu_bg": "#101820", "menu_border": "#24333E",
+        "menu_highlight": "#1B2833", "menu_highlight_text": "#D8BC84",
+        "amount": "#DCC08A",
+        "category": "cool", "dark": True,
+        "hero_top": "#1B2833", "hero_bottom": "#0C1218",
+        "primary_top": "#B8965E", "primary_bottom": "#8F7444",
+        "glow": "#C9A96A", "deco": "🌙",
+    }),
 }
 
 SKIN_KEYS = ("accent", "accent_hover", "bg", "card", "border", "text", "muted",
@@ -284,11 +336,6 @@ def resolve_palette(colors: dict) -> dict:
     p["accent_pressed"] = QColor(p["action_bg"]).darker(115).name()
     p["focus_ring"] = accent.lighter(145).name() if not dark else accent.lighter(125).name()
     p["secondary_border"] = p["border"]
-    # Tints must stay MOSTLY card-colored — they are washes, not fills. (An
-    # early version inverted the ratio and drowned the card text.)
-    p["tint_light"] = _tint(p["accent"], p["tint_base"], 0.12)
-    p["tint_mid"] = _tint(p["accent"], p["tint_base"], 0.20)
-    p["tint_border"] = _tint(p["accent"], p["tint_base"], 0.38)
     p["amount"] = _fit_text(p["amount"], p["section_bg"])
     # Flavor keys with derived fallbacks.
     p.setdefault("hero_top", _tint(p["accent"], p["card"], 0.16))
@@ -304,9 +351,12 @@ def resolve_palette(colors: dict) -> dict:
         p.setdefault(key, default)
     p.setdefault("chip", _tint(p["accent"], p["card"], 0.12) if dark else p["bg"])
     # Scrim for text-over-illustration layers (readability on hero art).
-    p["scrim_left"] = _rgba(p["bg"], 235)
-    p["scrim_mid"] = _rgba(p["bg"], 150)
-    p["scrim_right"] = _rgba(p["bg"], 30)
+    # Dark skins need a strong dark veil; on light skins a heavy light veil
+    # would read as a white blob covering the art (user-reported) — keep it
+    # subtle there, the dark text carries its own contrast.
+    p["scrim_left"] = _rgba(p["bg"], 210 if dark else 80)
+    p["scrim_mid"] = _rgba(p["bg"], 115 if dark else 45)
+    p["scrim_right"] = _rgba(p["bg"], 25 if dark else 10)
     for key in ("ok", "info", "warn", "danger"):
         p[key] = _fit_text(p[key], p["section_bg"])
     return p
