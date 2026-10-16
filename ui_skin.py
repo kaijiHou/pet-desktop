@@ -135,6 +135,58 @@ PRESETS = {
         "primary_top": "#4FAF9C", "primary_bottom": "#3B9482",
         "glow": "#A8D8C8", "deco": "🐚",
     }),
+    # ── 暗夜赛博（V5.12，插画素材主题，霓虹深色）─────────────────────────
+    "cyber_night": ("暗夜赛博", {
+        "accent": "#6C79FF", "accent_hover": "#5560E8",
+        "bg": "#04061A", "card": "#0D1033", "border": "#262C66",
+        "text": "#E8ECFF", "muted": "#8B93C8",
+        "menu_bg": "#0A0D38", "menu_border": "#23285E",
+        "menu_highlight": "#161A4E", "menu_highlight_text": "#8E9AFF",
+        "amount": "#7B87FF",
+        "category": "cool", "dark": True,
+        "hero_top": "#151A4E", "hero_bottom": "#080B26",
+        "primary_top": "#515CE8", "primary_bottom": "#3B44B8",
+        "glow": "#5E6CFF", "deco": "🤖",
+    }),
+    # ── 春日花语书房（V5.12，插画素材主题，暖调亮色）─────────────────────
+    "spring_study": ("春日花语", {
+        "accent": "#7E8C3F", "accent_hover": "#6C7A33",
+        "bg": "#FBF7EC", "card": "#FFFFFF", "border": "#E6DFC4",
+        "text": "#4A4632", "muted": "#8A8465",
+        "menu_bg": "#F8F4E4", "menu_border": "#E4DCC0",
+        "menu_highlight": "#EFEBD2", "menu_highlight_text": "#6C7A33",
+        "amount": "#77742F",
+        "category": "cute",
+        "hero_top": "#F3EDD6", "hero_bottom": "#E9E2C4",
+        "primary_top": "#7E8C3F", "primary_bottom": "#66722C",
+        "glow": "#C9C68C", "deco": "🌼",
+    }),
+    # ── 极光冰晶赛博（V5.12，插画素材主题，冰蓝深色）─────────────────────
+    "aurora_cyber": ("极光冰晶", {
+        "accent": "#6E85E8", "accent_hover": "#8399F2",
+        "bg": "#0D1530", "card": "#16224A", "border": "#2C3F7E",
+        "text": "#E6EDFF", "muted": "#93A5D9",
+        "menu_bg": "#121C3E", "menu_border": "#2A3A72",
+        "menu_highlight": "#1D2B5C", "menu_highlight_text": "#9FB2F5",
+        "amount": "#8FA0F0",
+        "category": "cool", "dark": True,
+        "hero_top": "#1D2B5C", "hero_bottom": "#0E1734",
+        "primary_top": "#5468D6", "primary_bottom": "#3D4FB0",
+        "glow": "#6E85E8", "deco": "❄️",
+    }),
+    # ── 海盐珍珠梦境（V5.13，插画素材主题，浅色可爱）─────────────────────
+    "sea_salt_pearl": ("海盐珍珠梦境", {
+        "accent": "#7FAE9A", "accent_hover": "#6C9C87",
+        "bg": "#F3F6F0", "card": "#FFFFFF", "border": "#DCE6DA",
+        "text": "#3E4A42", "muted": "#7E8C82",
+        "menu_bg": "#EFF4EC", "menu_border": "#D5E2D2",
+        "menu_highlight": "#E2EDE0", "menu_highlight_text": "#5C8C78",
+        "amount": "#5C8C78",
+        "category": "cute",
+        "hero_top": "#E9F2E6", "hero_bottom": "#DCE9DA",
+        "primary_top": "#7FAE9A", "primary_bottom": "#5F917C",
+        "glow": "#BCD8C8", "deco": "🐚",
+    }),
 }
 
 SKIN_KEYS = ("accent", "accent_hover", "bg", "card", "border", "text", "muted",

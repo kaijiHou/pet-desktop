@@ -19,7 +19,9 @@ import pytest
 CLASSIC = ("sakura", "cream", "mint", "sky", "taro")
 CLASSIC_NAMES = {"sakura": "樱花粉", "cream": "奶油黄", "mint": "薄荷绿",
                  "sky": "天空蓝", "taro": "香芋紫"}
-ASSET_THEMES = {"rose_moon": ("玫瑰月夜", True), "mint_pearl": ("薄荷珍珠", False)}
+ASSET_THEMES = {"rose_moon": ("玫瑰月夜", True), "mint_pearl": ("薄荷珍珠", False),
+                "cyber_night": ("暗夜赛博", True), "spring_study": ("春日花语", False),
+                "aurora_cyber": ("极光冰晶", True), "sea_salt_pearl": ("海盐珍珠梦境", False)}
 
 
 def test_presets_state(theme_env):
