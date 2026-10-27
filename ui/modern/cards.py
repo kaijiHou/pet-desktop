@@ -1,4 +1,5 @@
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize, QRectF
+from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QCheckBox
 
 
@@ -37,7 +38,7 @@ class SettingsRow(QFrame):
     def __init__(self, label, hint="", control=None, parent=None):
         super().__init__(parent)
         self.setObjectName("settingsRow")
-        layout = QHBoxLayout(self); layout.setContentsMargins(0, 5, 0, 5); layout.setSpacing(12)
+        layout = QHBoxLayout(self); layout.setContentsMargins(4, 6, 4, 6); layout.setSpacing(12)
         text = QVBoxLayout(); text.setSpacing(1)
         title = QLabel(label); title.setStyleSheet("font-weight:600;")
         text.addWidget(title)
@@ -47,7 +48,37 @@ class SettingsRow(QFrame):
         if control is not None: layout.addWidget(control)
 
 
+class SettingsSwitch(QCheckBox):
+    """Native checkbox behavior with a larger theme-colored switch surface."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(48, 32)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def sizeHint(self):
+        return QSize(48, 32)
+
+    def hitButton(self, pos):
+        return self.rect().contains(pos)
+
+    def paintEvent(self, event):
+        from . import tokens
+        painter = QPainter(self); painter.setRenderHint(QPainter.Antialiasing)
+        track = QRectF(3, 4, 42, 24)
+        painter.setPen(QPen(QColor(tokens.PRIMARY if self.isChecked() else tokens.SURFACE_BORDER), 1.3))
+        painter.setBrush(QColor(tokens.PRIMARY if self.isChecked() else tokens.SURFACE))
+        painter.drawRoundedRect(track, 12, 12)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(tokens.ACTION_TEXT if self.isChecked() else tokens.MUTED))
+        painter.drawEllipse(QRectF(25 if self.isChecked() else 7, 8, 16, 16))
+        if self.hasFocus():
+            painter.setBrush(Qt.NoBrush); painter.setPen(QPen(QColor(tokens.FOCUS_RING), 1, Qt.DashLine))
+            painter.drawRoundedRect(QRectF(1, 2, 46, 28), 14, 14)
+
+
 class ToggleRow(SettingsRow):
     def __init__(self, label, checked=False, hint="", parent=None):
-        self.toggle = QCheckBox(); self.toggle.setChecked(checked)
+        self.toggle = SettingsSwitch(); self.toggle.setChecked(checked)
+        self.toggle.setAccessibleName(label)
         super().__init__(label, hint, self.toggle, parent)

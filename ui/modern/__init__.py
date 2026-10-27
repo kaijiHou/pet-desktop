@@ -7,9 +7,10 @@ from .cards import Card, StatCard, SectionTitle, SettingsRow, ToggleRow
 from .inputs import ModernLineEdit, ModernComboBox, ModernTimeField, ModernMoneyField, ModernSelect
 from .message import InlineBanner, Toast
 from .character_preview import CharacterPreviewWidget
+from .menu import RoundedMenu
 
 __all__ = [
     "ModernDialog", "ModernConfirmDialog", "ModernTextInputDialog", "ModernTimeDialog", "ModernTitleBar", "TitleBar", "PrimaryButton", "SecondaryButton", "DangerButton",
     "Card", "StatCard", "SectionTitle", "SettingsRow", "ToggleRow", "ModernLineEdit", "ModernComboBox",
-    "ModernTimeField", "ModernMoneyField", "ModernSelect", "InlineBanner", "Toast", "CharacterPreviewWidget",
+    "ModernTimeField", "ModernMoneyField", "ModernSelect", "InlineBanner", "Toast", "CharacterPreviewWidget", "RoundedMenu",
 ]

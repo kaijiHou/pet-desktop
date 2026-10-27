@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from PyQt5.QtCore import Qt, pyqtSignal, QTime, QTimer
 from PyQt5.QtWidgets import (
     QCalendarWidget, QGridLayout, QHBoxLayout, QLabel,
-    QSpinBox, QVBoxLayout, QWidget, QFrame, QAbstractSpinBox,
+    QSpinBox, QVBoxLayout, QWidget, QFrame, QAbstractSpinBox, QScrollArea, QLayout,
 )
 
 from .model import WORKDAY, REST, ADJUSTED_WORKDAY, LEAVE, WorkDayRecord
@@ -19,6 +19,18 @@ from ui.modern import (ModernDialog, PrimaryButton, SecondaryButton, Card,
 from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, StatCard, SectionTitle, InlineBanner, ModernTimeField, ModernLineEdit, ModernComboBox
 
 STATUS_LABELS = {WORKDAY: "工作日", REST: "休息日", ADJUSTED_WORKDAY: "调休上班", LEAVE: "请假"}
+RECORDED_DOT_COLOR = "#22A060"
+OVERTIME_DOT_COLOR = "#A855F7"
+
+
+def _calendar_status_colors(p):
+    """Use semantic hues for cell fills, before theme text contrast fitting."""
+    colors = ui_skin.all_skins()[ui_skin.active_id()][1]
+    defaults = ({REST: "#FF6B6B", ADJUSTED_WORKDAY: "#58B6FF", LEAVE: "#FFC24D"}
+                if p["dark"] else
+                {REST: "#CC4B4B", ADJUSTED_WORKDAY: "#3A7BC4", LEAVE: "#C77700"})
+    keys = {REST: "danger", ADJUSTED_WORKDAY: "info", LEAVE: "warn"}
+    return {status: colors.get(keys[status], color) for status, color in defaults.items()}
 
 
 class _TextCompat(QLabel):
@@ -39,10 +51,21 @@ class CalendarDayCell(QFrame):
         self.setMinimumSize(72, 64)
         self.setCursor(Qt.PointingHandCursor)
         layout = QVBoxLayout(self); layout.setContentsMargins(7, 5, 7, 4); layout.setSpacing(1)
-        top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0)
+        top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0); top.setSpacing(3)
         self.day_label = QLabel(str(day.day)); self.day_label.setStyleSheet("font-weight:700;")
         top.addWidget(self.day_label); top.addStretch()
-        self.dot = QLabel("●"); self.dot.setVisible(bool(record)); top.addWidget(self.dot)
+        # Parent the dots AT CREATION: `top` is a floating layout until
+        # addLayout(top) runs, so addWidget() does not reparent yet — and
+        # setVisible() on a parentless widget flashes a top-level window
+        # (one per recorded day = the calendar "popup storm"; traced).
+        self.dot = QLabel("●", self)
+        self.dot.setToolTip("已记录打卡")
+        top.addWidget(self.dot)
+        self.dot.setVisible(bool(record))
+        self.overtime_dot = QLabel("●", self)
+        self.overtime_dot.setToolTip("有加班记录")
+        top.addWidget(self.overtime_dot)
+        self.overtime_dot.setVisible(bool(record and record.overtime_minutes > 0))
         layout.addLayout(top)
         self.status_label = QLabel(detail.get("display_label", detail.get("label", "")) if in_month else "")
         self.status_label.setWordWrap(True); layout.addWidget(self.status_label)
@@ -52,32 +75,30 @@ class CalendarDayCell(QFrame):
         """Cell colors from the active skin (V5.8: status washes + today ring)."""
         p = ui_skin.palette()
         status = self.detail.get("status")
+        status_color = _calendar_status_colors(p).get(status) if self.in_month else None
         if not self.in_month:
             bg = p["bg"]
-        elif status == REST:
-            bg = ui_skin._tint(p["danger"], p["card"], 0.20)
-        elif status == ADJUSTED_WORKDAY:
-            bg = ui_skin._tint(p["info"], p["card"], 0.20)
-        elif status == LEAVE:
-            bg = ui_skin._tint(p["warn"], p["card"], 0.20)
+        elif status_color:
+            wash = 0.26 if selected else 0.24 if self._hovered else 0.20
+            bg = ui_skin._tint(status_color, p["card"], wash)
         else:
             bg = p["card"]
-        if selected:
+        if selected and not status_color:
             bg = ui_skin._tint(p["accent"], p["card"], 0.26)
-        elif self._hovered and self.in_month:
+        elif self._hovered and self.in_month and not status_color:
             bg = p["tint_light"]
         if selected or self.is_today:
             border, width = p["accent"], 2
         elif self._hovered:
             border, width = p["tint_border"], 1
         else:
-            border, width = p["border"], 1
+            border, width = status_color or p["border"], 1
         self.setStyleSheet(f"QFrame#calendarDayCell{{background:{bg};border:{width}px solid {border};border-radius:12px;}}")
-        day_fg = (p["muted"] if not self.in_month
-                  else {REST: p["danger"], ADJUSTED_WORKDAY: p["info"], LEAVE: p["warn"]}.get(status, p["text"]))
+        day_fg = p["text"] if self.in_month else p["muted"]
         self.day_label.setStyleSheet(f"color:{day_fg};font-weight:700;")
-        self.dot.setStyleSheet(f"color:{p['ok']};font-size:9px;")
-        status_fg = p["muted"] if not self.in_month else day_fg
+        self.dot.setStyleSheet(f"color:{RECORDED_DOT_COLOR};font-size:9px;")
+        self.overtime_dot.setStyleSheet(f"color:{OVERTIME_DOT_COLOR};font-size:9px;")
+        status_fg = ui_skin._tint(status_color, p["text"], 0.30) if status_color else day_fg
         self.status_label.setStyleSheet(f"color:{status_fg};font-size:10px;font-weight:600;")
 
     def set_selected(self, selected): self._apply_style(selected)
@@ -151,9 +172,23 @@ class WorkCalendarDialog(ModernDialog):
         self._selected_day = service._now().date()
         super().__init__("工作日历", "节假日 · 调休 · 加班记录", parent, min_width=900, min_height=650, resizable=True)
         self.resize(980, 720)
+        self.calendar_scroll = QScrollArea(); self.calendar_scroll.setWidgetResizable(True)
+        self.calendar_scroll.setFrameShape(QFrame.NoFrame)
+        self.calendar_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        content = QWidget()
+        self.calendar_scroll.setWidget(content)
+        self.body.addWidget(self.calendar_scroll)
+        self.body = QVBoxLayout(content); self.body.setContentsMargins(0, 0, 0, 0); self.body.setSpacing(10)
+        self.body.setSizeConstraint(QLayout.SetMinimumSize)
         # Kept hidden solely for V3 integrations that probe for a month-grid
         # child; all visible rendering is ModernMonthCalendar below.
         self._legacy_calendar = QCalendarWidget(self); self._legacy_calendar.hide()
+        # 用户反馈：日历底色与桌面/主题脱节——卡片半透明（QSS HexArgb），
+        # WA_TranslucentBackground 已由 ModernDialog 打开，桌面可透出。
+        from PyQt5.QtGui import QColor as _QColor
+        _card = _QColor(ui_skin.palette()["card"])
+        _card.setAlpha(200)
+        self.card.setStyleSheet(f"QFrame#modernCard {{ background: {_card.name(_QColor.HexArgb)}; }}")
         self._build_ui()
         self._refresh()
 
@@ -169,6 +204,8 @@ class WorkCalendarDialog(ModernDialog):
         self.rules_button.clicked.connect(self._toggle_rules)
         nav.addWidget(self.month_label); nav.addStretch(); nav.addWidget(self.rules_button); nav.addWidget(self.prev_button); nav.addWidget(self.next_button); nav.addWidget(self.today_button)
         self.add_body(_layout_widget(nav))
+        inset = nav.contentsMargins()
+        self.title_bar.layout().setContentsMargins(inset.left(), 0, inset.right(), 0)
 
         stats_row = QHBoxLayout(); self.stat_cards = {}
         for key, title in (("workdays", "📅 应出勤"), ("recorded", "✅ 已记录"), ("overtime", "⏱ 累计加班"), ("meal", "🍚 餐补"), ("estimated", "💰 预计本月收入")):
@@ -177,8 +214,10 @@ class WorkCalendarDialog(ModernDialog):
 
         split = QHBoxLayout(); left = QVBoxLayout()
         self.calendar = ModernMonthCalendar(self.service, self._selected_day, self); self.calendar.day_selected.connect(self._on_clicked); left.addWidget(self.calendar)
+        self.calendar.setMinimumHeight(self.calendar.minimumSizeHint().height())
         split.addLayout(left, 3)
         self.detail_card = Card(); detail = QVBoxLayout(self.detail_card); detail.setContentsMargins(16, 14, 16, 14)
+        detail.setSizeConstraint(QLayout.SetMinimumSize)
         detail.addWidget(SectionTitle("日期详情")); self.detail_title = QLabel(); self.detail_title.setStyleSheet(f"color:{p['text']};font-size:18px;font-weight:700;"); detail.addWidget(self.detail_title)
         self.weekday_label = QLabel(); self.holiday_label = QLabel(); self.status_label = QLabel(); self.source_label = QLabel(); self.source_label.setObjectName("muted"); self.source_label.setWordWrap(True)
         for label in (self.weekday_label, self.holiday_label, self.status_label, self.source_label): detail.addWidget(label)
@@ -186,10 +225,12 @@ class WorkCalendarDialog(ModernDialog):
         detail.addWidget(QLabel("下班时间"))
         self.clock_label = QLabel("未记录"); self.clock_label.setStyleSheet(f"color:{p['amount']};font-size:15px;font-weight:700;")
         detail.addWidget(self.clock_label)
-        picker_col = QVBoxLayout(); picker_col.setSpacing(6)
+        picker_col = QVBoxLayout(); picker_col.setSpacing(8); picker_col.setContentsMargins(0, 6, 0, 6)
+        picker_col.setSizeConstraint(QLayout.SetMinimumSize)
         self.picker_row = QHBoxLayout(); self.picker_row.setSpacing(6)
         self.picker_hour = ModernComboBox(); self.picker_hour.addItems([f"{h:02d} 时" for h in range(24)])
         self.picker_minute = ModernComboBox(); self.picker_minute.addItems([f"{m:02d} 分" for m in range(60)])
+        self.picker_hour.setMinimumHeight(38); self.picker_minute.setMinimumHeight(38)
         self.picker_row.addWidget(self.picker_hour); self.picker_row.addWidget(self.picker_minute)
         self.picker_btn_row = QHBoxLayout(); self.picker_btn_row.setSpacing(6)
         self.picker_ok = SecondaryButton("确定"); self.picker_ok.clicked.connect(self._picker_confirmed)
@@ -211,7 +252,13 @@ class WorkCalendarDialog(ModernDialog):
         self.record_metrics_label = QLabel(); self.record_metrics_label.setObjectName("muted"); self.record_metrics_label.setWordWrap(True); detail.addWidget(self.record_metrics_label)
         self.status = ModernComboBox(); [(self.status.addItem(label, value)) for label, value in (("恢复自动判断", "auto"), ("工作日", WORKDAY), ("休息日", REST), ("调休上班", ADJUSTED_WORKDAY), ("请假", LEAVE))]; detail.addWidget(self.status)
         self.apply_status_button = PrimaryButton("应用日期状态"); self.apply_status_button.clicked.connect(self._apply_status); detail.addWidget(self.apply_status_button)
-        detail.addStretch(); split.addWidget(self.detail_card, 2); self.add_body(_layout_widget(split))
+        detail.addStretch()
+        self.detail_scroll = QScrollArea(); self.detail_scroll.setWidgetResizable(True)
+        self.detail_scroll.setFrameShape(QFrame.NoFrame)
+        self.detail_scroll.setMinimumWidth(310)
+        self.detail_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        self.detail_scroll.setWidget(self.detail_card)
+        split.addWidget(self.detail_scroll, 2); self.add_body(_layout_widget(split))
 
         self.advanced_card = Card(); self._rules_expanded = False; adv = QVBoxLayout(self.advanced_card)
         self.cycle_info_label = QLabel("国庆调休周按官方安排；2026-10-12 起周六按大小周交替：10-12 所在周是小周（10/17 上班），下周大周（10/24 休息），逐周交替。")
@@ -227,12 +274,14 @@ class WorkCalendarDialog(ModernDialog):
     def _legend_text(self):
         """Colored-dot legend (rich text) matching the cell status washes."""
         p = ui_skin.palette()
+        colors = _calendar_status_colors(p)
 
         def dot(color):
             return f'<span style="color:{color};">●</span>'
 
-        return (f"{dot(p['ok'])} 已记录打卡　{dot(p['info'])} 调休/小周上班　"
-                f"{dot(p['danger'])} 休息日/大周休息　{dot(p['muted'])} 非本月日期　"
+        return (f"{dot(RECORDED_DOT_COLOR)} 已记录打卡　{dot(OVERTIME_DOT_COLOR)} 加班　"
+                f"{dot(colors[ADJUSTED_WORKDAY])} 调休/小周上班　"
+                f"{dot(colors[REST])} 休息日/大周休息　{dot(p['muted'])} 非本月日期　"
                 f"｜数据源：holiday-cn / 国务院")
 
     def _displayed_month(self): return self.calendar.month()
@@ -331,6 +380,12 @@ class WorkCalendarDialog(ModernDialog):
         visible = self.picker_host.isVisible()
         self.picker_host.setVisible(not visible)
         self.pick_time_button.setText("收起" if not visible else "选时间…")
+        if not visible:
+            QTimer.singleShot(0, self._reveal_picker)
+
+    def _reveal_picker(self):
+        self.detail_scroll.ensureWidgetVisible(self.picker_host, 4, 12)
+        self.calendar_scroll.ensureWidgetVisible(self.picker_host, 4, 12)
 
     def _picker_confirmed(self):
         """读取内嵌下拉并立即补卡。0:00 不是有效下班时间，拒绝。

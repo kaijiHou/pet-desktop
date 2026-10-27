@@ -1290,3 +1290,14 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
   （docs/screenshots/v516/calendar-translucent-over-wallpaper.jpg）。
 - 注：ui_calendar 当前工作区还含并行会话的日历面板重塑（状态色边框/滚动容器），
   半透明改动与之同文件，随其一起提交；本 commit 只含 dialog.py + 回归测试（以本会话为准）。
+
+### 弹窗风暴真凶（真机追踪定罪，2026-10-27 追加）
+- 给运行中的桌宠挂了顶层窗口追踪器（toplevel_trace.py + PET_AUTO_OPEN_CALENDAR=1 自动打开日历），
+  日历打开前捕获 **48 个 8×17 无父 QLabel** 闪现成顶层窗口。
+- 栈回溯定罪：`CalendarDayCell.__init__` 的"●"打卡点（每个有记录的日子一个，refresh 跑两遍）——
+  `QLabel("●")` 无父创建 + `setVisible(bool(record))` 在 **悬空布局 addLayout 之前**调用
+  （悬空 QHBoxLayout 的 addWidget 不会转挂父级），仍是无父顶层窗口。并行会话新加的加班点同款。
+- 修复：圆点**创建时即挂父**（QLabel("●", self)）；全文件扫同款模式无残留。追踪复跑：一次完整
+  自动打开只剩 WorkCalendarDialog 自身（0 杂散）。
+- 注：本 commit 的 ui_calendar.py/pet_window.py 等同时包含并行会话已验证的日历面板重塑/设置
+  滚动/气泡样式挂点（快照自洽所需），全量 563 passed。

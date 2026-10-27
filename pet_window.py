@@ -1,7 +1,7 @@
 """
 Desktop Pet Window — V2.2: unified theme, single-image character, Chinese UI.
 """
-import math, random, sys, time
+import math, random, sys, time, os
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -10,7 +10,7 @@ from PyQt5.QtGui import (QPainter, QPixmap, QImage, QFont, QColor, QPen, QBrush,
     QPainterPath, QFontMetrics, QCursor, QIcon, QTransform)
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import (QApplication, QWidget, QMenu, QAction, QSystemTrayIcon,
-    QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSlider)
+    QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSlider, QScrollArea, QFrame)
 from config import Config
 from character import CharacterController, STEP_MS
 from pet_sprite import ANIMATIONS, ASSETS_DIR, PetSpriteLoader, SPRITE_W, SPRITE_H
@@ -26,7 +26,7 @@ from wage.service import WageService
 from wage.model import WORKDAY, ADJUSTED_WORKDAY, REST, LEAVE
 from bubble_window import BubbleWindow
 import sounds, theme
-from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, SectionTitle, ToggleRow, CharacterPreviewWidget
+from ui.modern import ModernDialog, PrimaryButton, SecondaryButton, Card, SectionTitle, ToggleRow, CharacterPreviewWidget, RoundedMenu
 
 
 LOGGER = logging.getLogger("pet.window")
@@ -44,7 +44,20 @@ class SettingsDialog(ModernDialog):
         self.config = config
         self._work = dict(config.data)
         self._original_scale = float(config.get("pet_scale", 3))
-        layout = self.body
+        self.resize(580, 760)
+        self.title_bar.layout().setContentsMargins(10, 0, 0, 0)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setObjectName("settingsScroll")
+        scroll.viewport().setObjectName("settingsViewport")
+        content = QWidget(); content.setObjectName("settingsContent")
+        layout = QVBoxLayout(content); layout.setContentsMargins(0, 0, 6, 0); layout.setSpacing(12)
+        scroll.setWidget(content); self.add_body(scroll)
+        self.setStyleSheet(self.styleSheet() + """
+            QScrollArea#settingsScroll, QWidget#settingsViewport, QWidget#settingsContent {
+                background: transparent; border: none;
+            }
+            QComboBox::drop-down { background: transparent; border: none; width: 24px; }
+        """)
 
         # ── 角色 ──
         box = Card(); form = QVBoxLayout(box); form.setContentsMargins(16, 13, 16, 13)
@@ -103,14 +116,14 @@ class SettingsDialog(ModernDialog):
         speed_row = QHBoxLayout(); speed_label = QLabel("动画速度"); speed_row.addWidget(speed_label); speed_row.addStretch()
         from ui.modern import ModernComboBox
         self.speed_combo = ModernComboBox()
-        for label, factor in (("慢", 0.6), ("正常", 1.0), ("快", 1.5), ("很快", 2.0)):
+        for label, factor in (("很慢", 0.3), ("慢", 0.6), ("正常", 1.0), ("快", 1.5), ("很快", 2.0)):
             self.speed_combo.addItem(label, factor)
         try:
             saved_speed = float(self._work.get("animation_speed", 1.0) or 1.0)
         except (TypeError, ValueError):
             saved_speed = 1.0
         # pick the option closest to the stored factor
-        factors = [0.6, 1.0, 1.5, 2.0]
+        factors = [self.speed_combo.itemData(i) for i in range(self.speed_combo.count())]
         self.speed_combo.setCurrentIndex(min(range(len(factors)), key=lambda i: abs(factors[i] - saved_speed)))
         speed_row.addWidget(self.speed_combo)
         bl.addLayout(speed_row)
@@ -120,7 +133,10 @@ class SettingsDialog(ModernDialog):
         box3 = Card(); rl = QVBoxLayout(box3); rl.setContentsMargins(16, 13, 16, 13); rl.addWidget(SectionTitle("提醒"))
         sound_row = ToggleRow("提醒声音", self._work.get("reminder_sound_enabled", True)); bubble_row = ToggleRow("桌宠气泡", self._work.get("reminder_bubble_enabled", True))
         self.sound_check, self.bubble_check = sound_row.toggle, bubble_row.toggle
-        rl.addWidget(sound_row); rl.addWidget(bubble_row); layout.addWidget(box3)
+        rl.addWidget(sound_row); rl.addWidget(bubble_row)
+        self.bubble_style_button = SecondaryButton("气泡样式…")
+        self.bubble_style_button.clicked.connect(self._edit_bubble_style)
+        rl.addWidget(self.bubble_style_button); layout.addWidget(box3)
 
         # ── 数据 ──
         box4 = Card(); dl = QVBoxLayout(box4); dl.setContentsMargins(16, 13, 16, 13); dl.addWidget(SectionTitle("数据")); buttons = QHBoxLayout()
@@ -269,6 +285,7 @@ class SettingsDialog(ModernDialog):
         c.set("animation_speed", float(self.speed_combo.currentData()))
         c.set("reminder_sound_enabled", self.sound_check.isChecked())
         c.set("reminder_bubble_enabled", self.bubble_check.isChecked())
+        c.set("bubble_appearance", self._work.get("bubble_appearance"))
         # Save character config
         mode = self._work.get("character_mode", "single")
         c.set("character_mode", mode)
@@ -284,6 +301,12 @@ class SettingsDialog(ModernDialog):
         if self.parent() and hasattr(self.parent(), "_apply_character_config"):
             self.parent()._apply_character_config()
         self.accept()
+
+    def _edit_bubble_style(self):
+        from bubble_style_dialog import BubbleStyleDialog
+        dialog = BubbleStyleDialog(self._work.get("bubble_appearance"), self)
+        if dialog.exec_() == QDialog.Accepted:
+            self._work["bubble_appearance"] = dialog.value()
 
     def closeEvent(self, event):
         if hasattr(self, "preview_widget"):
@@ -361,6 +384,8 @@ class PetWindow(QWidget):
         self._pocket_window = None
         self._today_wage = None
         self._setup_window()
+        from window_topmost import TopmostController
+        self._topmost_controller = TopmostController(self)
         self._setup_tray()
         self._setup_timers()
         self._setup_callbacks()
@@ -476,7 +501,7 @@ class PetWindow(QWidget):
         icon_path = PROJECT_ROOT / "assets" / "app.ico"
         self.tray_icon.setIcon(QIcon(str(icon_path)) if icon_path.exists() else QIcon(self._draw_tray_icon()))
         self.tray_icon.setToolTip(f"{self.config.pet_name} — 桌面助手")
-        m = QMenu()
+        m = RoundedMenu()
         m.addAction("👀 显示/隐藏角色").triggered.connect(self._toggle_visibility)
         m.addAction("💰 今日收入").triggered.connect(self._open_today_wage)
         m.addAction("📅 工作日历").triggered.connect(self._open_calendar)
@@ -486,6 +511,7 @@ class PetWindow(QWidget):
         m.addAction("⏰ 新建提醒").triggered.connect(self._open_add_reminder)
         m.addAction("🔔 我的提醒").triggered.connect(self._open_reminders)
         m.addSeparator()
+        m.addAction("💬 气泡样式").triggered.connect(self._open_bubble_style)
         m.addAction("🍬 设置").triggered.connect(self._open_settings)
         m.addSeparator()
         m.addAction("🌙 退出").triggered.connect(self._quit_app)
@@ -547,6 +573,7 @@ class PetWindow(QWidget):
 
     def _setup_callbacks(self):
         self.reminder.on_reminder_due = self._on_reminder_due
+        self.reminder.on_changed = self._schedule_next_reminder
         self._schedule_next_reminder()
 
     def _setup_speech_bubble(self):
@@ -564,7 +591,7 @@ class PetWindow(QWidget):
         # translucent windows; production Windows uses the external window,
         # tests retain the same state machine without creating native chrome.
         self._use_external_bubble = QApplication.platformName() != "offscreen"
-        self._bubble_window = BubbleWindow(self)
+        self._bubble_window = BubbleWindow(self, appearance=self.config.get("bubble_appearance"))
 
     def _bubble_type(self):
         self._bubble_char = len(self._bubble_text)
@@ -1273,7 +1300,7 @@ class PetWindow(QWidget):
         d = AddReminderDialog(self)
         if d.exec_():
             c, dt = d.values()
-            self.reminder.add_reminder(c, dt)
+            self.reminder.add_reminder(c, dt, **d.recurrence_values())
             self._schedule_next_reminder()
             self.show_bubble("提醒已保存", 4000)
 
@@ -1345,7 +1372,7 @@ class PetWindow(QWidget):
             self._toggle_visibility()
 
     def _show_context_menu(self, pos):
-        m = QMenu(self)
+        m = RoundedMenu(self)
         wa = m.addAction("💰 今日收入")
         ca = m.addAction("📅 工作日历")
         self._add_favorite_context_menu(m)
@@ -1355,6 +1382,7 @@ class PetWindow(QWidget):
         ra = m.addAction("🔔 我的提醒")
         m.addSeparator()
         self._add_skin_menu(m)
+        ba = m.addAction("💬 气泡样式")
         m.addSeparator()
         sa = m.addAction("🍬 设置")
         m.addSeparator()
@@ -1372,6 +1400,8 @@ class PetWindow(QWidget):
             self._open_pocket()
         elif act == sa:
             self._open_settings()
+        elif act == ba:
+            self._open_bubble_style()
         elif act == qa:
             self._quit_app()
 
@@ -1415,6 +1445,14 @@ class PetWindow(QWidget):
         d = SettingsDialog(self.config, self)
         if d.exec_():
             self._update_from_settings()
+
+    def _open_bubble_style(self):
+        from bubble_style_dialog import BubbleStyleDialog
+        dialog = BubbleStyleDialog(self.config.get("bubble_appearance"), self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.config.set("bubble_appearance", dialog.value())
+            self._bubble_window.set_appearance(dialog.value())
+            self._position_bubble()
 
     def _open_wage_settings(self):
         from wage.ui_settings import WageSettingsDialog
@@ -1532,6 +1570,9 @@ class PetWindow(QWidget):
         self._resize_to_character()
         self._apply_animation_speed()
 
+        self._bubble_window.set_appearance(self.config.get("bubble_appearance"))
+        self._position_bubble()
+
     def _update_scale_preview(self, scale):
         self._scale_debug("settings_preview", old=float(self.config.get("pet_scale", 3)), new=float(scale))
         self._set_character_scale(float(scale))
@@ -1605,6 +1646,7 @@ class PetWindow(QWidget):
             self._today_wage.move_near(self.visible_pet_global_rect(), screen=self.screen(), live=True)
 
     def _quit_app(self):
+        self._topmost_controller.stop()
         if self._shell_watcher:
             self._shell_watcher.stop()
         if self._quick_panel is not None:
@@ -1637,6 +1679,17 @@ def main():
     _mlog.info("PetWindow created")
     window.show()
     _mlog.info("PetWindow shown")
+    # 诊断：顶层窗口追踪 + 可选自动打开日历（弹窗风暴排查，PET_AUTO_OPEN_CALENDAR=1 触发）
+    try:
+        import toplevel_trace
+        toplevel_trace.install(app)
+        if os.environ.get("PET_AUTO_OPEN_CALENDAR") == "1":
+            def _diag_open_calendar():
+                _mlog.info("diag: auto-opening calendar for storm trace")
+                window._open_calendar()
+            QTimer.singleShot(6000, _diag_open_calendar)
+    except Exception:
+        _mlog.exception("diag: toplevel trace install failed")
     if config.get("show_welcome", True):
         QTimer.singleShot(1200, lambda: (
             window.show_bubble("欢迎使用桌面助手\n① 拖文件到角色：临时寄存\n② 单击角色：打开文件口袋\n③ 右键角色：提醒和设置", 10000),

@@ -26,6 +26,8 @@ def base_qss() -> str:
     return f"""
 QDialog {{ background: transparent; color: {TEXT}; }}
 QFrame#modernCard {{ background: {CARD}; border: 1px solid {BORDER}; border-radius: 18px; }}
+QFrame#settingsRow {{ background: transparent; border: none; }}
+QFrame#settingsRow QCheckBox {{ background: transparent; border: none; padding: 0; }}
 QLabel {{ background: transparent; color: {TEXT}; }}
 QLabel#muted, QLabel.muted {{ color: {MUTED}; }}
 QLabel#title {{ font-size: 20px; font-weight: 700; }}
