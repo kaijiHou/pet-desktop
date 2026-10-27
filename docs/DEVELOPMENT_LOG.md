@@ -1270,3 +1270,23 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
 - 雪夜包头像是 RGB 矩形底（README 声明保留原画矩形背景），按素材原样使用。
 - 全量 **508 passed, 1 skipped**（新增参数化 15 项，含"亮皮 scrim 必须弱于暗皮"契约）。
 - 截图 docs/screenshots/v514/（五主题 100% 实机含海盐珍珠修复验证 + 15 卡主题中心）。
+
+---
+
+## 2026-10-16（续2）- 日历弹窗风暴根修（ModernDialog 构造期白框）
+
+### 根因（探针实证）
+- 用户反馈"每次点开日历疯狂弹小白框十几次"。事件过滤器探针捕获：**ModernDialog.__init__ 里
+  subtitle_label 和 max_button 都是"先 setVisible 后 addWidget"**——无父 widget 在挂到布局前
+  以 Qt.Window 顶层窗口闪现白框；日历弹一次闪 2 个，连点即"十几个"。影响所有 ModernDialog
+  （主题中心/设置/口袋同源）。
+- 修复：先 `QLabel(subtitle, self)`/`QPushButton("□", self)` 挂父级，addWidget 之后再
+  setVisible。探针复跑构造期顶层闪现 = 0。回归测试：
+  `test_dialog_construction_spawns_no_toplevel_windows`（事件过滤器断言构造期零顶层 Show）。
+
+### 工作日历半透明
+- 用户反馈日历底色与桌面脱节：卡片改半透明（`QColor(card).setAlpha(200)` HexArgb 覆写
+  #modernCard，WA_TranslucentBackground 已开）。合成图验证桌布透出且文字可读
+  （docs/screenshots/v516/calendar-translucent-over-wallpaper.jpg）。
+- 注：ui_calendar 当前工作区还含并行会话的日历面板重塑（状态色边框/滚动容器），
+  半透明改动与之同文件，随其一起提交；本 commit 只含 dialog.py + 回归测试（以本会话为准）。

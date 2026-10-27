@@ -43,10 +43,14 @@ class ModernDialog(QDialog):
         self.title_bar = QFrame(); title_layout = QHBoxLayout(self.title_bar); title_layout.setContentsMargins(0, 0, 0, 0)
         title_col = QVBoxLayout(); title_col.setSpacing(2)
         self.title_label = QLabel(title); self.title_label.setObjectName("title"); title_col.addWidget(self.title_label)
-        self.subtitle_label = QLabel(subtitle); self.subtitle_label.setObjectName("subtitle"); self.subtitle_label.setVisible(bool(subtitle)); title_col.addWidget(self.subtitle_label)
+        # Parent FIRST, then setVisible — a parentless widget made visible
+        # flashes as a white top-level window on Windows (popup-storm bug).
+        self.subtitle_label = QLabel(subtitle, self); self.subtitle_label.setObjectName("subtitle"); title_col.addWidget(self.subtitle_label)
+        self.subtitle_label.setVisible(bool(subtitle))
         title_layout.addLayout(title_col); title_layout.addStretch()
-        self.max_button = QPushButton("□"); self.max_button.setObjectName("titleButton"); self.max_button.setFixedSize(30, 30)
+        self.max_button = QPushButton("□", self); self.max_button.setObjectName("titleButton"); self.max_button.setFixedSize(30, 30)
         self.max_button.setToolTip("最大化")
+        title_layout.addWidget(self.max_button)
         self.max_button.setVisible(self.resizable)
         self.max_button.clicked.connect(self._toggle_maximize)
         title_layout.addWidget(self.max_button)

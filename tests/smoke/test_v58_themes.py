@@ -185,3 +185,37 @@ def test_bubble_surface_follows_skin(theme_env, qapp, monkeypatch):
         assert center.lightness() > 200, "light skin bubble body stays light"
     finally:
         bubble.hide()
+
+
+def test_dialog_construction_spawns_no_toplevel_windows(theme_env, qapp, monkeypatch):
+    """Popup-storm regression: every ModernDialog used to flash a parentless
+    subtitle QLabel / max QPushButton as a white top-level window on Windows."""
+    from PyQt5.QtCore import QObject, QEvent
+    from wage.service import WageService
+    from wage.ui_calendar import WorkCalendarDialog
+
+    class ShowSpy(QObject):
+        def __init__(self):
+            super().__init__()
+            self.hits = []
+
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.Show and obj.isWidgetType() and obj.isWindow():
+                self.hits.append(type(obj).__name__)
+            return False
+
+    wage_dir = theme_env.SKINS_FILE.parent / "wage3"
+    wage_dir.mkdir(exist_ok=True)
+    service = WageService(wage_dir, now_provider=lambda: datetime(2026, 10, 27, 15, 0))
+    spy = ShowSpy()
+    app = qapp
+    app.installEventFilter(spy)
+    try:
+        dialog = WorkCalendarDialog(service, None)
+        assert spy.hits == [], f"construction flashed top-level windows: {spy.hits}"
+        dialog.show()
+        app.processEvents()
+        assert any(h == "WorkCalendarDialog" for h in spy.hits), "dialog itself must still appear"
+    finally:
+        dialog.close()
+        app.removeEventFilter(spy)
