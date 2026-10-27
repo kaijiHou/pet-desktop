@@ -219,3 +219,31 @@ def test_dialog_construction_spawns_no_toplevel_windows(theme_env, qapp, monkeyp
     finally:
         dialog.close()
         app.removeEventFilter(spy)
+
+
+def test_dialog_auto_close_on_blur(theme_env, qapp, monkeypatch):
+    """点击空白处（焦点回桌面、activeWindow=None）→ 页面自动 reject；
+    堆叠子弹窗激活时父页面不误关；从未激活过也不误关。"""
+    from PyQt5.QtCore import QEvent
+    from PyQt5.QtWidgets import QApplication, QDialog
+    from ui.modern.dialog import ModernDialog
+
+    dlg = ModernDialog("测试页", "blur auto-close", None)
+    dlg.close_on_blur = True
+    dlg.show()
+    blur_event = QEvent(QEvent.ActivationChange)
+    try:
+        dlg.changeEvent(blur_event)
+        assert dlg.isVisible()                      # never activated → stay
+
+        dlg._activation_seen = True                 # user clicked into the page
+
+        monkeypatch.setattr(QApplication, "activeWindow", staticmethod(lambda: dlg))
+        dlg.changeEvent(blur_event)
+        assert dlg.isVisible()                      # stacked child → stay open
+
+        monkeypatch.setattr(QApplication, "activeWindow", staticmethod(lambda: None))
+        dlg.changeEvent(blur_event)
+        assert not dlg.isVisible() and dlg.result() == QDialog.Rejected
+    finally:
+        dlg.close()

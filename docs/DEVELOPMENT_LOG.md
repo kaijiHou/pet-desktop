@@ -1301,3 +1301,12 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
   自动打开只剩 WorkCalendarDialog 自身（0 杂散）。
 - 注：本 commit 的 ui_calendar.py/pet_window.py 等同时包含并行会话已验证的日历面板重塑/设置
   滚动/气泡样式挂点（快照自洽所需），全量 563 passed。
+
+### 点击空白处自动关闭页面（用户需求）
+- ModernDialog 新增失活自动关闭：`changeEvent(ActivationChange)` 里，页面**真正激活过一次**
+  （`_activation_seen` 门闩，offscreen/测试不误触发）且失活时 `QApplication.activeWindow()`
+  为空（焦点回了桌面，没有我们自己的窗口接手）→ `reject()`，等同点 ×。
+- 堆叠安全：主题中心里再开自定义皮肤编辑器时，父页面失活但 activeWindow 是子弹窗，不关；
+  子弹窗关闭后父页面重新激活。点桌宠/我们自己面板（activeWindow 非空）也不关。
+- 影响面：所有 ModernDialog 页面（日历/设置/主题中心/提醒/口袋管理）。QuickPanel 原本就有
+  点外关闭，不变。参数 `close_on_blur` 可按页关闭。

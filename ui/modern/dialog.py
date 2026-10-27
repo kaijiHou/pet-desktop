@@ -59,6 +59,12 @@ class ModernDialog(QDialog):
         self.body = QVBoxLayout(); self.body.setSpacing(10); root.addLayout(self.body, 1)
         self.footer = QHBoxLayout(); self.footer.addStretch(); root.addLayout(self.footer)
         self._drag_pos = None
+        # 点击空白处自动关闭：页面失活（焦点去了桌面/其他应用）即 reject。
+        # 堆叠安全——子弹窗打开时父页面同样失活，但 activeWindow 是子弹窗，
+        # 不关；子弹窗关闭后父页面重新激活。offscreen/测试环境可能永不激活，
+        # 只有真正激活过一次才允许失活关闭。
+        self._activation_seen = False
+        self.close_on_blur = True
         self.title_bar.mousePressEvent = self._title_press
         self.title_bar.mouseMoveEvent = self._title_move
         self.title_bar.mouseDoubleClickEvent = self._title_double_click
@@ -67,6 +73,22 @@ class ModernDialog(QDialog):
 
     def add_body(self, widget): self.body.addWidget(widget)
     def add_footer(self, widget): self.footer.addWidget(widget)
+
+    def changeEvent(self, event):
+        """Auto-close when the user clicks blank space (focus → desktop).
+
+        Fires only after the dialog was truly active once, and only when NO
+        Qt window took the focus (QApplication.activeWindow() is None) — so
+        stacked child dialogs keep their parent open, and clicks on the pet
+        or our own panels don't slam the page shut.
+        """
+        if (event.type() == QEvent.ActivationChange and self.close_on_blur
+                and self.isVisible()):
+            if self.isActiveWindow():
+                self._activation_seen = True
+            elif self._activation_seen and QApplication.activeWindow() is None:
+                self.reject()
+        super().changeEvent(event)
 
     def _title_press(self, event):
         if event.button() == Qt.LeftButton:
