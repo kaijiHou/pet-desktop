@@ -1311,3 +1311,9 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
   子弹窗关闭后父页面重新激活。点桌宠/我们自己面板（activeWindow 非空）也不关。
 - 影响面：所有 ModernDialog 页面（日历/设置/主题中心/提醒/口袋管理）。QuickPanel 原本就有
   点外关闭，不变。参数 `close_on_blur` 可按页关闭。
+
+### 面板点侧边关闭 + 提醒面板可编辑（2026-10-27 续2）
+- blur_watch.py：免激活面板的点击外关闭（WinAPI 左键边沿轮询 + widgetAt 归属判断），
+  接入 QuickPanel/PocketWindow/TodayWage；单测 3 项。
+- 提醒列表迁移 ModernDialog：编辑按钮可见化（原先只在右键菜单）+ 双击编辑 + 列表全局 QSS。
+- 明细见 docs/CHANGES.md 2026-10-27（续2）。

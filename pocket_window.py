@@ -274,6 +274,8 @@ class PocketWindow(QWidget):
             background: {theme.TOAST_BG}; color: {theme.TOAST_TEXT};
             border-radius: 6px; padding: 6px 14px; font-size: 8pt;
         """)
+        from blur_watch import ClickOutsideWatch
+        self._outside_watch = ClickOutsideWatch(self, lambda: [self.geometry()], self.hide)
         self._toast_label.setAlignment(Qt.AlignCenter)
         self._toast_label.hide()
 
@@ -281,6 +283,11 @@ class PocketWindow(QWidget):
         self._snapshot_explorer()
         super().show()
         self.raise_()
+        self._outside_watch.start()
+
+    def hideEvent(self, event):
+        self._outside_watch.stop()
+        super().hideEvent(event)
 
     def _snapshot_explorer(self):
         """Refresh the current-Explorer snapshot without blocking the UI.

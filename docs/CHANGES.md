@@ -65,3 +65,26 @@
 
 - 大小周口径与主题大改的前置版本，明细见上方 2026-10-27 分条（同一会话连续工作），
   历史叙事见 DEVELOPMENT_LOG.md 2026-10-15 各节。
+
+## 2026-10-27（续2，commit 至本次）
+
+### 面板点侧边自动关闭（用户需求）
+- 新增 `blur_watch.py` `ClickOutsideWatch`：面板是 WA_ShowWithoutActivating 免激活窗口，
+  Qt 收不到落在桌面/其他应用的点击 → 用 WinAPI 轮询左键，**按下→松开边沿**落在保留区外
+  且光标下无本进程控件（widgetAt is None）才触发。点桌宠/我们自己的其他面板/对话框不会误关。
+- 接入三面板：`quick_panel.py`（保留区=自身+桌宠）、`pocket_window.py`、`wage/ui_today.py`
+  （保留区=自身）；各自 show 时启动、hideEvent 停止。单测 `tests/unit/test_blur_watch.py`
+  3 项（外点触发一次/内点不触发/自家控件上不触发）。
+
+### 提醒面板：可编辑 + 焕新（用户报告"加了的提醒改不了，面板丑"）
+- 根因：编辑功能一直存在但**只藏在右键菜单里**，无任何可见入口；且列表对话框是未主题化的
+  裸 QDialog。
+- `reminder_ui.py`：ReminderListDialog 迁移到 ModernDialog（主题卡+失活自动关）；
+  新增可见"**编辑**"按钮（选中即启用）+ **双击条目直接编辑**（复用新建对话框预填，保存=
+  更新）；条目高度 36px、分组头 30px。`ui/modern/tokens.py` base_qss 新增 QListWidget 全局
+  样式（圆角/选中色/hover），提醒列表与全项目列表统一。
+- 截图 docs/screenshots/v518/reminder-panel-moonlit.png（月夜海城主题）。
+
+### 测试
+- 全量 **565 passed, 1 skipped**；唯一红点仍是并行会话半成品 test_character_gallery_layout
+  2 项（非本会话范围）。修复 blur_watch 导入错误（QCursor 在 QtGui 不在 QtCore，曾致 65 失败）。

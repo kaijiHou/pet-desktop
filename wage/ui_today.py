@@ -18,6 +18,8 @@ class TodayWageWindow(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        from blur_watch import ClickOutsideWatch
+        self._outside_watch = ClickOutsideWatch(self, lambda: [self.geometry()], self.hide)
         self.setMinimumWidth(300)
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         card = QFrame(); card.setObjectName("card")
@@ -137,6 +139,7 @@ class TodayWageWindow(QWidget):
         anchor.place_panel(self, anchor_rect, screen=screen)
         if not live:
             self.show(); self.raise_(); self._timer.start()
+            self._outside_watch.start()
 
     def _clock_out(self):
         """打卡先弹确认框，点"确定打卡"才真正记录；取消/超时不算。"""
@@ -168,6 +171,7 @@ class TodayWageWindow(QWidget):
     def hideEvent(self, event):
         self._reveal = False
         self._timer.stop()
+        self._outside_watch.stop()
         super().hideEvent(event)
 
     def keyPressEvent(self, event):

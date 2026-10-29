@@ -14,6 +14,7 @@ from ui.modern.dialog import ModernDialog
 from ui.modern.message import InlineBanner
 import theme
 import ui_skin
+from blur_watch import ClickOutsideWatch
 
 
 def _fill_pixmap(path, width: int, height: int) -> QPixmap:
@@ -115,6 +116,15 @@ class QuickPanel(QWidget):
         self.refresh_timer.setInterval(5 * 60 * 1000)
         self.refresh_timer.timeout.connect(self._refresh_wage)
         ui_skin.skinChanged.connect(self._apply_skin)
+        self._outside_watch = ClickOutsideWatch(self, self._keep_out_rects, self.hide)
+
+    def _keep_out_rects(self):
+        rects = [self.geometry()]
+        pet = self.pet
+        if pet is not None and pet.isVisible():
+            rects.append(pet.visible_pet_global_rect()
+                         if hasattr(pet, "visible_pet_global_rect") else pet.geometry())
+        return rects
 
     def _apply_skin(self):
         """Re-paint every locally-styled surface from the active skin."""
@@ -534,6 +544,7 @@ class QuickPanel(QWidget):
             self.show(); self.raise_(); self.activateWindow()
             QApplication.instance().installEventFilter(self)
             self.refresh_timer.start()
+            self._outside_watch.start()
 
     def eventFilter(self, obj, event):
         """Click-anywhere-outside closes the assistant panel.
@@ -556,6 +567,7 @@ class QuickPanel(QWidget):
     def hideEvent(self, event):
         QApplication.instance().removeEventFilter(self)
         self.refresh_timer.stop()
+        self._outside_watch.stop()
         super().hideEvent(event)
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape: self.hide()

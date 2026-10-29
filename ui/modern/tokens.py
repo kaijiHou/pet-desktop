@@ -55,5 +55,10 @@ QLineEdit:focus, QComboBox:focus, QTimeEdit:focus, QDoubleSpinBox:focus, QSpinBo
 QComboBox QAbstractItemView {{ background: {CARD}; color: {TEXT}; border: 1px solid {BORDER};
     border-radius: 10px; selection-background-color: {PRIMARY}; selection-color: {ACTION_TEXT}; outline: none; }}
 QSpinBox {{ selection-background-color: {PRIMARY}; selection-color: {ACTION_TEXT}; }}
+QListWidget {{ background: {CARD}; color: {TEXT}; border: 1px solid {BORDER};
+    border-radius: 12px; outline: none; padding: 4px; }}
+QListWidget::item {{ min-height: 28px; border-radius: 8px; padding: 4px 8px; margin: 2px; }}
+QListWidget::item:selected {{ background: {PRIMARY}; color: {ACTION_TEXT}; }}
+QListWidget::item:hover:!selected {{ background: {HOVER_BG}; }}
 QCheckBox {{ spacing: 8px; }}
 """
