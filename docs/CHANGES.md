@@ -88,3 +88,17 @@
 ### 测试
 - 全量 **565 passed, 1 skipped**；唯一红点仍是并行会话半成品 test_character_gallery_layout
   2 项（非本会话范围）。修复 blur_watch 导入错误（QCursor 在 QtGui 不在 QtCore，曾致 65 失败）。
+
+## 2026-10-30（用户报告"宠物不出来 + kanban.db-wal 气泡弹了一中午"）
+
+### 宠物隐形（根因在配置，非渲染）
+- 真实配置：`pet_scale=1.0`（原为 3）+ `pet_x=2944`（超出主屏宽，宠物在屏幕外/不在线的副屏上）。
+  渲染器离屏试渲染正常（双人包 V2 1536×2288 合法，idle 帧非空 alpha 与旧包相当）。
+- 修复：config 恢复 `pet_scale=3.0`、`pet_x=1400`、`pet_y=300`；原 config 已备份到
+  `.tmp/config-backup-20261030-140502.json`。
+
+### kanban.db-wal 气泡刷屏（`pet_window._emit_file_feedback`）
+- 根因：看板应用持续写 SQLite 预写日志（kanban.db-wal/-shm），每次变更都走到气泡层；
+  未知动作还触发 `semantic=None` 警告刷屏（app.log 累计 493 条）。
+- 修复三件：①噪音后缀（.db-wal/.db-shm/.db-journal/.tmp/.crdownload/.part）静默跳过；
+  ②同路径同动作 10 秒节流；③未知动作给安全语义 RENAME_FILE（None 警告清零）。

@@ -372,6 +372,7 @@ class PetWindow(QWidget):
         self._moved = False
         self._drag_hover = False
         self._last_drag_direction = None
+        self._last_file_bubble = {}
         self._sem_steps = []
         self._sem_idx = -1
         self._sem_active = False
@@ -1279,14 +1280,26 @@ class PetWindow(QWidget):
         if stashed is not None:
             self._emit_file_feedback(stashed[0], stashed[1], stashed[2], saved=False)
 
+    _FILE_BUBBLE_NOISE_SUFFIXES = (".db-wal", ".db-shm", ".db-journal", ".sqlite-journal",
+                                   ".tmp", ".crdownload", ".part", ".log.tmp")
+
     def _emit_file_feedback(self, action, path_str, event, saved=False):
+        low = (path_str or "").lower()
+        if low.endswith(self._FILE_BUBBLE_NOISE_SUFFIXES):
+            # SQLite -wal/-shm、下载临时文件等高频噪音：静默忽略，不弹泡不刷日志
+            return
+        now = time.monotonic()
+        key = (action, path_str)
+        if now - self._last_file_bubble.get(key, 0.0) < 10.0:
+            return  # 同路径同动作 10 秒内只弹一次（看板数据库等连续写入防刷屏）
+        self._last_file_bubble[key] = now
         action_map = {"created": "CREATE_FILE", "deleted": "DELETE_FILE",
                       "renamed": "RENAME_FILE", "dir_created": "CREATE_FILE",
                       "dir_removed": "DELETE_FILE", "dir_renamed": "RENAME_FILE"}
         bubble_map = {"created": "检测到新建文件", "deleted": "检测到删除文件",
                       "dir_created": "检测到新建文件夹", "dir_removed": "检测到删除文件夹",
                       "renamed": "检测到文件重命名", "dir_renamed": "检测到文件夹重命名"}
-        semantic = action_map.get(action)
+        semantic = action_map.get(action, "RENAME_FILE")  # 未知动作给安全语义，避免 None 刷警告
         if saved:
             title, semantic = "检测到文件保存", "RENAME_FILE"
         else:

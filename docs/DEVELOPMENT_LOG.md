@@ -1317,3 +1317,9 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
   接入 QuickPanel/PocketWindow/TodayWage；单测 3 项。
 - 提醒列表迁移 ModernDialog：编辑按钮可见化（原先只在右键菜单）+ 双击编辑 + 列表全局 QSS。
 - 明细见 docs/CHANGES.md 2026-10-27（续2）。
+
+### 宠物隐形 + kanban 气泡刷屏（2026-10-30）
+- 宠物隐形根因是配置（scale 1.0 + x 2944 屏幕外），渲染器/双人包 V2 均正常——离屏试渲染
+  alpha 与旧包相当后定位到 config。已恢复并备份原配置。
+- kanban.db-wal 气泡刷屏：噪音后缀过滤 + 10 秒同路径节流 + 未知动作安全语义（None 警告清零）。
+- 明细见 docs/CHANGES.md 2026-10-30 节。
