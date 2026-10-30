@@ -1323,3 +1323,9 @@ Git commit SHA 与 Artifact ZIP SHA256 必须分开标注，禁止"candidate SHA
   alpha 与旧包相当后定位到 config。已恢复并备份原配置。
 - kanban.db-wal 气泡刷屏：噪音后缀过滤 + 10 秒同路径节流 + 未知动作安全语义（None 警告清零）。
 - 明细见 docs/CHANGES.md 2026-10-30 节。
+
+### 更正与自愈护栏（2026-10-30 续）
+- 用户澄清**没有并行会话**：工作区的未提交改动是此前几天会话的遗留。pet_scale=1.0 实为
+  形象图库切换流程写入的越界值。已在 PetWindow 启动加两道自愈：scale 越界（<1.5 或 >6）
+  回 3.0；pet_x/pet_y 不在可视桌面内钳回主屏右下——任何流程写坏配置，重启后宠物必然可见。
+- 明细见 docs/CHANGES.md。

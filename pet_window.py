@@ -342,8 +342,14 @@ class PetWindow(QWidget):
         self.animation_controller = AnimationController(set(AnimationController.MAPPING.values()) - {None})
         self.events.event_received.connect(self._handle_app_event)
         self.file_watch.on_change = lambda c: self.events.dispatch(AppEvent("windows", c.action, c))
-        self.character = CharacterController(config, scale=config.get("pet_scale", 3))
-        self.sprite_loader = PetSpriteLoader(scale=config.get("pet_scale", 3)) \
+        # scale 自愈：设置滑条合法范围 1.5–6.0；角色切换流程若写进越界值
+        # （比如 1.0，宠物会小到找不到）则回 3.0 并写回配置。
+        _scale = float(config.get("pet_scale", 3) or 3)
+        if _scale < 1.5 or _scale > 6.0:
+            _scale = 3.0
+            config.set("pet_scale", _scale)
+        self.character = CharacterController(config, scale=_scale)
+        self.sprite_loader = PetSpriteLoader(scale=_scale) \
             if config.get("character_mode", "single") == "sheet" else None
         self.dynamic_renderer = None
         from shell_watcher import ShellWatcher
@@ -718,9 +724,17 @@ class PetWindow(QWidget):
     def _load_position(self):
         screen = QApplication.primaryScreen().geometry()
         x, y = self.config.get("pet_x", -1), self.config.get("pet_y", -1)
-        if x < 0 or y < 0:
+        # 自愈护栏：宠物必须落在可见桌面内——任何会话写坏 pet_x/pet_y（比如
+        # 屏幕外坐标）都不至于把宠物弄丢；越界即钳回主屏右下并写回配置。
+        virtual = QRect()
+        for s in QApplication.screens():
+            virtual = virtual.united(s.geometry())
+        if x < 0 or y < 0 or not virtual.contains(QPoint(x + self.width() // 2,
+                                                          y + self.height() // 2)):
             x = screen.width() - self.width() - 20
             y = screen.height() - self.height() - 60
+            self.config.set("pet_x", x)
+            self.config.set("pet_y", y)
         self.move(x, y)
 
     def paintEvent(self, event):
