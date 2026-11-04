@@ -560,6 +560,11 @@ class PetWindow(QWidget):
         self._remind_timer = QTimer(self)
         self._remind_timer.setSingleShot(True)
         self._remind_timer.timeout.connect(self._check_due_reminders)
+        # 安全网：每 30s 兜底查一次到期提醒——精确定时器曾静默失灵过
+        # （2026-11-04 15:11 桂珍生日没弹），轮询让睡过头/重启错过的都补弹。
+        self._remind_safety = QTimer(self)
+        self._remind_safety.timeout.connect(self._check_due_reminders)
+        self._remind_safety.start(30000)
         self._idle_timer = QTimer(self)
         self._idle_timer.timeout.connect(self._check_idle)
         self._idle_timer.start(60000)
@@ -1122,7 +1127,18 @@ class PetWindow(QWidget):
         if self.config.get("reminder_bubble_enabled", True):
             self.play_semantic("REMINDER")
             self.show_bubble(f"提醒：{reminder.content}", 10000)
+        # 隔一段时间重弹：+30 / +60 分钟再各提醒一次（用户要求；仅当提醒仍存在未完成）
+        for delay_minutes in (30, 60):
+            QTimer.singleShot(delay_minutes * 60 * 1000,
+                              lambda rid=reminder.id, dm=delay_minutes: self._re_remind(rid, dm))
         QTimer.singleShot(3000, lambda: self.set_state(self.STATE_IDLE))
+
+    def _re_remind(self, reminder_id, delay_minutes):
+        reminder = next((r for r in self.reminder.list_reminders() if r.id == reminder_id), None)
+        if reminder is None:
+            return  # 已删除或单次提醒已完成，不再打扰
+        if self.config.get("reminder_bubble_enabled", True):
+            self.show_bubble(f"再提醒：{reminder.content}", 10000)
 
     def _preload_heavy_modules(self):
         """Import dialog modules once, off the interaction path."""

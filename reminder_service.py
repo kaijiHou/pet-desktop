@@ -24,7 +24,8 @@ class Reminder:
     due_at: datetime
     created_at: datetime
     status: str = "pending"
-    recurrence: str = ""   # "" = one-shot; "monthly" = roll to next month on fire
+    recurrence: str = ""   # "", daily, weekly, interval, monthly
+    interval_minutes: int = 0
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -43,7 +44,7 @@ def _next_monthly(due_at: datetime) -> datetime:
 
 
 class ReminderService:
-    """Create, persist, and deliver one-time local reminders."""
+    """Create, persist, and deliver local reminders with optional repetition."""
 
     def __init__(
         self,
@@ -53,14 +54,14 @@ class ReminderService:
         self.storage_path = Path(storage_path) if storage_path else REMINDERS_FILE
         self._now = now_provider or datetime.now
         self.on_reminder_due: Optional[Callable[[Reminder], None]] = None
+        self.on_changed: Optional[Callable[[], None]] = None
         self._reminders = self._load()
 
     def add_reminder(self, content: str, due_at: datetime,
-                     recurrence: str = "") -> Reminder:
+                     recurrence: str = "", interval_minutes: int = 0) -> Reminder:
         if not isinstance(due_at, datetime):
             raise TypeError("due_at must be a datetime")
-        if recurrence not in ("", "monthly"):
-            raise ValueError(f"unsupported recurrence: {recurrence!r}")
+        _validate_recurrence(recurrence, interval_minutes)
         content = content.strip()
         if not content:
             raise ValueError("reminder content cannot be blank")
@@ -71,6 +72,7 @@ class ReminderService:
             due_at=due_at.replace(microsecond=0),
             created_at=self._now().replace(microsecond=0),
             recurrence=recurrence,
+            interval_minutes=interval_minutes if recurrence == "interval" else 0,
         )
         self._reminders.append(reminder)
         self._save()
@@ -104,8 +106,17 @@ class ReminderService:
 
         fired = []
         for reminder in due:
-            if reminder.recurrence == "monthly":
-                reminder.due_at = _next_monthly(reminder.due_at)
+            if reminder.recurrence:
+                if reminder.recurrence == "daily":
+                    reminder.due_at += timedelta(days=(now - reminder.due_at).days + 1)
+                elif reminder.recurrence == "weekly":
+                    reminder.due_at += timedelta(weeks=((now - reminder.due_at).days // 7 + 1))
+                elif reminder.recurrence == "interval":
+                    delta = timedelta(minutes=reminder.interval_minutes)
+                    reminder.due_at += delta * ((now - reminder.due_at) // delta + 1)
+                else:
+                    while reminder.due_at <= now:
+                        reminder.due_at = _next_monthly(reminder.due_at)
                 LOGGER.info("Reminder rescheduled id=%s next=%s",
                             reminder.id, reminder.due_at.isoformat())
             else:
@@ -155,7 +166,9 @@ class ReminderService:
                     created_at=datetime.fromisoformat(item["created_at"]),
                     status=str(item.get("status", "pending")),
                     recurrence=str(item.get("recurrence", "")),
+                    interval_minutes=item.get("interval_minutes", 0),
                 )
+                _validate_recurrence(reminder.recurrence, reminder.interval_minutes)
                 if not reminder.content or reminder.status not in {"pending", "completed"}:
                     raise ValueError
                 reminders.append(reminder)
@@ -171,3 +184,14 @@ class ReminderService:
             encoding="utf-8",
         )
         temporary.replace(self.storage_path)
+        if self.on_changed:
+            self.on_changed()
+
+
+def _validate_recurrence(recurrence, interval_minutes):
+    if recurrence not in ("", "daily", "weekly", "interval", "monthly"):
+        raise ValueError(f"unsupported recurrence: {recurrence!r}")
+    if recurrence == "interval" and (isinstance(interval_minutes, bool)
+                                    or not isinstance(interval_minutes, int)
+                                    or not 1 <= interval_minutes <= 525600):
+        raise ValueError("interval_minutes must be an integer between 1 and 525600")

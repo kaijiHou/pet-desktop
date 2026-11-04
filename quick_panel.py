@@ -70,6 +70,8 @@ def _panel_qss(p: dict) -> str:
         QPushButton#pocketBannerBtn:hover {{ background: rgba(255,255,255,36); border-color: {p['tint_border']}; }}
         QPushButton#pocketBannerBtn:pressed {{ background: rgba(255,255,255,60); }}
         QLabel#panelRow {{ background: {p['chip']}; border: 1px solid {p['tint_border']}; border-radius: 9px; padding: 4px 8px; font-size: 8pt; color: {p['text']}; }}
+        QLabel#panelRowDue {{ background: {p['section_bg']}; border: 1px solid {p['tint_border']}; border-radius: 9px; padding: 4px 8px; font-size: 8pt; color: {p['amount']}; font-weight: 600; }}
+        QLabel#panelRowOverdue {{ background: {p['menu_highlight']}; border: 1px solid {p['danger']}; border-radius: 9px; padding: 4px 8px; font-size: 8pt; color: {p['text']}; }}
         QFrame#wageCard {{ background: qlineargradient(x1:0 y1:0, x2:1 y2:1, stop:0 {p['hero_top']}, stop:1 {p['hero_bottom']}); border: 1px solid {p['section_border']}; border-radius: 16px; }}
         QPushButton#panelSetup {{ background: {p['action_bg']}; color: {p['action_text']}; border: 1px solid {p['action_bg']}; border-radius: 9px; padding: 8px 10px; font-weight: 600; }}
         QPushButton#panelSetup:hover:enabled {{ background: {p['action_hover']}; border-color: {p['action_hover']}; }}
@@ -361,12 +363,37 @@ class QuickPanel(QWidget):
             lbl = QLabel(f"还有 {len(items) - self.ITEM_PREVIEW} 项…"); lbl.setObjectName("panelRow"); self.pocket_items_layout.addWidget(lbl)
         reminders = self.pet.reminder.list_reminders(); self._clear(self.remind_items_layout)
         if reminders:
-            first = reminders[0]; self.next_reminder_label.setText(f"{first.due_at:%m-%d %H:%M}  {first.content}"); self._set_row_style(self.next_reminder_label, True); self.no_remind_label.hide()
-            for rem in reminders[1:3]:
-                lbl = QLabel(f"{rem.due_at:%m-%d %H:%M}  {rem.content}"); lbl.setWordWrap(True); lbl.setObjectName("panelRow"); self.remind_items_layout.addWidget(lbl)
+            for index, rem in enumerate(reminders[:3]):
+                text, row_name = self._reminder_row_spec(rem)
+                if index == 0:
+                    self.next_reminder_label.setText(text)
+                    self.next_reminder_label.setObjectName(row_name)
+                    self.next_reminder_label.style().unpolish(self.next_reminder_label)
+                    self.next_reminder_label.style().polish(self.next_reminder_label)
+                else:
+                    lbl = QLabel(text); lbl.setWordWrap(True); lbl.setObjectName(row_name)
+                    self.remind_items_layout.addWidget(lbl)
+            self.no_remind_label.hide()
         else:
             self.next_reminder_label.setText("暂无提醒"); self._set_row_style(self.next_reminder_label, False); self.no_remind_label.show()
         self._refresh_favorites()
+
+    @staticmethod
+    def _reminder_row_spec(rem):
+        """提醒行：重复类型标注 + 今天/已过期标记（用户要求标明每天/每周/每月/单次）。"""
+        from datetime import datetime as _dt
+        now = _dt.now()
+        due = rem.due_at
+        if due < now:
+            mark, row = "【已过期】", "panelRowOverdue"
+        elif due.date() == now.date():
+            mark, row = "【今天】", "panelRowDue"
+        else:
+            mark, row = "", "panelRow"
+        minutes = getattr(rem, "interval_minutes", 0)
+        rule = {"daily": "每天", "weekly": "每周", "monthly": "每月",
+                "interval": f"每隔{minutes}分钟"}.get(getattr(rem, "recurrence", ""), "单次")
+        return f"{mark}{due:%m-%d %H:%M}  {rem.content} · {rule}", row
 
     @staticmethod
     def _set_row_style(label, as_row):

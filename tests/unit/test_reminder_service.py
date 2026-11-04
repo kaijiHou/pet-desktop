@@ -187,4 +187,4 @@ def test_invalid_recurrence_rejected(test_temp_root):
     svc = ReminderService(storage_path=test_temp_root / "r.json")
     import pytest
     with pytest.raises(ValueError):
-        svc.add_reminder("x", datetime(2026, 10, 29, 9, 0), recurrence="weekly")
+        svc.add_reminder("x", datetime(2026, 10, 29, 9, 0), recurrence="yearly")

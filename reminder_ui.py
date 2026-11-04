@@ -73,7 +73,7 @@ class AddReminderDialog(ModernDialog):
         repeat_row = QHBoxLayout()
         repeat_row.addWidget(QLabel("重复"))
         self.repeat_combo = ModernComboBox()
-        for label, value in (("仅一次", ""), ("每天", "daily"), ("每隔一段时间", "interval"), ("每月", "monthly")):
+        for label, value in (("仅一次", ""), ("每天", "daily"), ("每周", "weekly"), ("每隔一段时间", "interval"), ("每月", "monthly")):
             self.repeat_combo.addItem(label, value)
         repeat_row.addWidget(self.repeat_combo, 1); layout.addLayout(repeat_row)
         self.interval_host = QWidget()
@@ -99,6 +99,7 @@ class AddReminderDialog(ModernDialog):
         repeat = self.repeat_combo.currentData()
         self.interval_host.setVisible(repeat == "interval")
         self.repeat_hint.setText({"": "在所选日期和时间提醒一次。", "daily": "从所选日期开始，每天在这个时间提醒。",
+                                  "weekly": "从所选日期开始，每周在这个时间提醒。",
                                   "interval": "从所选日期和时间开始，按上述间隔重复提醒。",
                                   "monthly": "每月顺延一次；遇到短月份，取当月最后一天。"}[repeat])
 
@@ -235,7 +236,7 @@ class ReminderListDialog(ModernDialog):
             header.setSizeHint(QSize(0, 30))
             self.reminder_list.addItem(header)
             for rem in items:
-                rule = {"daily": "每天", "monthly": "每月", "interval": f"每隔 {rem.interval_minutes} 分钟"}.get(rem.recurrence, "")
+                rule = {"daily": "每天", "weekly": "每周", "monthly": "每月", "interval": f"每隔 {rem.interval_minutes} 分钟"}.get(rem.recurrence, "单次")
                 text = f"  {rem.due_at:%m-%d %H:%M}  {rem.content}" + (f" · {rule}" if rule else "")
                 item = QListWidgetItem(text)
                 item.setData(Qt.UserRole, rem.id)
